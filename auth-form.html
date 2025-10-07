@@ -1,0 +1,1212 @@
+<!--
+  ╔══════════════════════════════════════════════════════════════════════════╗
+  ║  Supabase Auth Form - Google + Facebook + Magic Link                    ║
+  ║  Версия: 2.3 - Security Update (Open Redirect Protection)               ║
+  ╚══════════════════════════════════════════════════════════════════════════╝
+
+  📦 УСТАНОВКА В ELEMENTOR:
+  ─────────────────────────────────────────────────────────────────────────
+  1. Создай HTML виджет
+  2. Вставь весь этот код
+  3. Настрой AUTH_CONFIG (см. внутри <script>)
+  4. Сохрани
+
+  🎯 КАК РАБОТАЮТ РЕДИРЕКТЫ:
+  ─────────────────────────────────────────────────────────────────────────
+
+  НОВЫЙ ПОЛЬЗОВАТЕЛЬ (зарегистрирован < 60 сек назад):
+  → Направляется на страницу благодарности (thank-you page)
+
+  СУЩЕСТВУЮЩИЙ ПОЛЬЗОВАТЕЛЬ:
+  → Возвращается на страницу откуда пришел (return URL)
+
+  ═══════════════════════════════════════════════════════════════════════════
+  📋 РЕЖИМЫ НАСТРОЙКИ РЕДИРЕКТОВ:
+  ═══════════════════════════════════════════════════════════════════════════
+
+  ┌───────────────────────────────────────────────────────────────────────┐
+  │ РЕЖИМ 1 - СТАНДАРТНЫЙ (одна константная страница благодарности)       │
+  └───────────────────────────────────────────────────────────────────────┘
+
+  Все новые пользователи идут на одну и ту же страницу /thank-you/
+
+  Настройка в AUTH_CONFIG:
+
+    thankYouPages: {
+      'default': '/thank-you/'
+    }
+
+  ┌───────────────────────────────────────────────────────────────────────┐
+  │ РЕЖИМ 2 - ПАРНЫЙ (разные thank-you для разных лендингов)             │
+  └───────────────────────────────────────────────────────────────────────┘
+
+  Настрой пары "лендинг → страница благодарности"
+
+  Пример:
+  - Пользователь на /landing-premium/ → после регистрации → /thank-you-premium/
+  - Пользователь на /webinar/ → после регистрации → /thank-you-webinar/
+
+  Настройка в AUTH_CONFIG:
+
+    thankYouPages: {
+      '/landing-premium/': '/thank-you-premium/',
+      '/landing-basic/': '/thank-you-basic/',
+      '/webinar/': '/thank-you-webinar/',
+      'default': '/thank-you/'  // Fallback для остальных
+    }
+
+  Как это работает:
+  - Когда пользователь заходит на страницу логина, автоматически сохраняется
+    referrer (откуда пришел)
+  - После регистрации система ищет соответствие в mapping
+  - Если нашла → редирект на соответствующую thank-you page
+  - Если не нашла → редирект на 'default'
+
+  ┌───────────────────────────────────────────────────────────────────────┐
+  │ РЕЖИМ 3 - ГИБКИЙ (переопределение через URL параметры)               │
+  └───────────────────────────────────────────────────────────────────────┘
+
+  Используй URL параметры для кастомизации редиректов
+
+  Пример на лендинге:
+
+    <a href="/auth/?thank_you=/special-thank-you/">Регистрация</a>
+
+  Приоритеты (сверху вниз):
+  1. ?thank_you=/custom/  (высший приоритет)
+  2. Mapping в AUTH_CONFIG по referrer
+  3. 'default' в AUTH_CONFIG
+
+  Дополнительно для существующих пользователей:
+
+    <a href="/auth/?redirect_to=/special-page/">Войти</a>
+
+  ═══════════════════════════════════════════════════════════════════════════
+  📊 ПРИМЕРЫ ИСПОЛЬЗОВАНИЯ:
+  ═══════════════════════════════════════════════════════════════════════════
+
+  Сценарий 1: Простой сайт с одной страницей благодарности
+  ──────────────────────────────────────────────────────────────────────
+
+  AUTH_CONFIG:
+    thankYouPages: { 'default': '/thank-you/' }
+
+  Результат:
+  - Все новые пользователи → /thank-you/
+  - Все существующие → возврат на страницу откуда пришли
+
+  ──────────────────────────────────────────────────────────────────────
+  Сценарий 2: Интернет-магазин с разными воронками
+  ──────────────────────────────────────────────────────────────────────
+
+  AUTH_CONFIG:
+    thankYouPages: {
+      '/shop/premium/': '/welcome-premium/',
+      '/shop/basic/': '/welcome-basic/',
+      '/free-trial/': '/trial-started/',
+      'default': '/welcome/'
+    }
+
+  Пользовательский путь:
+  1. Посетитель на /shop/premium/ → клик "Купить" → редирект на /auth/
+  2. Заполняет форму → регистрируется
+  3. Автоматический редирект на /welcome-premium/
+
+  ──────────────────────────────────────────────────────────────────────
+  Сценарий 3: Одноразовая акция с особой страницей
+  ──────────────────────────────────────────────────────────────────────
+
+  На специальном лендинге:
+
+    <a href="/auth/?thank_you=/promo-2025/">Зарегистрироваться</a>
+
+  Результат:
+  - Новый пользователь → /promo-2025/ (переопределяет всё)
+  - Существующий → возврат на лендинг
+
+  ═══════════════════════════════════════════════════════════════════════════
+  🔍 ОТЛАДКА:
+  ═══════════════════════════════════════════════════════════════════════════
+
+  Открой консоль браузера (F12) и смотри логи:
+
+  - "ORIGIN_PAGE:" - откуда пришел пользователь
+  - "Auth event: SIGNED_IN" - успешная авторизация
+  - "Redirecting to: /thank-you/ (new user: true)" - куда редиректим
+
+  Если что-то не работает - проверь:
+  1. window.SUPABASE_CFG доступен (плагин активирован)
+  2. Mapping в AUTH_CONFIG правильный
+  3. Referrer корректно определяется (проверь document.referrer)
+
+-->
+
+<style>
+  /* ========== ОСНОВНОЙ КОНТЕЙНЕР ========== */
+
+  .sb-auth-wrapper {
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .sb-auth-card {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 20px 40px rgba(0, 0, 0, 0.08);
+    padding: 48px 40px;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .sb-auth-card:hover {
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1), 0 24px 48px rgba(0, 0, 0, 0.12);
+  }
+
+  /* ========== ЗАГОЛОВОК ========== */
+
+  .sb-auth-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .sb-auth-logo {
+    font-size: 32px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.5px;
+  }
+
+  .sb-auth-tagline {
+    font-size: 15px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ========== ЭКРАНЫ ========== */
+
+  .sb-screen {
+    display: none;
+  }
+
+  .sb-screen.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ========== КНОПКИ OAUTH ========== */
+
+  .sb-oauth-section {
+    margin-bottom: 24px;
+  }
+
+  .sb-oauth-btn {
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-family: inherit;
+  }
+
+  .sb-oauth-btn:last-child {
+    margin-bottom: 0;
+  }
+
+  .sb-oauth-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .sb-oauth-btn:active {
+    transform: translateY(0);
+  }
+
+  .sb-oauth-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* ========== РАЗДЕЛИТЕЛЬ ========== */
+
+  .sb-divider {
+    display: flex;
+    align-items: center;
+    margin: 24px 0;
+    color: #9ca3af;
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sb-divider::before,
+  .sb-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .sb-divider::before {
+    margin-right: 16px;
+  }
+
+  .sb-divider::after {
+    margin-left: 16px;
+  }
+
+  /* ========== EMAIL INPUT ========== */
+
+  .sb-email-section {
+    margin-bottom: 16px;
+  }
+
+  .sb-email-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 15px;
+    color: #111827;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+
+  .sb-email-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+
+  .sb-email-input::placeholder {
+    color: #9ca3af;
+  }
+
+  /* ========== КНОПКИ ========== */
+
+  .sb-btn {
+    width: 100%;
+    padding: 14px 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .sb-btn-primary {
+    background: #111827;
+    color: #ffffff;
+  }
+
+  .sb-btn-primary:hover {
+    background: #1f2937;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .sb-btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .sb-btn-primary:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ========== CHECK EMAIL SCREEN ========== */
+
+  .sb-check-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sb-check-icon svg {
+    width: 32px;
+    height: 32px;
+    color: #3b82f6;
+  }
+
+  .sb-check-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 12px 0;
+    text-align: center;
+  }
+
+  .sb-check-text {
+    font-size: 15px;
+    color: #6b7280;
+    text-align: center;
+    line-height: 1.6;
+    margin: 0 0 8px 0;
+  }
+
+  .sb-user-email {
+    color: #111827;
+    font-weight: 600;
+  }
+
+  .sb-check-instruction {
+    font-size: 14px;
+    color: #9ca3af;
+    text-align: center;
+    margin: 0 0 24px 0;
+  }
+
+  /* ========== CODE INPUT ========== */
+
+  .sb-code-toggle {
+    text-align: center;
+    margin: 24px 0;
+  }
+
+  .sb-link {
+    color: #3b82f6;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+
+  .sb-link:hover {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+
+  .sb-code-section {
+    display: none;
+    margin-top: 24px;
+  }
+
+  .sb-code-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .sb-code-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .sb-code-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    font-size: 20px;
+    color: #111827;
+    text-align: center;
+    letter-spacing: 6px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    font-family: 'Courier New', monospace;
+  }
+
+  .sb-code-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  }
+
+  .sb-code-input::placeholder {
+    color: #d1d5db;
+    letter-spacing: 4px;
+  }
+
+  .sb-verify-btn {
+    margin-top: 12px;
+  }
+
+  /* ========== FOOTER LINKS ========== */
+
+  .sb-footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+    color: #6b7280;
+  }
+
+  /* ========== СООБЩЕНИЯ ========== */
+
+  .sb-message {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    text-align: center;
+    display: none;
+  }
+
+  .sb-message.active {
+    display: block;
+  }
+
+  .sb-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    animation: shake 0.3s ease;
+  }
+
+  .sb-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  /* ========== МОБИЛЬНАЯ АДАПТАЦИЯ ========== */
+
+  @media (max-width: 480px) {
+    .sb-auth-wrapper {
+      padding: 16px;
+    }
+
+    .sb-auth-card {
+      padding: 40px 28px;
+      border-radius: 16px;
+    }
+
+    .sb-auth-logo {
+      font-size: 28px;
+    }
+
+    .sb-auth-tagline {
+      font-size: 14px;
+    }
+
+    .sb-oauth-btn,
+    .sb-email-input,
+    .sb-btn {
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+
+    .sb-check-icon {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 20px;
+    }
+
+    .sb-check-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .sb-check-title {
+      font-size: 22px;
+    }
+
+    .sb-check-text {
+      font-size: 14px;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .sb-auth-card {
+      padding: 32px 24px;
+    }
+
+    .sb-auth-logo {
+      font-size: 24px;
+    }
+  }
+</style>
+
+<!-- ФОРМА -->
+<div class="sb-auth-wrapper">
+  <div class="sb-auth-card">
+    <!-- Сообщения -->
+    <div class="sb-message sb-error" id="sb-error-msg"></div>
+    <div class="sb-message sb-success" id="sb-success-msg"></div>
+
+    <!-- ========== ЭКРАН 1: EMAIL + OAUTH ========== -->
+    <div class="sb-screen active" id="sb-screen-1">
+      <!-- OAuth кнопки -->
+      <div class="sb-oauth-section">
+        <!-- Google -->
+        <button class="sb-oauth-btn" id="sb-google-btn">
+          <svg class="sb-oauth-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <!-- Facebook -->
+        <button class="sb-oauth-btn" id="sb-facebook-btn">
+          <svg class="sb-oauth-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#1877F2"/>
+          </svg>
+          Continue with Facebook
+        </button>
+      </div>
+
+      <!-- Разделитель -->
+      <div class="sb-divider">or</div>
+
+      <!-- Email форма -->
+      <form id="sb-email-form">
+        <div class="sb-email-section">
+          <input
+            type="email"
+            id="sb-email-input"
+            class="sb-email-input"
+            placeholder="Enter your email"
+            required
+            autocomplete="email"
+          >
+        </div>
+        <button type="submit" class="sb-btn sb-btn-primary">
+          Continue with email
+        </button>
+      </form>
+    </div>
+
+    <!-- ========== ЭКРАН 2: CHECK EMAIL ========== -->
+    <div class="sb-screen" id="sb-screen-2">
+      <!-- Иконка -->
+      <div class="sb-check-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      </div>
+
+      <!-- Текст -->
+      <h3 class="sb-check-title">Check your email</h3>
+      <p class="sb-check-text">
+        To continue, click the link sent to<br>
+        <span class="sb-user-email" id="sb-display-email">your@email.com</span>
+      </p>
+      <p class="sb-check-instruction">
+        Click the magic link in the email to sign in
+      </p>
+
+      <!-- Код (опционально) -->
+      <div class="sb-code-toggle">
+        <a class="sb-link" id="sb-show-code">Have a verification code instead?</a>
+      </div>
+
+      <div class="sb-code-section" id="sb-code-section">
+        <label class="sb-code-label" for="sb-code-input">Enter verification code</label>
+        <input
+          type="text"
+          id="sb-code-input"
+          class="sb-code-input"
+          placeholder="000000"
+          maxlength="6"
+          pattern="[0-9]{6}"
+          inputmode="numeric"
+        >
+        <button class="sb-btn sb-btn-primary sb-verify-btn" id="sb-verify-btn">
+          Verify Email Address
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="sb-footer">
+        Not seeing the email in your inbox? <a class="sb-link" id="sb-resend">Try sending again</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Загрузка Supabase SDK (используется плагином) -->
+<script>
+  // window.SUPABASE_CFG уже загружен плагином через wp_enqueue_scripts
+  // window.supabase тоже загружен плагином
+</script>
+
+<script>
+  // ========== SUPABASE AUTH С УМНЫМИ РЕДИРЕКТАМИ ==========
+
+  (function() {
+    'use strict';
+
+    // Защита от запуска если DOM не готов
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAuthForm);
+    } else {
+      initAuthForm();
+    }
+
+    function initAuthForm() {
+      try {
+        // ========== КОНФИГУРАЦИЯ ==========
+
+        const AUTH_CONFIG = {
+      // 🎯 НАСТРОЙКА СТРАНИЦ БЛАГОДАРНОСТИ ДЛЯ НОВЫХ ПОЛЬЗОВАТЕЛЕЙ
+      //
+      // Приоритеты (сверху вниз):
+      // 1. URL параметр ?thank_you=/custom-page/  (переопределяет всё)
+      // 2. Mapping по странице откуда пришел (referrer)
+      // 3. Default страница (fallback)
+      //
+      // ═══════════════════════════════════════════════════════════
+      // РЕЖИМ 1 - СТАНДАРТНЫЙ (одна константа для всех):
+      // ═══════════════════════════════════════════════════════════
+      // thankYouPages: {
+      //   'default': '/thank-you/'
+      // }
+      //
+      // ═══════════════════════════════════════════════════════════
+      // РЕЖИМ 2 - ПАРНЫЙ (разные thank-you для разных лендингов):
+      // ═══════════════════════════════════════════════════════════
+      // thankYouPages: {
+      //   '/landing-premium/': '/thank-you-premium/',
+      //   '/landing-basic/': '/thank-you-basic/',
+      //   '/webinar/': '/thank-you-webinar/',
+      //   'default': '/thank-you/'
+      // }
+      //
+      // ═══════════════════════════════════════════════════════════
+      // РЕЖИМ 3 - ГИБКИЙ (переопределение через URL):
+      // ═══════════════════════════════════════════════════════════
+      // На лендинге добавь параметр:
+      // <a href="/auth/?thank_you=/special-thank-you/">Регистрация</a>
+      //
+      // ═══════════════════════════════════════════════════════════
+      // ТЕКУЩИЕ НАСТРОЙКИ (Режим 2 - парный):
+      // ═══════════════════════════════════════════════════════════
+      thankYouPages: {
+        'default': '/registr/'  // Все новые пользователи → /registr/
+      },
+
+      // 🏠 Для существующих пользователей (если не удалось определить откуда пришли)
+      defaultRedirect: '/',
+
+      // ⏱️ Порог "новый пользователь" в миллисекундах (60 сек = недавно зарегистрирован)
+      newUserThreshold: 60000
+    };
+
+    // ========== ЭЛЕМЕНТЫ DOM ==========
+
+    const screen1 = document.getElementById('sb-screen-1');
+    const screen2 = document.getElementById('sb-screen-2');
+    const emailForm = document.getElementById('sb-email-form');
+    const emailInput = document.getElementById('sb-email-input');
+    const displayEmail = document.getElementById('sb-display-email');
+    const googleBtn = document.getElementById('sb-google-btn');
+    const facebookBtn = document.getElementById('sb-facebook-btn');
+    const showCodeBtn = document.getElementById('sb-show-code');
+    const codeSection = document.getElementById('sb-code-section');
+    const codeInput = document.getElementById('sb-code-input');
+    const verifyBtn = document.getElementById('sb-verify-btn');
+    const resendBtn = document.getElementById('sb-resend');
+    const errorMsg = document.getElementById('sb-error-msg');
+    const successMsg = document.getElementById('sb-success-msg');
+
+    // Проверяем что все элементы найдены
+    const requiredElements = {
+      screen1, screen2, emailForm, emailInput, displayEmail,
+      googleBtn, facebookBtn, showCodeBtn, codeSection, codeInput,
+      verifyBtn, resendBtn, errorMsg, successMsg
+    };
+
+    for (const [name, element] of Object.entries(requiredElements)) {
+      if (!element) {
+        console.error(`❌ Supabase Auth Form: Required element '${name}' not found!`);
+        console.log('💡 Make sure the HTML structure is complete');
+        return; // Выходим без ошибки чтобы не ломать страницу
+      }
+    }
+
+    // ========== ИНИЦИАЛИЗАЦИЯ SUPABASE ==========
+
+    let supabaseClient;
+
+    function initSupabase() {
+      if (!window.SUPABASE_CFG || !window.supabase) {
+        return false;
+      }
+
+      try {
+        const { createClient } = window.supabase;
+        supabaseClient = createClient(
+          window.SUPABASE_CFG.url,
+          window.SUPABASE_CFG.anon
+        );
+
+        // Слушаем изменения авторизации
+        supabaseClient.auth.onAuthStateChange(handleAuthChange);
+
+        console.log('✅ Supabase Auth initialized');
+        return true;
+      } catch (error) {
+        console.error('Supabase init error:', error);
+        showError('Failed to initialize Supabase');
+        return false;
+      }
+    }
+
+    // Ожидание загрузки конфигурации с retry
+    function waitForSupabase(callback, maxAttempts = 20) {
+      let attempts = 0;
+
+      const checkAndInit = () => {
+        attempts++;
+
+        if (window.SUPABASE_CFG && window.supabase) {
+          // Конфигурация загружена
+          if (initSupabase()) {
+            callback();
+          } else {
+            showError('Supabase initialization failed. Check console.');
+          }
+        } else if (attempts >= maxAttempts) {
+          // Превышено количество попыток
+          showError('Supabase not configured. Check wp-config.php or plugin activation.');
+          console.error('❌ SUPABASE_CFG not found after', maxAttempts, 'attempts');
+          console.log('💡 Make sure supabase-bridge plugin is activated and wp-config.php is configured');
+        } else {
+          // Пробуем ещё раз через 100ms
+          setTimeout(checkAndInit, 100);
+        }
+      };
+
+      checkAndInit();
+    }
+
+    // ========== УТИЛИТЫ РЕДИРЕКТОВ ==========
+
+    // Сохраняем откуда пришел пользователь при загрузке страницы
+    const ORIGIN_PAGE = (function() {
+      const params = new URLSearchParams(window.location.search);
+
+      // 1. Explicit параметр redirect_to (высший приоритет)
+      if (params.get('redirect_to')) {
+        console.log('🎯 ORIGIN_PAGE: from ?redirect_to =', params.get('redirect_to'));
+        return params.get('redirect_to');
+      }
+
+      // 2. Referrer (откуда пришел)
+      if (document.referrer) {
+        try {
+          const referrerUrl = new URL(document.referrer);
+          // Проверяем что это тот же домен
+          if (referrerUrl.origin === window.location.origin) {
+            console.log('🎯 ORIGIN_PAGE: from referrer =', referrerUrl.pathname);
+            return referrerUrl.pathname;
+          }
+        } catch (e) {
+          console.warn('Invalid referrer:', e);
+        }
+      }
+
+      // 3. Fallback - текущая страница
+      console.log('🎯 ORIGIN_PAGE: fallback (current page) =', window.location.pathname);
+      return window.location.pathname;
+    })();
+
+    // Security: Validate redirect URL to prevent open redirect attacks
+    function isSafeRedirect(url) {
+      if (!url) return false;
+
+      // Allow relative paths (start with /)
+      if (url.startsWith('/')) return true;
+
+      // Check if URL is on same domain
+      try {
+        const urlObj = new URL(url, window.location.origin);
+        return urlObj.origin === window.location.origin;
+      } catch (e) {
+        console.warn('Invalid redirect URL:', url);
+        return false;
+      }
+    }
+
+    function getReturnUrl() {
+      // Если origin page = текущая страница → используем defaultRedirect (чтобы избежать loop)
+      if (ORIGIN_PAGE === window.location.pathname) {
+        console.log('⚠️ ORIGIN_PAGE is current page, using defaultRedirect');
+        return AUTH_CONFIG.defaultRedirect;
+      }
+      // Для существующих пользователей - возвращаем на страницу откуда пришли
+      // Security: validate before returning
+      if (!isSafeRedirect(ORIGIN_PAGE)) {
+        console.warn('⚠️ Unsafe redirect detected, using defaultRedirect');
+        return AUTH_CONFIG.defaultRedirect;
+      }
+      return ORIGIN_PAGE;
+    }
+
+    function getThankYouPage() {
+      const params = new URLSearchParams(window.location.search);
+
+      // 1. Explicit параметр thank_you (высший приоритет)
+      const customPage = params.get('thank_you');
+      if (customPage) {
+        // Security: validate custom page parameter
+        if (!isSafeRedirect(customPage)) {
+          console.warn('⚠️ Unsafe thank_you parameter detected, using default');
+          return AUTH_CONFIG.thankYouPages.default;
+        }
+        return customPage;
+      }
+
+      // 2. Ищем в mapping по странице откуда пришел
+      if (AUTH_CONFIG.thankYouPages[ORIGIN_PAGE]) {
+        return AUTH_CONFIG.thankYouPages[ORIGIN_PAGE];
+      }
+
+      // 3. Default fallback
+      return AUTH_CONFIG.thankYouPages.default;
+    }
+
+    function isNewUser(user) {
+      if (!user || !user.created_at) return false;
+
+      const createdAt = new Date(user.created_at);
+      const now = new Date();
+      const diff = now - createdAt;
+
+      return diff < AUTH_CONFIG.newUserThreshold;
+    }
+
+    // ========== ОБРАБОТКА АВТОРИЗАЦИИ ==========
+
+    let isRedirecting = false; // Флаг чтобы избежать множественных редиректов
+
+    // Проверяем был ли триггер от пользователя (сохранён в sessionStorage)
+    let userTriggeredAuth = sessionStorage.getItem('sb_auth_triggered') === 'true';
+
+    // Проверяем пришёл ли пользователь по Magic Link (есть токен в URL hash)
+    const hasMagicLinkToken = window.location.hash.includes('access_token=');
+
+    async function handleAuthChange(event, session) {
+      console.log('Auth event:', event, 'userTriggered:', userTriggeredAuth, 'hasMagicLink:', hasMagicLinkToken);
+
+      // Определяем нужно ли делать редирект
+      // Да, если: пользователь нажал кнопку ИЛИ пришёл по Magic Link
+      const shouldRedirect = userTriggeredAuth || hasMagicLinkToken;
+
+      // Редиректим ТОЛЬКО если:
+      // 1. Событие = SIGNED_IN
+      // 2. Есть сессия
+      // 3. (Пользователь нажал кнопку ИЛИ пришёл по Magic Link)
+      // 4. Ещё не начали редирект
+      if (event === 'SIGNED_IN' && session && shouldRedirect && !isRedirecting) {
+        isRedirecting = true; // Устанавливаем флаг
+        const user = session.user;
+        const accessToken = session.access_token;
+
+        try {
+          // Синхронизация с WordPress
+          const wpResponse = await fetch(window.location.origin + '/wp-json/supabase-auth/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ access_token: accessToken })
+          });
+
+          const wpData = await wpResponse.json();
+
+          if (!wpResponse.ok) {
+            throw new Error(wpData.message || 'WordPress authentication failed');
+          }
+
+          // Определяем куда редиректить
+          const redirectUrl = isNewUser(user)
+            ? getThankYouPage()
+            : getReturnUrl();
+
+          console.log('Redirecting to:', redirectUrl, '(new user:', isNewUser(user), ')');
+
+          // Очищаем флаг перед редиректом
+          sessionStorage.removeItem('sb_auth_triggered');
+
+          // Редирект
+          window.location.href = redirectUrl;
+
+        } catch (error) {
+          console.error('Auth error:', error);
+          showError(error.message || 'Authentication failed');
+        }
+      }
+    }
+
+    // ========== EMAIL MAGIC LINK ==========
+
+    emailForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+
+      if (!email) return;
+
+      if (!supabaseClient) {
+        showError('Supabase not initialized yet. Please wait...');
+        return;
+      }
+
+      // Устанавливаем флаг что пользователь отправил email
+      userTriggeredAuth = true;
+      sessionStorage.setItem('sb_auth_triggered', 'true');
+      console.log('🎯 User submitted email for magic link');
+
+      try {
+        // Отправка magic link
+        const { error } = await supabaseClient.auth.signInWithOtp({
+          email: email,
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname
+          }
+        });
+
+        if (error) throw error;
+
+        // Переключить на экран 2
+        displayEmail.textContent = email;
+        switchScreen(2);
+        showSuccess('Magic link sent! Check your email.');
+
+      } catch (error) {
+        console.error('Magic link error:', error);
+        showError(error.message || 'Failed to send magic link');
+      }
+    });
+
+    // ========== GOOGLE OAUTH ==========
+
+    googleBtn.addEventListener('click', async () => {
+      if (!supabaseClient) {
+        showError('Supabase not initialized yet. Please wait...');
+        return;
+      }
+
+      // Устанавливаем флаг что пользователь сам нажал кнопку
+      userTriggeredAuth = true;
+      sessionStorage.setItem('sb_auth_triggered', 'true');
+      console.log('🎯 User clicked Google OAuth button');
+
+      try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin + window.location.pathname
+          }
+        });
+
+        if (error) throw error;
+
+      } catch (error) {
+        console.error('OAuth error:', error);
+        showError(error.message || 'OAuth authentication failed');
+      }
+    });
+
+    // ========== FACEBOOK OAUTH ==========
+
+    facebookBtn.addEventListener('click', async () => {
+      if (!supabaseClient) {
+        showError('Supabase not initialized yet. Please wait...');
+        return;
+      }
+
+      // Устанавливаем флаг что пользователь сам нажал кнопку
+      userTriggeredAuth = true;
+      sessionStorage.setItem('sb_auth_triggered', 'true');
+      console.log('🎯 User clicked Facebook OAuth button');
+
+      try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'facebook',
+          options: {
+            redirectTo: window.location.origin + window.location.pathname,
+            scopes: 'email public_profile'
+          }
+        });
+
+        if (error) throw error;
+
+      } catch (error) {
+        console.error('OAuth error:', error);
+        showError(error.message || 'OAuth authentication failed');
+      }
+    });
+
+    // ========== VERIFICATION CODE ==========
+
+    showCodeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      codeSection.classList.add('active');
+      showCodeBtn.style.display = 'none';
+      codeInput.focus();
+    });
+
+    verifyBtn.addEventListener('click', async () => {
+      const email = displayEmail.textContent;
+      const code = codeInput.value.trim();
+
+      if (code.length !== 6) {
+        showError('Please enter a 6-digit code');
+        return;
+      }
+
+      if (!supabaseClient) {
+        showError('Supabase not initialized yet. Please wait...');
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient.auth.verifyOtp({
+          email: email,
+          token: code,
+          type: 'email'
+        });
+
+        if (error) throw error;
+
+        // handleAuthChange сработает автоматически
+
+      } catch (error) {
+        console.error('Verification error:', error);
+        showError(error.message || 'Invalid verification code');
+      }
+    });
+
+    // ========== RESEND ==========
+
+    resendBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = displayEmail.textContent;
+
+      if (!supabaseClient) {
+        showError('Supabase not initialized yet. Please wait...');
+        return;
+      }
+
+      try {
+        const { error } = await supabaseClient.auth.signInWithOtp({
+          email: email,
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname
+          }
+        });
+
+        if (error) throw error;
+
+        showSuccess('Email sent again!');
+
+      } catch (error) {
+        console.error('Resend error:', error);
+        showError(error.message || 'Failed to resend email');
+      }
+    });
+
+    // ========== УТИЛИТЫ UI ==========
+
+    function switchScreen(num) {
+      screen1.classList.remove('active');
+      screen2.classList.remove('active');
+
+      if (num === 1) screen1.classList.add('active');
+      if (num === 2) screen2.classList.add('active');
+    }
+
+    function showError(message) {
+      errorMsg.textContent = message;
+      errorMsg.classList.add('active');
+      setTimeout(() => errorMsg.classList.remove('active'), 5000);
+    }
+
+    function showSuccess(message) {
+      successMsg.textContent = message;
+      successMsg.classList.add('active');
+      setTimeout(() => successMsg.classList.remove('active'), 3000);
+    }
+
+    // ========== ИНИЦИАЛИЗАЦИЯ ==========
+
+    // Ждём загрузки SUPABASE_CFG и инициализируем
+    waitForSupabase(() => {
+      console.log('🎯 Ready to authenticate');
+    });
+
+    // ========== GLOBAL API ==========
+
+    window.sbAuth = {
+      switchScreen,
+      showError,
+      showSuccess,
+      reset: () => {
+        emailInput.value = '';
+        codeInput.value = '';
+        codeSection.classList.remove('active');
+        showCodeBtn.style.display = '';
+        switchScreen(1);
+      },
+      config: AUTH_CONFIG,
+      client: supabaseClient
+    };
+
+      } catch (error) {
+        console.error('❌ Supabase Auth Form initialization error:', error);
+        console.log('💡 Check browser console for details');
+        // Не пробрасываем ошибку дальше - пусть страница работает
+      }
+    } // end of initAuthForm()
+  })(); // end of IIFE
+</script>
+
+<!--
+  ГОТОВО:
+  ✅ Supabase SDK интеграция
+  ✅ Magic Link (signInWithOtp)
+  ✅ Verification Code
+  ✅ Google OAuth
+  ✅ Умные редиректы (новый vs существующий)
+  ✅ Настраиваемые thank you pages
+  ✅ WordPress синхронизация
+
+  НАСТРОЙКА:
+  Измени AUTH_CONFIG.thankYouPages для своих страниц!
+-->

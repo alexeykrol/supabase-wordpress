@@ -1,0 +1,16 @@
+{
+  "name": "alex/supabase-bridge",
+  "description": "WordPress plugin for Supabase Auth integration",
+  "type": "wordpress-plugin",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Alexey Krol",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": ">=8.0",
+    "firebase/php-jwt": "^6.10"
+  }
+}

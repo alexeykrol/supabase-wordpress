@@ -1,0 +1,50 @@
+# WordPress Configuration Files (CRITICAL - contain real credentials)
+wp-config_questtales.php
+wp-config_alexeykrol.php
+wp-config_*.php
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Composer
+/vendor/
+composer.lock
+composer.phar
+
+# Node modules (if any)
+node_modules/
+package-lock.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+error_log
+debug.log
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Backups
+*.bak
+*.backup
+*-copy.html
+*-old.html
+
+# WordPress debugging
+wp-content/debug.log
