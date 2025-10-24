@@ -936,7 +936,17 @@
       // 3. (Пользователь нажал кнопку ИЛИ пришёл по Magic Link)
       // 4. Ещё не начали редирект
       if (event === 'SIGNED_IN' && session && shouldRedirect && !isRedirecting) {
-        isRedirecting = true; // Устанавливаем флаг
+        // КРИТИЧНО: Проверяем что этот access_token ещё не обрабатывался
+        // (защита от race condition когда два события приходят одновременно)
+        const processedTokenKey = 'sb_processed_' + session.access_token.substring(0, 20);
+        if (localStorage.getItem(processedTokenKey)) {
+          console.log('⚠️ Token already processed, skipping duplicate request');
+          return; // Уже обработали этот токен, пропускаем
+        }
+
+        // Устанавливаем флаг isRedirecting СРАЗУ (защита от одновременных запросов)
+        isRedirecting = true;
+
         const user = session.user;
         const accessToken = session.access_token;
 
@@ -953,6 +963,11 @@
           if (!wpResponse.ok) {
             throw new Error(wpData.message || 'WordPress authentication failed');
           }
+
+          // ✅ Помечаем токен как обработанный ТОЛЬКО после успешного ответа WordPress
+          localStorage.setItem(processedTokenKey, 'true');
+          // Автоочистка через 5 минут
+          setTimeout(() => localStorage.removeItem(processedTokenKey), 300000);
 
           // Определяем куда редиректить
           const redirectUrl = isNewUser(user)

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening.
- * Version: 0.3.3
+ * Version: 0.3.5
  * Author: Alexey Krol
  * License: MIT
  * Requires PHP: 8.0
@@ -24,8 +24,10 @@ function sb_add_security_headers() {
     header('X-XSS-Protection: 1; mode=block');
     // Referrer policy for privacy
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    // Content Security Policy (strict but allows Supabase CDN)
-    if (!is_admin()) {
+    // Content Security Policy (strict for login, relaxed for logged-in users)
+    // Only apply strict CSP to non-admin, non-logged-in users (login/registration pages)
+    // This prevents conflicts with MemberPress/Alpine.js which require 'unsafe-eval'
+    if (!is_admin() && !is_user_logged_in()) {
       $csp = "default-src 'self'; " .
              "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " .
              "connect-src 'self' https://*.supabase.co; " .
@@ -176,9 +178,21 @@ function sb_handle_callback(\WP_REST_Request $req) {
       throw new Exception('Invalid authentication token');
     }
 
-    // Security: Require verified email (mandatory by default)
-    if (($claims['email_verified'] ?? false) !== true) {
-      error_log('Supabase Bridge: Email not verified for ' . sanitize_email($claims['email']));
+    // Security: Require verified email for OAuth providers (not for Magic Link)
+    // Magic Link = provider is "email" - clicking the link IS verification
+    // OAuth (google/facebook) = trust the provider unless email_verified is explicitly false
+    //   - email_verified=true: Pass ✅
+    //   - email_verified=null/missing: Pass ✅ (OAuth provider implicitly verified)
+    //   - email_verified=false: Fail ❌ (explicit rejection)
+    $provider = $claims['app_metadata']->provider ?? 'unknown';
+    $isMagicLink = ($provider === 'email');
+
+    // DEBUG: Log provider and email_verified status
+    error_log('Supabase Bridge DEBUG: provider=' . $provider . ', email_verified=' . var_export($claims['email_verified'] ?? null, true) . ', email=' . sanitize_email($claims['email']));
+
+    // Only block if email_verified is explicitly set to false
+    if (!$isMagicLink && isset($claims['email_verified']) && $claims['email_verified'] === false) {
+      error_log('Supabase Bridge: Email explicitly NOT verified for OAuth provider (' . $provider . ') - ' . sanitize_email($claims['email']));
       throw new Exception('Email verification required');
     }
 
@@ -198,20 +212,31 @@ function sb_handle_callback(\WP_REST_Request $req) {
       $uid = wp_create_user($email, $password, $email);
 
       if (is_wp_error($uid)) {
-        error_log('Supabase Bridge: User creation failed - ' . $uid->get_error_message());
-        throw new Exception('Unable to create user account');
-      }
+        // Race condition: user might have been created between get_user_by and wp_create_user
+        // Try finding the user again
+        $user = get_user_by('email', $email);
+        if (!$user) {
+          // Still not found - real error
+          error_log('Supabase Bridge: User creation failed - ' . $uid->get_error_message());
+          throw new Exception('Unable to create user account');
+        }
+        // User found - continue with existing user
+        error_log('Supabase Bridge: User found after creation race condition - ' . $email);
+      } else {
+        // User created successfully
+        // Store Supabase user ID
+        update_user_meta($uid, 'supabase_user_id', sanitize_text_field($claims['sub']));
 
-      // Store Supabase user ID
-      update_user_meta($uid, 'supabase_user_id', sanitize_text_field($claims['sub']));
-
-      // Set default role (subscriber)
-      $user = get_user_by('id', $uid);
-      if ($user) {
-        $user->set_role('subscriber');
+        // Set default role (subscriber)
+        $user = get_user_by('id', $uid);
+        if ($user) {
+          $user->set_role('subscriber');
+        }
       }
-    } else {
-      // Update Supabase user ID for existing user
+    }
+
+    // Update Supabase user ID for user (handles both new and existing users)
+    if ($user && $user->ID) {
       update_user_meta($user->ID, 'supabase_user_id', sanitize_text_field($claims['sub']));
     }
 
