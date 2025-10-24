@@ -1,7 +1,11 @@
 # WordPress Configuration Files (CRITICAL - contain real credentials)
-wp-config_questtales.php
-wp-config_alexeykrol.php
+wp-config.php
+wp-config-*.php
 wp-config_*.php
+wp-config-local.php
+wp-config-alexeykrol.php
+wp-config-quest.php
+wp-config-questtales.php
 
 # Environment files
 .env
@@ -45,6 +49,9 @@ debug.log
 *.backup
 *-copy.html
 *-old.html
+
+# Deployment archives (versioned releases)
+supabase-bridge-v*.zip
 
 # WordPress debugging
 wp-content/debug.log
