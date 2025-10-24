@@ -394,5 +394,31 @@ npm run build
 
 ---
 
+## 🔄 Текущее состояние проекта
+
+### Версия: 0.3.5 (2025-10-23)
+
+**Статус:** ✅ Production Ready ✨
+
+**Последние завершенные задачи:**
+- ✅ Google OAuth email verification fix (allow NULL from OAuth providers)
+- ✅ Magic Link localStorage timing fix (token processing after WordPress response)
+- ✅ CSP headers conflict resolution (MemberPress/Alpine.js compatibility)
+- ✅ Production testing: Magic Link (3/3), Google OAuth (✅)
+- ✅ .gitignore security fix (wp-config credentials protection)
+
+**Текущая фаза:** Production Maintenance (Stable)
+
+**Следующий этап:** Plan v0.2.0 (Role Mapping)
+- Read role from JWT app_metadata
+- Map Supabase roles → WordPress roles
+- Configurable via filter hooks
+
+**Известные баги:** 0
+
+**Смотри PROJECT_SNAPSHOT.md для полного статуса!**
+
+---
+
 *Этот файл обновляется по мере развития проекта*
 *Используй клавишу `#` в Claude Code для быстрого добавления инструкций*
