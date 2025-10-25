@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.3.5-blue.svg)
+![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0%2B-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -18,7 +18,7 @@
 
 ### Installation
 
-1. **Download** the latest release: [supabase-bridge-v0.3.5.zip](https://github.com/alexeykrol/supabase-wordpress/releases)
+1. **Download** the latest release: [supabase-bridge-v0.4.1.zip](https://github.com/alexeykrol/supabase-wordpress/releases)
 2. **Upload** to WordPress via Plugins → Add New → Upload Plugin
 3. **Activate** the plugin
 4. **Configure** Supabase credentials in `wp-config.php`:
@@ -70,34 +70,53 @@ putenv('SUPABASE_PROJECT_REF=yourproject');
 
 ---
 
-## 📊 What's New in v0.3.5
+## 📊 What's New in v0.4.1
 
-### Bug Fixes 🐛
-- **Fixed:** Google OAuth "Email verification required" error ([#6](https://github.com/alexeykrol/supabase-wordpress/issues/6))
-  - OAuth providers now work even if `email_verified` is NULL/missing in JWT
-  - Logic: `true` ✅, `null/missing` ✅, `false` ❌
+### 🚨 Critical Bug Fix - User Duplication (v0.4.1)
+- **Fixed:** Multiple users created with same email during authentication
+  - Root cause: Race condition - two PHP processes (different PIDs) creating users simultaneously
+  - Solution: Server-side distributed lock using WordPress Transient API
+  - Protection layers: UUID-first checking + distributed lock + retry logic
+  - Affected: Magic Link, Google OAuth, Facebook OAuth
+  - Status: ✅ **RESOLVED** (tested in production)
 
-- **Fixed:** Magic Link registration failing on retry
-  - localStorage timing fixed - token marked as processed AFTER WordPress response
-  - 100% success rate in production testing (3/3 emails)
+### 🎉 New Features (v0.4.0)
+- **Shortcode Support** - `[supabase_auth_form]` works in any page builder (Elementor, Gutenberg, etc.)
+- **Settings Page** - WordPress Admin → Settings → Supabase Bridge
+  - Thank You Page selector (dropdown)
+  - Real-time credentials verification
+- **Encrypted Credentials Storage** - AES-256-CBC encryption in database
+- **Elementor Compatibility** - Full support for Elementor page builder
 
-- **Fixed:** CSP headers conflict with MemberPress/Alpine.js
-  - Conditional CSP - only applies to non-logged-in users
-
-- **Fixed:** .gitignore security issue
-  - wp-config files with credentials now properly ignored
+### 📚 New Documentation (v0.4.1)
+- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Complete diagnostic workflow for known issues
+- **[DIAGNOSTIC_CHECKLIST.md](DIAGNOSTIC_CHECKLIST.md)** - Systematic debugging guide
 
 ### Testing Results ✅
-- Magic Link: 100% success (3 different email addresses)
-- Google OAuth: Working perfectly
-- No duplicate users created
-- Proper redirects for new/existing users
+- Magic Link: No duplication (tested)
+- Google OAuth: No duplication (Chrome + Safari)
+- Facebook OAuth: No duplication (tested)
+- Elementor: Full compatibility
+- Cross-browser: Chrome, Safari verified
 
-**Full Changelog:** See [BACKLOG.md](Init/BACKLOG.md#-version-035---oauth--magic-link-fixes-current)
+**Full Changelog:** See [BACKLOG.md](Init/BACKLOG.md)
 
 ---
 
 ## 🗺️ Roadmap
+
+### Recently Released ✅
+
+**v0.4.0 - Settings Page & Shortcodes** ✅ (Released 2025-10-25)
+- ✅ Admin Settings Page (WordPress Admin → Settings → Supabase Bridge)
+- ✅ Shortcode `[supabase_auth_form]` works in any page builder
+- ✅ Encrypted credentials storage (AES-256-CBC)
+- ✅ Thank You Page selector with dropdown
+
+**v0.4.1 - Critical Bug Fixes** ✅ (Released 2025-10-25)
+- ✅ User duplication fix (server-side distributed lock)
+- ✅ Elementor compatibility
+- ✅ Comprehensive troubleshooting documentation
 
 ### Coming Soon
 
@@ -106,18 +125,15 @@ putenv('SUPABASE_PROJECT_REF=yourproject');
 - Update roles on each login
 - Configurable via filter hooks
 
-**v0.4.0 - User Metadata Sync** ([#7](https://github.com/alexeykrol/supabase-wordpress/issues/7))
+**v0.5.0 - Enhanced Metadata Sync** ([#7](https://github.com/alexeykrol/supabase-wordpress/issues/7))
 - Sync avatar, first name, last name from OAuth providers
 - Custom field mapping via filters
+- User profile updates
 
-**v0.7.0 - Admin Settings Page** ([#8](https://github.com/alexeykrol/supabase-wordpress/issues/8))
-- WordPress UI for redirect URLs, default roles, button styles
-- No PHP file editing required
-
-**v0.8.0 - Shortcodes** ([#9](https://github.com/alexeykrol/supabase-wordpress/issues/9))
-- `[supabase_login provider="google"]`
-- `[supabase_auth_form]`
-- Works in any page builder
+**v0.6.0 - Email/Password Authentication**
+- Native Supabase email/password login
+- Password reset flow
+- Email verification flow
 
 **Full Roadmap:** See [BACKLOG.md](Init/BACKLOG.md)
 
@@ -127,27 +143,31 @@ putenv('SUPABASE_PROJECT_REF=yourproject');
 
 We're actively working on improving the plugin UX. Help us prioritize by 👍 voting on issues!
 
+### Recently Resolved ✅
+
+3. **[#3 - Plaintext credentials in wp-config.php](https://github.com/alexeykrol/supabase-wordpress/issues/3)** ✅ RESOLVED (v0.4.0)
+   - ✅ Encrypted storage in database with AES-256-CBC
+   - ✅ Settings page for easy configuration
+
+5. **[#5 - No UI for Thank You page configuration](https://github.com/alexeykrol/supabase-wordpress/issues/5)** ✅ RESOLVED (v0.4.0)
+   - ✅ Settings page with page dropdown selector
+   - ✅ No code editing required
+
 ### Critical UX Issues 🔴
 
 1. **[#1 - Setup requires FTP access to copy form code](https://github.com/alexeykrol/supabase-wordpress/issues/1)** 🔥
    - Current: Users need FTP to retrieve `auth-form.html` code
    - Planned: Embed code in setup page with copy button
+   - Status: Partially resolved (shortcode `[supabase_auth_form]` available, but initial setup still needs documentation)
 
-2. **[#2 - Manual setup instead of automated WordPress UI](https://github.com/alexeykrol/supabase-wordpress/issues/2)** 🔥
-   - Current: Manual page creation, code copy-paste
-   - Planned: Settings page with page selectors + auto-setup
-
-3. **[#3 - Plaintext credentials in wp-config.php](https://github.com/alexeykrol/supabase-wordpress/issues/3)** 🔥
-   - Current: Supabase keys in plaintext config file
-   - Planned: Encrypted storage in database with UI
+2. **[#2 - Manual page creation and shortcode insertion](https://github.com/alexeykrol/supabase-wordpress/issues/2)** 🔥
+   - Current: Manual page creation + shortcode insertion
+   - Planned: One-click page creation with auto-setup
+   - Status: Partially resolved (Settings page exists, shortcode available)
 
 4. **[#4 - Confusing auth-form.html structure](https://github.com/alexeykrol/supabase-wordpress/issues/4)** 🔥
    - Current: 1211 lines with 142 lines of comments
    - Planned: Separate clean code from documentation
-
-5. **[#5 - No UI for Thank You page configuration](https://github.com/alexeykrol/supabase-wordpress/issues/5)** 🔥
-   - Current: Must edit JavaScript code manually
-   - Planned: Settings page with page dropdown
 
 **See all issues:** https://github.com/alexeykrol/supabase-wordpress/issues
 
@@ -210,13 +230,21 @@ This plugin follows WordPress security best practices:
 
 ## 📖 Documentation
 
+### User Guides
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get running in 5 minutes
 - **[Installation Guide](docs/INSTALL.md)** - Detailed setup instructions
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment checklist
 - **[Redirect Guide](docs/AUTH-FORM-REDIRECT-GUIDE.md)** - Configure redirect behavior
-- **[Debug Guide](docs/DEBUG.md)** - Troubleshooting common issues
+
+### Troubleshooting
+- **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Known issues with verified solutions ⭐ NEW
+- **[Diagnostic Checklist](DIAGNOSTIC_CHECKLIST.md)** - Systematic debugging workflow ⭐ NEW
+- **[Debug Guide](docs/DEBUG.md)** - General troubleshooting tips
+
+### Technical Documentation
 - **[Architecture](Init/ARCHITECTURE.md)** - Technical deep dive
 - **[Backlog](Init/BACKLOG.md)** - Feature roadmap and status
+- **[Security Policy](Init/SECURITY.md)** - Security best practices
 
 ---
 
