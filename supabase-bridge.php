@@ -119,15 +119,65 @@ function sb_cfg($key, $def = null) {
 // SUPABASE_PROJECT_REF извлекается автоматически из SUPABASE_URL
 // Fallback: можно добавить в wp-config.php: SUPABASE_URL, SUPABASE_ANON_KEY
 
+// === Helper: Get Thank You Page URL from Settings ===
+function sb_get_thankyou_url() {
+  $page_id = get_option('sb_thankyou_page_id');
+  if ($page_id && $page_id !== '') {
+    $url = get_permalink($page_id);
+    if ($url) {
+      // Extract just the path from the full URL
+      $path = parse_url($url, PHP_URL_PATH);
+      return $path ?: '/registr/'; // fallback if parsing fails
+    }
+  }
+  return '/registr/'; // default fallback
+}
+
+// Глобальная переменная для хранения контента auth form
+global $sb_auth_form_content;
+$sb_auth_form_content = null;
+
 // === Shortcode [supabase_auth_form] ===
 add_shortcode('supabase_auth_form', function() {
+  global $sb_auth_form_content;
+
   $auth_form_path = plugin_dir_path(__FILE__) . 'auth-form.html';
 
   if (!file_exists($auth_form_path)) {
     return '<div style="padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">⚠️ auth-form.html not found. Please reinstall the Supabase Bridge plugin.</div>';
   }
 
-  return file_get_contents($auth_form_path);
+  // Сохраняем контент в глобальную переменную
+  $sb_auth_form_content = file_get_contents($auth_form_path);
+
+  // Возвращаем уникальный placeholder
+  return '<div id="sb-auth-form-placeholder-' . uniqid() . '"></div>';
+});
+
+// === Заменяем placeholder на реальный контент ПОСЛЕ всех WordPress фильтров ===
+add_filter('the_content', function($content) {
+  global $sb_auth_form_content;
+
+  // Если есть сохраненный контент формы
+  if ($sb_auth_form_content && strpos($content, 'sb-auth-form-placeholder-') !== false) {
+    // Заменяем placeholder на реальный контент (ПОСЛЕ всех фильтров WordPress)
+    $content = preg_replace(
+      '/<div id="sb-auth-form-placeholder-[^"]+"><\/div>/',
+      $sb_auth_form_content,
+      $content
+    );
+
+    // Очищаем переменную
+    $sb_auth_form_content = null;
+  }
+
+  return $content;
+}, 9999); // Максимальный приоритет - выполняется последним
+
+// === Добавляем shortcode в whitelist ===
+add_filter('no_texturize_shortcodes', function($shortcodes) {
+  $shortcodes[] = 'supabase_auth_form';
+  return $shortcodes;
 });
 
 // Подключим supabase-js и прокинем public-конфиг (чтоб не хардкодить в HTML)
@@ -138,8 +188,34 @@ add_action('wp_enqueue_scripts', function () {
   wp_add_inline_script('supabase-js', 'window.SUPABASE_CFG = ' . wp_json_encode([
     'url'  => sb_cfg('SUPABASE_URL', ''),       // напр. https://<project-ref>.supabase.co
     'anon' => sb_cfg('SUPABASE_ANON_KEY', ''),  // public anon key
+    'thankYouUrl' => sb_get_thankyou_url(),     // Thank You Page URL from Settings
   ]) . ';', 'before');
 });
+
+// === Elementor CSP Compatibility ===
+// Отключаем CSP для страниц с шорткодом Supabase (для совместимости с Elementor)
+add_action('send_headers', function() {
+  global $post;
+
+  // Проверяем есть ли шорткод на странице
+  if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'supabase_auth_form')) {
+    // Удаляем CSP headers которые могут блокировать Supabase SDK
+    header_remove('Content-Security-Policy');
+    header_remove('X-Content-Security-Policy');
+    header_remove('X-WebKit-CSP');
+  }
+}, 1);
+
+// Альтернативный метод через template_redirect (работает раньше)
+add_action('template_redirect', function() {
+  global $post;
+
+  if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'supabase_auth_form')) {
+    header_remove('Content-Security-Policy');
+    header_remove('X-Content-Security-Policy');
+    header_remove('X-WebKit-CSP');
+  }
+}, 1);
 
 // REST: приём токена, верификация, создание/логин WP-пользователя
 add_action('rest_api_init', function () {
@@ -280,6 +356,7 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
     // 3) Найдём/создадим WP-пользователя
     $email = sanitize_email($claims['email']);
+    $supabase_user_id = sanitize_text_field($claims['sub']);
 
     // Additional email validation
     if (!is_email($email)) {
@@ -287,39 +364,106 @@ function sb_handle_callback(\WP_REST_Request $req) {
       throw new Exception('Invalid email address');
     }
 
-    $user  = get_user_by('email', $email);
+    // КРИТИЧНО: Проверяем по Supabase UUID ПЕРВЫМ (уникальный идентификатор)
+    // Это предотвращает дублирование даже при race condition
+    $existing_users = get_users([
+      'meta_key' => 'supabase_user_id',
+      'meta_value' => $supabase_user_id,
+      'number' => 1
+    ]);
+
+    if (!empty($existing_users)) {
+      // Пользователь с таким Supabase ID уже существует
+      $user = $existing_users[0];
+      error_log('Supabase Bridge: User found by supabase_user_id - ' . $email);
+    } else {
+      // Проверяем по email
+      $user = get_user_by('email', $email);
+    }
+
     if (!$user) {
-      // Generate strong random password
-      $password = wp_generate_password(32, true, true);
-      $uid = wp_create_user($email, $password, $email);
+      // Distributed lock для предотвращения race condition
+      $lock_key = 'sb_create_lock_' . md5($supabase_user_id);
 
-      if (is_wp_error($uid)) {
-        // Race condition: user might have been created between get_user_by and wp_create_user
-        // Try finding the user again
-        $user = get_user_by('email', $email);
-        if (!$user) {
-          // Still not found - real error
-          error_log('Supabase Bridge: User creation failed - ' . $uid->get_error_message());
-          throw new Exception('Unable to create user account');
+      // Проверяем есть ли уже lock (другой процесс создает пользователя)
+      if (get_transient($lock_key)) {
+        // Ждем 2 секунды и пробуем найти пользователя снова
+        sleep(2);
+
+        // Проверяем по Supabase UUID снова
+        $existing_users = get_users([
+          'meta_key' => 'supabase_user_id',
+          'meta_value' => $supabase_user_id,
+          'number' => 1
+        ]);
+
+        if (!empty($existing_users)) {
+          $user = $existing_users[0];
+          error_log('Supabase Bridge: User found after lock wait - ' . $email);
+        } else {
+          // Все еще нет - пробуем по email
+          $user = get_user_by('email', $email);
+
+          if (!$user) {
+            error_log('Supabase Bridge: Lock expired but user not found - ' . $email);
+            throw new Exception('User creation timeout - please try again');
+          }
         }
-        // User found - continue with existing user
-        error_log('Supabase Bridge: User found after creation race condition - ' . $email);
       } else {
-        // User created successfully
-        // Store Supabase user ID
-        update_user_meta($uid, 'supabase_user_id', sanitize_text_field($claims['sub']));
+        // Устанавливаем lock на 5 секунд
+        set_transient($lock_key, 1, 5);
 
-        // Set default role (subscriber)
-        $user = get_user_by('id', $uid);
-        if ($user) {
-          $user->set_role('subscriber');
+        // Generate strong random password
+        $password = wp_generate_password(32, true, true);
+        $uid = wp_create_user($email, $password, $email);
+
+        if (is_wp_error($uid)) {
+          // Удаляем lock
+          delete_transient($lock_key);
+
+          // Race condition: user might have been created between checks and wp_create_user
+          // Try finding the user again by Supabase ID
+          $existing_users = get_users([
+            'meta_key' => 'supabase_user_id',
+            'meta_value' => $supabase_user_id,
+            'number' => 1
+          ]);
+
+          if (!empty($existing_users)) {
+            $user = $existing_users[0];
+            error_log('Supabase Bridge: User found by UUID after failed creation - ' . $email);
+          } else {
+            // Пробуем по email
+            $user = get_user_by('email', $email);
+            if (!$user) {
+              // Still not found - real error
+              error_log('Supabase Bridge: User creation failed - ' . $uid->get_error_message());
+              throw new Exception('Unable to create user account');
+            }
+            error_log('Supabase Bridge: User found by email after failed creation - ' . $email);
+          }
+        } else {
+          // User created successfully
+          // Store Supabase user ID
+          update_user_meta($uid, 'supabase_user_id', $supabase_user_id);
+
+          // Set default role (subscriber)
+          $user = get_user_by('id', $uid);
+          if ($user) {
+            $user->set_role('subscriber');
+          }
+
+          // Удаляем lock
+          delete_transient($lock_key);
+
+          error_log('Supabase Bridge: User created successfully - User ID: ' . $uid);
         }
       }
     }
 
     // Update Supabase user ID for user (handles both new and existing users)
     if ($user && $user->ID) {
-      update_user_meta($user->ID, 'supabase_user_id', sanitize_text_field($claims['sub']));
+      update_user_meta($user->ID, 'supabase_user_id', $supabase_user_id);
     }
 
     // 4) Логиним в WP
