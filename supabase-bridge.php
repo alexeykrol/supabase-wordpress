@@ -692,19 +692,35 @@ function sb_render_setup_page() {
   }
 
   $thankyou_page_id = get_option('sb_thankyou_page_id', 0);
+
+  // Get current tab
+  $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
   ?>
   <div class="wrap">
-    <h1>🚀 Supabase Bridge - Setup Instructions</h1>
+    <h1>🚀 Supabase Bridge</h1>
 
-    <!-- Prerequisites Warning -->
-    <div class="notice notice-warning" style="border-left-color: #f59e0b; padding: 15px;">
-      <h3 style="margin-top: 0;">⚠️ Before You Start</h3>
-      <p><strong>Prerequisites:</strong> You must configure Google OAuth and Facebook OAuth in your Supabase Dashboard first.</p>
-      <p>📖 <strong>Documentation:</strong> <a href="https://supabase.com/docs/guides/auth/social-login/auth-google" target="_blank">Google OAuth Setup</a> | <a href="https://supabase.com/docs/guides/auth/social-login/auth-facebook" target="_blank">Facebook OAuth Setup</a></p>
-      <p>💡 <strong>Magic Link</strong> (passwordless email) works out of the box - no extra setup needed.</p>
-    </div>
+    <!-- Tabs Navigation -->
+    <h2 class="nav-tab-wrapper">
+      <a href="?page=supabase-bridge-setup&tab=general" class="nav-tab <?php echo $current_tab === 'general' ? 'nav-tab-active' : ''; ?>">
+        ⚙️ General Settings
+      </a>
+      <a href="?page=supabase-bridge-setup&tab=pairs" class="nav-tab <?php echo $current_tab === 'pairs' ? 'nav-tab-active' : ''; ?>">
+        🔗 Registration Pairs
+      </a>
+    </h2>
 
-    <h2>📋 Step 1: Configure Plugin Settings</h2>
+    <?php if ($current_tab === 'general'): ?>
+      <!-- TAB 1: General Settings -->
+      <div class="tab-content">
+        <!-- Prerequisites Warning -->
+        <div class="notice notice-warning" style="border-left-color: #f59e0b; padding: 15px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">⚠️ Before You Start</h3>
+          <p><strong>Prerequisites:</strong> You must configure Google OAuth and Facebook OAuth in your Supabase Dashboard first.</p>
+          <p>📖 <strong>Documentation:</strong> <a href="https://supabase.com/docs/guides/auth/social-login/auth-google" target="_blank">Google OAuth Setup</a> | <a href="https://supabase.com/docs/guides/auth/social-login/auth-facebook" target="_blank">Facebook OAuth Setup</a></p>
+          <p>💡 <strong>Magic Link</strong> (passwordless email) works out of the box - no extra setup needed.</p>
+        </div>
+
+        <h2>📋 Step 1: Configure Plugin Settings</h2>
 
     <!-- Settings Section -->
     <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
@@ -904,6 +920,343 @@ function sb_render_setup_page() {
     <div class="notice notice-success" style="margin-top: 30px;">
       <p><strong>🎉 Done!</strong> Your Supabase authentication is integrated with WordPress.</p>
     </div>
+      </div><!-- End Tab 1: General Settings -->
+
+    <?php elseif ($current_tab === 'pairs'): ?>
+      <!-- TAB 2: Registration Pairs -->
+      <div class="tab-content">
+        <?php sb_render_pairs_tab(); ?>
+      </div><!-- End Tab 2: Registration Pairs -->
+
+    <?php endif; ?>
+
+  </div><!-- End .wrap -->
+  <?php
+}
+
+// === Phase 2: Registration Pairs Tab ===
+function sb_render_pairs_tab() {
+  // Get pairs from wp_options
+  $pairs = get_option('sb_registration_pairs', []);
+  ?>
+  <div style="margin-top: 20px;">
+    <h2>🔗 Registration / Thank You Page Pairs</h2>
+    <p>Map registration pages to their thank you pages. Each registration page will redirect users to its corresponding thank you page.</p>
+
+    <!-- Add New Pair Button -->
+    <p style="margin: 20px 0;">
+      <button type="button" class="button button-primary" onclick="sbShowAddPairModal()">
+        ➕ Add New Pair
+      </button>
+    </p>
+
+    <?php if (empty($pairs)): ?>
+      <!-- Empty State -->
+      <div style="background: #f0f6fc; border: 1px solid #d1e4f5; border-radius: 6px; padding: 40px; text-align: center; margin: 20px 0;">
+        <p style="font-size: 16px; color: #666; margin: 0;">
+          📋 No registration pairs created yet.
+        </p>
+        <p style="color: #999; margin: 10px 0 0 0;">
+          Click "Add New Pair" to create your first registration/thank-you page mapping.
+        </p>
+      </div>
+    <?php else: ?>
+      <!-- Pairs Table -->
+      <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+        <thead>
+          <tr>
+            <th style="width: 35%;">Registration Page</th>
+            <th style="width: 35%;">Thank You Page</th>
+            <th style="width: 20%;">Created</th>
+            <th style="width: 10%;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($pairs as $pair): ?>
+            <tr>
+              <td>
+                <strong><?php echo esc_html(get_the_title($pair['registration_page_id'])); ?></strong>
+                <br>
+                <code style="font-size: 11px; color: #666;"><?php echo esc_html($pair['registration_page_url']); ?></code>
+              </td>
+              <td>
+                <strong><?php echo esc_html(get_the_title($pair['thankyou_page_id'])); ?></strong>
+                <br>
+                <code style="font-size: 11px; color: #666;"><?php echo esc_html($pair['thankyou_page_url']); ?></code>
+              </td>
+              <td>
+                <?php echo esc_html(date('Y-m-d H:i', strtotime($pair['created_at']))); ?>
+              </td>
+              <td>
+                <button type="button" class="button button-small" onclick="sbEditPair('<?php echo esc_js($pair['id']); ?>')">
+                  ✏️ Edit
+                </button>
+                <button type="button" class="button button-small button-link-delete" onclick="sbDeletePair('<?php echo esc_js($pair['id']); ?>', '<?php echo esc_js(get_the_title($pair['registration_page_id'])); ?>')">
+                  🗑️ Delete
+                </button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
+
+    <!-- Add/Edit Pair Modal -->
+    <div id="sb-pair-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+      <div style="background: #fff; margin: 50px auto; padding: 30px; width: 600px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <h2 id="sb-modal-title">Add New Pair</h2>
+        <form id="sb-pair-form">
+          <input type="hidden" id="sb-pair-id" name="pair_id" value="">
+
+          <table class="form-table">
+            <tr>
+              <th scope="row">
+                <label for="sb-reg-page">Registration Page</label>
+              </th>
+              <td>
+                <?php
+                wp_dropdown_pages([
+                  'name' => 'registration_page_id',
+                  'id' => 'sb-reg-page',
+                  'show_option_none' => '— Select a page —',
+                  'option_none_value' => '0'
+                ]);
+                ?>
+                <p class="description">The page where users fill the registration form</p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <label for="sb-ty-page">Thank You Page</label>
+              </th>
+              <td>
+                <?php
+                wp_dropdown_pages([
+                  'name' => 'thankyou_page_id',
+                  'id' => 'sb-ty-page',
+                  'show_option_none' => '— Select a page —',
+                  'option_none_value' => '0'
+                ]);
+                ?>
+                <p class="description">Where new users will be redirected after registration</p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin-top: 20px;">
+            <button type="button" class="button button-primary" onclick="sbSavePair()">💾 Save Pair</button>
+            <button type="button" class="button" onclick="sbCloseModal()">Cancel</button>
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <script>
+    function sbShowAddPairModal() {
+      document.getElementById('sb-modal-title').textContent = 'Add New Pair';
+      document.getElementById('sb-pair-id').value = '';
+      document.getElementById('sb-reg-page').value = '0';
+      document.getElementById('sb-ty-page').value = '0';
+      document.getElementById('sb-pair-modal').style.display = 'block';
+    }
+
+    function sbEditPair(pairId) {
+      // TODO: Load pair data and populate form
+      alert('Edit functionality coming in next commit');
+    }
+
+    function sbCloseModal() {
+      document.getElementById('sb-pair-modal').style.display = 'none';
+    }
+
+    function sbSavePair() {
+      const formData = new FormData(document.getElementById('sb-pair-form'));
+      formData.append('action', 'sb_save_pair');
+      formData.append('nonce', '<?php echo wp_create_nonce('sb_pair_nonce'); ?>');
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Pair saved successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+    }
+
+    function sbDeletePair(pairId, pageName) {
+      if (!confirm('Delete pair for "' + pageName + '"?')) {
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('action', 'sb_delete_pair');
+      formData.append('nonce', '<?php echo wp_create_nonce('sb_pair_nonce'); ?>');
+      formData.append('pair_id', pairId);
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Pair deleted successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+    }
+    </script>
   </div>
   <?php
+}
+
+// === Phase 2: AJAX Handlers ===
+
+// AJAX: Save registration pair
+add_action('wp_ajax_sb_save_pair', 'sb_ajax_save_pair');
+function sb_ajax_save_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_pair_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Validate input
+  $registration_page_id = intval($_POST['registration_page_id'] ?? 0);
+  $thankyou_page_id = intval($_POST['thankyou_page_id'] ?? 0);
+
+  if ($registration_page_id === 0 || $thankyou_page_id === 0) {
+    wp_send_json_error('Please select both pages');
+    return;
+  }
+
+  // Get page URLs
+  $registration_url = parse_url(get_permalink($registration_page_id), PHP_URL_PATH);
+  $thankyou_url = parse_url(get_permalink($thankyou_page_id), PHP_URL_PATH);
+
+  if (!$registration_url || !$thankyou_url) {
+    wp_send_json_error('Invalid page selected');
+    return;
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_registration_pairs', []);
+
+  // Check if pair already exists (editing vs creating)
+  $pair_id = sanitize_text_field($_POST['pair_id'] ?? '');
+
+  if (empty($pair_id)) {
+    // New pair - check for duplicate registration page
+    foreach ($pairs as $existing) {
+      if ($existing['registration_page_id'] === $registration_page_id) {
+        wp_send_json_error('Registration page already has a pair');
+        return;
+      }
+    }
+
+    // Create new pair
+    $pair_id = wp_generate_uuid4();
+    $pairs[] = [
+      'id' => $pair_id,
+      'registration_page_id' => $registration_page_id,
+      'registration_page_url' => $registration_url,
+      'thankyou_page_id' => $thankyou_page_id,
+      'thankyou_page_url' => $thankyou_url,
+      'created_at' => current_time('mysql')
+    ];
+  } else {
+    // Edit existing pair
+    $pair_found = false;
+    foreach ($pairs as &$pair) {
+      if ($pair['id'] === $pair_id) {
+        $pair['registration_page_id'] = $registration_page_id;
+        $pair['registration_page_url'] = $registration_url;
+        $pair['thankyou_page_id'] = $thankyou_page_id;
+        $pair['thankyou_page_url'] = $thankyou_url;
+        $pair_found = true;
+        break;
+      }
+    }
+    unset($pair);
+
+    if (!$pair_found) {
+      wp_send_json_error('Pair not found');
+      return;
+    }
+  }
+
+  // Save to wp_options
+  update_option('sb_registration_pairs', $pairs);
+
+  wp_send_json_success(['message' => 'Pair saved successfully', 'pair_id' => $pair_id]);
+}
+
+// AJAX: Delete registration pair
+add_action('wp_ajax_sb_delete_pair', 'sb_ajax_delete_pair');
+function sb_ajax_delete_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_pair_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Get pair ID
+  $pair_id = sanitize_text_field($_POST['pair_id'] ?? '');
+
+  if (empty($pair_id)) {
+    wp_send_json_error('Pair ID required');
+    return;
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_registration_pairs', []);
+
+  // Find and remove pair
+  $pair_found = false;
+  $pairs = array_filter($pairs, function($pair) use ($pair_id, &$pair_found) {
+    if ($pair['id'] === $pair_id) {
+      $pair_found = true;
+      return false; // Remove this pair
+    }
+    return true; // Keep this pair
+  });
+
+  if (!$pair_found) {
+    wp_send_json_error('Pair not found');
+    return;
+  }
+
+  // Reindex array
+  $pairs = array_values($pairs);
+
+  // Save to wp_options
+  update_option('sb_registration_pairs', $pairs);
+
+  wp_send_json_success(['message' => 'Pair deleted successfully']);
 }
