@@ -1,12 +1,24 @@
 # Project Backlog
 
 **Project:** Supabase Bridge (Auth) for WordPress
-**Version:** 0.3.5
-**Last Updated:** 2025-10-23
+**Version:** 0.4.0
+**Last Updated:** 2025-10-24
 
 ---
 
 ## 🎯 Recent Updates
+
+### 2025-10-24 - Release v0.4.0 - Shortcode & Settings Page
+**Status:** ✅ Complete
+**Description:** Major UX improvements - replaced manual code copy/paste with shortcode and Settings UI
+**Details:**
+- Implemented `[supabase_auth_form]` shortcode
+- Added Settings page with Thank You Page selector
+- Encrypted credentials storage in database (AES-256-CBC)
+- Real-time credentials verification via API
+- Auto-extraction of Project Ref from Supabase URL
+- Simplified setup from 7 steps to 4 steps
+- Resolved Issues #3, #4, #5, #6, #7 (see Known Issues section)
 
 ### 2025-10-23 - Migrated to Claude Code Starter v1.2.4
 **Status:** ✅ Complete
@@ -45,19 +57,105 @@
 
 **Current Phase:** Production
 **Active Sprint:** Maintenance & Enhancements
-**Completion:** 100% of MVP features
+**Completion:** 100% of MVP features + 5 critical issues resolved
 
 ### Quick Stats
-- ✅ **Completed:** 10 core features
+- ✅ **Completed:** 16 core features (v0.1.0 - v0.4.0)
 - 🚧 **In Progress:** 0 features
 - 📋 **Planned:** 12 features (v0.2.0-v1.3.0)
 - 🔴 **Blocked:** 0 features
+- ✅ **Issues Resolved:** 5 critical (v0.4.0)
 
 ---
 
 ## 📋 Current Implementation Status
 
-### ✅ Version 0.3.5 - OAuth & Magic Link Fixes (Current)
+### ✅ Version 0.4.0 - Shortcode & Settings Page (Current)
+**Released:** 2025-10-24
+**Status:** Production Ready ✨
+
+#### Implemented Features
+- [x] **[supabase_auth_form] Shortcode** - WordPress shortcode for auth form embedding
+  - Implemented: 2025-10-24
+  - Files: `supabase-bridge.php` (lines 122-130)
+  - Notes: Replaces manual 1068-line code copy/paste with simple shortcode
+  - Usage: Just insert `[supabase_auth_form]` in any page/post
+  - Benefits: Works with all page builders (Gutenberg, Elementor, Divi, etc.)
+  - Impact: Setup reduced from 7 steps to 4 steps
+
+- [x] **Settings Page with Page Selector** - WordPress Admin UI for plugin configuration
+  - Implemented: 2025-10-24
+  - Files: `supabase-bridge.php` (lines 414-584)
+  - Notes: Modern WordPress Settings page with dropdown selectors
+  - Features: Thank You Page selector, encrypted credentials storage
+  - Benefits: No manual file editing, no FTP access required
+  - Impact: Follows modern WordPress plugin standards (like WooCommerce, Jetpack)
+
+- [x] **Encrypted Credentials Storage** - AES-256-CBC encryption for Supabase credentials
+  - Implemented: 2025-10-24
+  - Files: `supabase-bridge.php` (lines 77-90)
+  - Notes: Credentials stored encrypted in wp_options table, not plaintext in wp-config.php
+  - Encryption: AES-256-CBC using WordPress salts as encryption key
+  - Functions: sb_encrypt(), sb_decrypt()
+  - Benefits: Secure credential storage, no Git leaks, easy key rotation
+  - Impact: Resolves critical security issue (Issue #5)
+
+- [x] **Real-time Credentials Verification** - API call to verify credentials when saving Settings
+  - Implemented: 2025-10-24
+  - Files: `supabase-bridge.php` (lines 44-75)
+  - Notes: Makes HTTP request to Supabase auth/v1/settings endpoint
+  - Endpoint: {SUPABASE_URL}/auth/v1/settings
+  - Validation: URL format check, API connectivity test, HTTP 200 response
+  - UX: Success/error message displayed inline below credentials form
+  - Benefits: Immediate feedback, prevents misconfiguration
+  - Impact: Reduces support burden from invalid credentials
+
+- [x] **Auto-extract Project Ref from URL** - Automatic parsing of project ref from Supabase URL
+  - Implemented: 2025-10-24
+  - Files: `supabase-bridge.php` (lines 94-106)
+  - Notes: Regex extraction from URL pattern (https://PROJECT_REF.supabase.co)
+  - Regex: `/https?:\/\/([^.]+)\.supabase\.co/`
+  - Benefits: Removes redundant manual input field, reduces user errors
+  - Impact: One less field to configure in Settings
+
+- [x] **Simplified Setup Instructions** - Flat 4-step instructions instead of nested 7-step process
+  - Implemented: 2025-10-24
+  - Files: `supabase-bridge.php` (lines 495-584)
+  - Notes: Removed nested numbering (2.1, 2.2, 3.1), converted to flat Step 1-4
+  - Structure: Step 1 (Configure), Step 2 (Shortcode), Step 3 (Supabase), Step 4 (Test)
+  - Benefits: Clearer instructions, less cognitive load
+  - User feedback: "Людям надо проще" - mission accomplished!
+
+- [x] **Inline Verification Messages** - Success/error messages displayed below credentials form
+  - Implemented: 2025-10-24
+  - Files: `supabase-bridge.php` (lines 498-502)
+  - Notes: Green for success, red for error, shown immediately after credentials section
+  - Benefits: Better UX - no scrolling to top of page to see message
+  - Impact: Professional WordPress admin UX
+
+#### UX Improvements
+- ✅ **Setup complexity:** 7 steps → 4 steps (43% reduction)
+- ✅ **Code copy/paste:** 1068 lines → 0 lines (replaced with shortcode)
+- ✅ **Manual file editing:** Required (wp-config.php) → Optional (Settings UI)
+- ✅ **FTP access requirement:** Required → Not required
+- ✅ **Security:** Plaintext credentials → AES-256-CBC encrypted
+
+#### Issues Resolved
+- ✅ **Issue #3** - Poor UX (auth-form.html code not embedded) → Resolved via shortcode
+- ✅ **Issue #4** - Settings page with page selector → Resolved
+- ✅ **Issue #5** - Credentials in plaintext → Resolved via encrypted storage
+- ✅ **Issue #6** - Confusing auth-form.html structure → Resolved (no longer copying code)
+- ✅ **Issue #7** - Thank You page URL configuration → Resolved via Settings page dropdown
+
+#### Testing Results
+- ✅ Shortcode: Rendering correctly in Gutenberg
+- ✅ Settings: Page selector working, credentials encrypted
+- ✅ Verification: API validation working with success/error messages
+- ✅ Backward compatibility: wp-config.php credentials still supported as fallback
+
+---
+
+### ✅ Version 0.3.5 - OAuth & Magic Link Fixes
 **Released:** 2025-10-23
 **Status:** Production Ready ✨
 
@@ -652,8 +750,9 @@ For OAuth testing, permalink structure MUST be identical across environments.
 #### Issue #3: Poor UX - auth-form.html code not embedded in setup instructions
 **Severity:** High (UX/Usability)
 **Priority:** 🔥 High
-**Status:** 🔴 Open
+**Status:** ✅ Resolved in v0.4.0
 **Reported:** 2025-10-23
+**Resolved:** 2025-10-24
 **Description:**
 Setup page (`supabase-bridge.php:329`) instructs users to "вставьте код из файла `auth-form.html` в HTML виджет Elementor" but doesn't show the actual code.
 
@@ -703,13 +802,17 @@ function copyAuthFormCode() {
 **References:**
 Previous version had code directly in instructions (better UX).
 
+**Resolution (v0.4.0):**
+Implemented `[supabase_auth_form]` shortcode - users now insert shortcode instead of copying 1068 lines of code. Setup reduced from 7 steps to 4 steps. No FTP access required.
+
 ---
 
 #### Issue #4: Modern WordPress plugin UX - Settings page with page selector
 **Severity:** High (UX/Usability)
 **Priority:** 🔥 High (Modern standard)
-**Status:** 🔴 Open
+**Status:** ✅ Resolved in v0.4.0
 **Reported:** 2025-10-23
+**Resolved:** 2025-10-24
 **Description:**
 Current setup requires manual page creation, FTP access to copy HTML, and manual insertion. Modern WordPress plugins provide settings page with page selector and automatic setup.
 
@@ -795,13 +898,22 @@ This is the **standard approach** in modern WordPress plugins (WooCommerce, Memb
 
 **Estimated Effort:** 4-6 hours
 
+**Resolution (v0.4.0):**
+Implemented Settings page with:
+- Thank You Page selector (wp_dropdown_pages)
+- Encrypted credentials storage (AES-256-CBC)
+- Real-time credentials verification
+- Modern WordPress admin UX
+- Zero manual file editing required
+
 ---
 
 #### Issue #5: Security - Credentials stored in plaintext in wp-config.php
 **Severity:** 🔴 Critical (Security)
 **Priority:** 🔥 Critical
-**Status:** 🔴 Open
+**Status:** ✅ Resolved in v0.4.0
 **Reported:** 2025-10-23
+**Resolved:** 2025-10-24
 **Description:**
 Current implementation requires hardcoding Supabase credentials in `wp-config.php` as plaintext environment variables. This is insecure and not aligned with modern WordPress plugin standards.
 
@@ -961,13 +1073,24 @@ function sb_test_connection($url, $anon_key) {
 
 **Estimated Effort:** 6-8 hours
 
+**Resolution (v0.4.0):**
+Implemented encrypted credentials storage:
+- AES-256-CBC encryption using WordPress salts
+- Credentials saved to wp_options table (not wp-config.php)
+- sb_encrypt() / sb_decrypt() functions
+- Settings page with masked credential display
+- Real-time API verification on save
+- Backward compatibility with wp-config.php as fallback
+- Zero plaintext credentials in config files
+
 ---
 
 #### Issue #6: Confusing auth-form.html structure - unclear what code to copy
 **Severity:** 🔴 Critical (UX/Usability)
 **Priority:** 🔥 Critical
-**Status:** 🔴 Open
+**Status:** ✅ Resolved in v0.4.0
 **Reported:** 2025-10-23
+**Resolved:** 2025-10-24
 **Description:**
 The `auth-form.html` file (1211 lines) contains 142 lines of instructional comments at the top, making it unclear where the actual code to copy begins. Users are confused about what portion of the file to copy to their WordPress page.
 
@@ -1077,13 +1200,22 @@ auth-form-docs.md (documentation):
 **User Quote:**
 > "Вот снова тупик UX - посмотрел в auth-form.html, а там mess - откуда я понимаю какой кусок кода куда вставлять?"
 
+**Resolution (v0.4.0):**
+Eliminated the problem entirely with `[supabase_auth_form]` shortcode:
+- Users never see or copy auth-form.html
+- Just insert shortcode in any page/post
+- Works with all page builders (Gutenberg, Elementor, Divi)
+- auth-form.html simplified to clean documentation header
+- Problem solved by removing the need to copy code
+
 ---
 
 #### Issue #7: No clear instructions on how to configure Thank You page URL
 **Severity:** 🔴 Critical (UX/Configuration)
 **Priority:** 🔥 Critical
-**Status:** 🔴 Open
+**Status:** ✅ Resolved in v0.4.0
 **Reported:** 2025-10-23
+**Resolved:** 2025-10-24
 **Description:**
 After copying 1068 lines of code from `auth-form.html` to WordPress page, users have no clear guidance on WHERE and HOW to configure the Thank You page URL. The configuration is buried inside the code at line 722, and setup instructions don't mention this step at all.
 
@@ -1219,6 +1351,15 @@ User discovered the core UX problem during real usage: **manual URL configuratio
 3. Shortcode renders with correct URL automatically
 4. **Zero manual work, zero errors, zero broken redirects**
 
+**Resolution (v0.4.0):**
+Implemented the proper WordPress flow:
+- Settings page with Thank You Page dropdown (wp_dropdown_pages)
+- Plugin reads selected page ID from wp_options
+- AUTH_CONFIG.thankYouPages populated from Settings (not hardcoded)
+- Users select page from dropdown - plugin handles URL extraction
+- Zero manual URL typing, zero errors, zero broken redirects
+- Exactly as user requested: "плагин берет ее URL, корректирует код под шорткодом"
+
 ---
 
 ### Critical Issues
@@ -1227,6 +1368,19 @@ Currently no known critical bugs. Project is production-ready.
 ---
 
 ## 📊 Feature Metrics
+
+### Version 0.4.0 Statistics
+- **Lines of Code:** 584 (plugin), 1068 (auth-form.html)
+- **REST Endpoints:** 2 (`/callback`, `/logout`)
+- **WordPress Hooks:** 4 (`wp_enqueue_scripts`, `rest_api_init`, `send_headers`, `admin_menu`)
+- **Shortcodes:** 1 (`[supabase_auth_form]`)
+- **External Dependencies:** 1 (`firebase/php-jwt` ^6.11.1)
+- **Database Tables Modified:** 0 (uses existing WP tables + wp_options)
+- **Encryption:** AES-256-CBC (WordPress salts as key)
+- **Security Headers:** 5 (CSP, X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, Referrer-Policy)
+- **Settings Pages:** 1 (Supabase Bridge Setup)
+- **Setup Complexity:** 4 steps (reduced from 7 steps in v0.3.5)
+- **Issues Resolved:** 5 critical UX/security issues (#3, #4, #5, #6, #7)
 
 ### Version 0.3.3 Statistics
 - **Lines of Code:** 388 (plugin), ~50 (HTML examples)
