@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening.
- * Version: 0.3.5
+ * Version: 0.4.0
  * Author: Alexey Krol
  * License: MIT
  * Requires PHP: 8.0
@@ -40,13 +40,95 @@ function sb_add_security_headers() {
   }
 }
 
-// === Конфиг из окружения (ЗАПОЛНИ) ===
+// === Supabase Credentials Verification ===
+function sb_verify_supabase_credentials($url, $anon_key) {
+  // Quick validation
+  if (empty($url) || empty($anon_key)) {
+    return ['success' => false, 'error' => 'URL or Anon Key is empty'];
+  }
+
+  // Check URL format
+  if (!preg_match('/^https?:\/\/.+\.supabase\.co$/', $url)) {
+    return ['success' => false, 'error' => 'Invalid Supabase URL format (should be https://yourproject.supabase.co)'];
+  }
+
+  // Test API connection
+  $response = wp_remote_get($url . '/auth/v1/settings', [
+    'headers' => [
+      'apikey' => $anon_key,
+      'Authorization' => 'Bearer ' . $anon_key
+    ],
+    'timeout' => 5
+  ]);
+
+  if (is_wp_error($response)) {
+    return ['success' => false, 'error' => 'Connection failed: ' . $response->get_error_message()];
+  }
+
+  $status_code = wp_remote_retrieve_response_code($response);
+  if ($status_code === 200) {
+    return ['success' => true];
+  } else {
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+    $error_msg = $body['message'] ?? 'HTTP ' . $status_code;
+    return ['success' => false, 'error' => $error_msg];
+  }
+}
+
+// === Encryption helpers ===
+function sb_encrypt($value) {
+  if (empty($value)) return '';
+  $key = wp_salt('auth');
+  $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('aes-256-cbc'));
+  $encrypted = openssl_encrypt($value, 'aes-256-cbc', $key, 0, $iv);
+  return base64_encode($encrypted . '::' . $iv);
+}
+
+function sb_decrypt($encrypted_value) {
+  if (empty($encrypted_value)) return '';
+  $key = wp_salt('auth');
+  $data = base64_decode($encrypted_value);
+  if (strpos($data, '::') === false) return $encrypted_value; // fallback for unencrypted
+  list($encrypted, $iv) = explode('::', $data, 2);
+  return openssl_decrypt($encrypted, 'aes-256-cbc', $key, 0, $iv);
+}
+
+// === Конфиг из БД (encrypted) или окружения (fallback) ===
 function sb_cfg($key, $def = null) {
+  // Special handling for SUPABASE_PROJECT_REF - extract from URL
+  if ($key === 'SUPABASE_PROJECT_REF') {
+    $url = sb_cfg('SUPABASE_URL', '');
+    if (!empty($url) && preg_match('/https?:\/\/([^.]+)\.supabase\.co/', $url, $matches)) {
+      return $matches[1]; // Extract project ref from URL
+    }
+  }
+
+  // Try database first (encrypted storage)
+  $db_key = 'sb_' . strtolower($key);
+  $encrypted_value = get_option($db_key, false);
+
+  if ($encrypted_value !== false && !empty($encrypted_value)) {
+    return sb_decrypt($encrypted_value);
+  }
+
+  // Fallback to environment variables (wp-config.php)
   $v = getenv($key);
   return $v !== false ? $v : $def;
 }
-// Прим.: добавь эти переменные в wp-config.php или панель хостинга:
-// SUPABASE_PROJECT_REF, SUPABASE_URL, SUPABASE_ANON_KEY
+// Прим.: Credentials хранятся зашифрованными в БД через Settings UI
+// SUPABASE_PROJECT_REF извлекается автоматически из SUPABASE_URL
+// Fallback: можно добавить в wp-config.php: SUPABASE_URL, SUPABASE_ANON_KEY
+
+// === Shortcode [supabase_auth_form] ===
+add_shortcode('supabase_auth_form', function() {
+  $auth_form_path = plugin_dir_path(__FILE__) . 'auth-form.html';
+
+  if (!file_exists($auth_form_path)) {
+    return '<div style="padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">⚠️ auth-form.html not found. Please reinstall the Supabase Bridge plugin.</div>';
+  }
+
+  return file_get_contents($auth_form_path);
+});
 
 // Подключим supabase-js и прокинем public-конфиг (чтоб не хардкодить в HTML)
 add_action('wp_enqueue_scripts', function () {
@@ -332,82 +414,171 @@ add_action('admin_menu', function() {
 });
 
 function sb_render_setup_page() {
+  $verification_message = null;
+
+  // Handle settings form submission
+  if (isset($_POST['sb_save_settings']) && check_admin_referer('sb_settings_nonce')) {
+    // Page configuration
+    update_option('sb_thankyou_page_id', intval($_POST['sb_thankyou_page_id'] ?? 0));
+
+    // Supabase credentials (encrypted)
+    $url = sanitize_text_field($_POST['sb_supabase_url'] ?? '');
+    $anon_key = sanitize_text_field($_POST['sb_supabase_anon_key'] ?? '');
+
+    $credentials_updated = false;
+
+    if (!empty($url)) {
+      update_option('sb_supabase_url', sb_encrypt($url));
+      $credentials_updated = true;
+    }
+    if (!empty($anon_key)) {
+      update_option('sb_supabase_anon_key', sb_encrypt($anon_key));
+      $credentials_updated = true;
+    }
+
+    // Verify credentials if they were updated
+    if ($credentials_updated && !empty($url) && !empty($anon_key)) {
+      $verification = sb_verify_supabase_credentials($url, $anon_key);
+      if ($verification['success']) {
+        $verification_message = ['type' => 'success', 'text' => '✅ Credentials verified and encrypted in database.'];
+      } else {
+        $verification_message = ['type' => 'error', 'text' => '⚠️ Verification failed: ' . esc_html($verification['error'])];
+      }
+    } else {
+      $verification_message = ['type' => 'success', 'text' => '✅ Settings saved!'];
+    }
+  }
+
+  $thankyou_page_id = get_option('sb_thankyou_page_id', 0);
   ?>
   <div class="wrap">
     <h1>🚀 Supabase Bridge - Setup Instructions</h1>
 
-    <div class="notice notice-info">
-      <p><strong>Плагин активирован!</strong> Используйте готовую форму auth-form.html с Google + Facebook + Magic Link.</p>
+    <!-- Prerequisites Warning -->
+    <div class="notice notice-warning" style="border-left-color: #f59e0b; padding: 15px;">
+      <h3 style="margin-top: 0;">⚠️ Before You Start</h3>
+      <p><strong>Prerequisites:</strong> You must configure Google OAuth and Facebook OAuth in your Supabase Dashboard first.</p>
+      <p>📖 <strong>Documentation:</strong> <a href="https://supabase.com/docs/guides/auth/social-login/auth-google" target="_blank">Google OAuth Setup</a> | <a href="https://supabase.com/docs/guides/auth/social-login/auth-facebook" target="_blank">Facebook OAuth Setup</a></p>
+      <p>💡 <strong>Magic Link</strong> (passwordless email) works out of the box - no extra setup needed.</p>
     </div>
 
-    <h2>📋 Шаг 1: Конфигурация wp-config.php</h2>
-    <p>Добавьте эти строки в <code>wp-config.php</code> ПЕРЕД строкой <code>/* That's all, stop editing! */</code>:</p>
-    <pre style="background: #f5f5f5; padding: 15px; border-left: 4px solid #0073aa; overflow-x: auto;">
-<code>// Supabase Bridge Configuration
-putenv('SUPABASE_PROJECT_REF=<?php echo esc_html(sb_cfg('SUPABASE_PROJECT_REF', 'your-project-ref')); ?>');
-putenv('SUPABASE_URL=<?php echo esc_html(sb_cfg('SUPABASE_URL', 'https://your-project-ref.supabase.co')); ?>');
-putenv('SUPABASE_ANON_KEY=<?php echo esc_html(sb_cfg('SUPABASE_ANON_KEY', 'your-anon-key')); ?>');</code></pre>
+    <h2>📋 Step 1: Configure Plugin Settings</h2>
 
-    <h2>📄 Шаг 2: Создайте WordPress страницы</h2>
+    <!-- Settings Section -->
+    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+      <form method="post" action="">
+        <?php wp_nonce_field('sb_settings_nonce'); ?>
 
-    <h3>1️⃣ Страница входа (Login Page)</h3>
-    <p><strong>Создайте новую страницу</strong> (например, "Вход") и вставьте код из файла <code>auth-form.html</code> в HTML виджет Elementor.</p>
-    <p><strong>Что включает auth-form.html:</strong></p>
-    <ul>
-      <li>✅ Google OAuth</li>
-      <li>✅ Facebook OAuth</li>
-      <li>✅ Magic Link (Passwordless)</li>
-      <li>✅ Умные редиректы (новый/существующий пользователь)</li>
-      <li>✅ Автоматическая обработка OAuth callback</li>
-    </ul>
-    <p><em>📌 Сохраните URL этой страницы (например: <code><?php echo esc_url(home_url('/login/')); ?></code>)</em></p>
-    <p><em>⚠️ auth-form.html САМ обрабатывает OAuth callback - отдельная callback страница НЕ НУЖНА!</em></p>
+        <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">🔐 Supabase Credentials (Encrypted Storage)</h3>
+        <table class="form-table">
+          <tr>
+            <th scope="row">
+              <label for="sb_supabase_url">Supabase URL</label>
+            </th>
+            <td>
+              <input
+                type="url"
+                name="sb_supabase_url"
+                id="sb_supabase_url"
+                value="<?php echo esc_attr(sb_cfg('SUPABASE_URL', '')); ?>"
+                class="regular-text"
+                placeholder="https://your-project.supabase.co"
+              >
+              <p class="description">Example: <code>https://abcdefghijk.supabase.co</code> (Project Ref extracted automatically)</p>
+            </td>
+          </tr>
 
-    <h3>2️⃣ Страница благодарности (Thank You Page)</h3>
-    <p><strong>Создайте страницу с URL slug:</strong> <code>/registr/</code></p>
-    <p>Эта страница может содержать любой контент - приветствие, форму регистрации профиля, или редирект дальше.</p>
-    <p><em>💡 Новые пользователи (зарегистрированы < 60 сек назад) попадут сюда после авторизации.</em></p>
-    <p><em>💡 Существующие пользователи вернутся на страницу откуда пришли.</em></p>
+          <tr>
+            <th scope="row">
+              <label for="sb_supabase_anon_key">Anon Key</label>
+            </th>
+            <td>
+              <input
+                type="password"
+                name="sb_supabase_anon_key"
+                id="sb_supabase_anon_key"
+                value="<?php echo esc_attr(sb_cfg('SUPABASE_ANON_KEY', '')); ?>"
+                class="large-text"
+                placeholder="eyJhbGci..."
+              >
+              <p class="description">Example: <code>eyJhbGciOiJIUzI1...</code> (will be encrypted in database)</p>
+            </td>
+          </tr>
+        </table>
+
+        <?php if ($verification_message): ?>
+          <div style="margin: 15px 0; padding: 12px; border-radius: 4px; <?php echo $verification_message['type'] === 'success' ? 'background: #d4edda; border: 1px solid #c3e6cb; color: #155724;' : 'background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;'; ?>">
+            <?php echo $verification_message['text']; ?>
+          </div>
+        <?php endif; ?>
+
+        <h3 style="border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; margin-top: 30px;">🎉 Thank You Page (New Users Redirect)</h3>
+        <table class="form-table">
+          <tr>
+            <th scope="row">
+              <label for="sb_thankyou_page_id">Select Page</label>
+            </th>
+            <td>
+              <?php
+              wp_dropdown_pages([
+                'name' => 'sb_thankyou_page_id',
+                'id' => 'sb_thankyou_page_id',
+                'selected' => $thankyou_page_id,
+                'show_option_none' => '— Select a page —',
+                'option_none_value' => '0'
+              ]);
+              ?>
+              <?php if ($thankyou_page_id): ?>
+                <p class="description">
+                  <strong>Current URL:</strong> <a href="<?php echo esc_url(get_permalink($thankyou_page_id)); ?>" target="_blank"><?php echo esc_url(get_permalink($thankyou_page_id)); ?></a>
+                  <br><em>💡 New users (registered < 60 seconds ago) will be redirected here</em>
+                </p>
+              <?php else: ?>
+                <p class="description">Select the page where new users will be redirected after registration</p>
+              <?php endif; ?>
+            </td>
+          </tr>
+        </table>
+
+        <p class="submit">
+          <input type="submit" name="sb_save_settings" class="button button-primary" value="💾 Save Settings">
+        </p>
+      </form>
+    </div>
 
     <hr style="margin: 40px 0;">
 
-    <h2>🔧 Шаг 3: Настройка Supabase Dashboard</h2>
-    <ol>
-      <li>Откройте <a href="https://app.supabase.com" target="_blank">https://app.supabase.com</a></li>
-      <li>Выберите ваш проект: <code><?php echo esc_html(sb_cfg('SUPABASE_PROJECT_REF', 'your-project-ref')); ?></code></li>
-      <li>Перейдите в <strong>Authentication → URL Configuration</strong></li>
-      <li>Добавьте в <strong>Redirect URLs</strong> URL вашей страницы логина (например: <code><?php echo esc_url(home_url('/login/')); ?></code>)</li>
-      <li>Перейдите в <strong>Authentication → Providers</strong></li>
-      <li>Включите <strong>Google OAuth</strong> (настройте Client ID и Secret)</li>
-      <li>Включите <strong>Facebook OAuth</strong> (настройте App ID и Secret, запросите Advanced access для email)</li>
-      <li>Включите <strong>Email Auth</strong> для Magic Link (Passwordless)</li>
-    </ol>
+    <h2>Step 2: Add shortcode to your login page</h2>
+    <p>Create or edit a page, add <strong>Shortcode block</strong>, insert shortcode, and publish.</p>
+    <div style="margin: 20px 0; padding: 15px; background: #f0f6fc; border-left: 4px solid #0969da; border-radius: 6px;">
+      <code style="font-size: 16px; font-weight: 600; color: #0969da;">[supabase_auth_form]</code>
+      <button
+        onclick="navigator.clipboard.writeText('[supabase_auth_form]').then(() => { const btn = event.target; btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy', 2000); })"
+        style="padding: 6px 12px; background: #0969da; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 15px; font-size: 13px;"
+      >
+        📋 Copy
+      </button>
+    </div>
+    <p><em>💡 Save your login page URL - you'll need it for Step 3</em></p>
 
     <hr style="margin: 40px 0;">
 
-    <h2>✅ Шаг 4: Проверка работы</h2>
-    <ol>
-      <li>Откройте страницу входа в браузере</li>
-      <li>Протестируйте <strong>Google OAuth</strong> → должны залогиниться</li>
-      <li>Протестируйте <strong>Facebook OAuth</strong> → должны залогиниться</li>
-      <li>Протестируйте <strong>Magic Link</strong> → введите email → получите код → должны залогиниться</li>
-      <li>Новые пользователи попадут на <code>/registr/</code>, существующие вернутся назад</li>
-      <li>Проверьте админку: WordPress → Users → должен быть создан новый пользователь</li>
-    </ol>
+    <h2>Step 3: Add login page URL to Supabase</h2>
+    <p>Go to <a href="https://app.supabase.com" target="_blank">app.supabase.com</a> → your project<?php if (sb_cfg('SUPABASE_PROJECT_REF')): ?> (<code><?php echo esc_html(sb_cfg('SUPABASE_PROJECT_REF')); ?></code>)<?php endif; ?> → <strong>Authentication → URL Configuration</strong> → add your login page URL to <strong>Redirect URLs</strong> → Save.</p>
 
     <hr style="margin: 40px 0;">
 
-    <h2>🐛 Диагностика проблем</h2>
-    <p><strong>Если не работает:</strong></p>
-    <ul>
-      <li>Откройте любую страницу сайта, нажмите F12 (консоль браузера)</li>
-      <li>Выполните: <code>console.log(window.SUPABASE_CFG)</code></li>
-      <li>Должен вывести объект с <code>url</code> и <code>anon</code></li>
-      <li>Если <code>undefined</code> — проверьте wp-config.php конфигурацию</li>
-    </ul>
+    <h2>Step 4: Test</h2>
+    <p>Open your login page (incognito mode). Try <strong>Google OAuth</strong>, <strong>Facebook OAuth</strong>, and <strong>Magic Link</strong>. Check <strong>WordPress → Users</strong> for new user.</p>
+
+    <hr style="margin: 40px 0;">
+
+    <h2>🐛 Troubleshooting</h2>
+    <p><strong>Form doesn't appear:</strong> Open console (F12) → run <code>console.log(window.SUPABASE_CFG)</code> → should show <code>url</code> and <code>anon</code></p>
+    <p><strong>OAuth doesn't work:</strong> Check Prerequisites + verify login URL in Supabase Redirect URLs</p>
 
     <div class="notice notice-success" style="margin-top: 30px;">
-      <p><strong>🎉 Готово!</strong> Если всё настроено правильно, OAuth авторизация через Google будет работать.</p>
+      <p><strong>🎉 Done!</strong> Your Supabase authentication is integrated with WordPress.</p>
     </div>
   </div>
   <?php
