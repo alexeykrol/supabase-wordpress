@@ -1,12 +1,37 @@
 # Project Backlog
 
 **Project:** Supabase Bridge (Auth) for WordPress
-**Version:** 0.4.0
-**Last Updated:** 2025-10-24
+**Version:** 0.4.1
+**Last Updated:** 2025-10-25
 
 ---
 
 ## 🎯 Recent Updates
+
+### 2025-10-25 - Release v0.4.1 - Fix User Duplication (Critical)
+**Status:** ✅ Complete
+**Description:** Critical fix for race condition causing duplicate user creation during authentication
+**Details:**
+- **Fixed:** User duplication during Magic Link and OAuth authentication
+- **Root Cause:** Race condition - multiple concurrent PHP processes creating users simultaneously
+- **Solution:** Server-side distributed lock using WordPress Transient API + UUID-first checking
+- **Protection Layers:** 3-layer defense (UUID check + distributed lock + retry logic)
+- **Additional Fixes:**
+  - Elementor CSP compatibility (removed CSP headers on auth pages)
+  - WordPress text filter bypass (placeholder replacement pattern)
+  - Dynamic Thank You Page redirect from Settings
+- **Documentation Added:**
+  - TROUBLESHOOTING.md - Full diagnostic workflow with root cause analysis
+  - DIAGNOSTIC_CHECKLIST.md - Step-by-step debugging guide
+  - Updated CLAUDE.md with mandatory debugging protocol
+- **Testing:** All authentication methods tested without duplication
+  - ✅ Magic Link authentication
+  - ✅ Google OAuth authentication
+  - ✅ Facebook OAuth authentication
+  - ✅ Works with Elementor page builder
+  - ✅ Cross-browser tested (Chrome, Safari)
+- **Files Modified:** supabase-bridge.php (lines 367-467), auth-form.html, CLAUDE.md
+- **Commit:** 8c2ff48
 
 ### 2025-10-24 - Release v0.4.0 - Shortcode & Settings Page
 **Status:** ✅ Complete

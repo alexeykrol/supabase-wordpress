@@ -1,6 +1,6 @@
 # PROJECT SNAPSHOT — Текущее состояние проекта
 
-*Последнее обновление: 2025-10-23*
+*Последнее обновление: 2025-10-25*
 
 > 📋 **Процесс обновления этого файла:** см. [`PROCESS.md`](./PROCESS.md)
 >
@@ -38,12 +38,17 @@
 
 ```
 supabase-bridge/
-├── supabase-bridge.php              [статус: ✅] Main plugin (388 lines)
+├── supabase-bridge.php              [статус: ✅] Main plugin (467 lines, v0.4.1)
 │   ├── Security headers             ✅
 │   ├── REST API endpoints           ✅
 │   ├── JWT verification             ✅
-│   └── WordPress user sync          ✅
-├── auth-form.html                   [статус: ✅] Ready-to-use form
+│   ├── WordPress user sync          ✅
+│   ├── Distributed lock             ✅ (v0.4.1)
+│   └── Settings page                ✅ (v0.4.0)
+├── auth-form.html                   [статус: ✅] Auth form (v0.4.1)
+├── TROUBLESHOOTING.md               [статус: ✅] Diagnostic workflow (v0.4.1)
+├── DIAGNOSTIC_CHECKLIST.md          [статус: ✅] Debugging guide (v0.4.1)
+├── CLAUDE.md                        [статус: ✅] Project context (v0.4.1)
 ├── composer.json                    [статус: ✅] PHP dependencies
 ├── composer.lock                    [статус: ✅] Locked versions
 ├── vendor/                          [статус: ✅] Autoload + firebase/php-jwt
@@ -58,9 +63,10 @@ supabase-bridge/
 │   ├── PROJECT_INTAKE.md            ✅
 │   ├── ARCHITECTURE.md              ✅
 │   ├── SECURITY.md                  ✅
-│   ├── BACKLOG.md                   ✅
+│   ├── BACKLOG.md                   ✅ (v0.4.1)
 │   ├── AGENTS.md                    ✅
-│   └── PROJECT_SNAPSHOT.md          ✅ (this file)
+│   ├── WORKFLOW.md                  ✅
+│   └── PROJECT_SNAPSHOT.md          ✅ (this file, v0.4.1)
 ├── archive/                         [статус: ✅] Legacy docs
 │   ├── MIGRATION_REPORT.md          ✅
 │   ├── legacy-docs/                 ✅
@@ -134,6 +140,39 @@ supabase-bridge/
 - ✅ Google OAuth: Working perfectly
 - ✅ No duplicate users created
 - ✅ Proper redirects for new/existing users
+
+### Phase 5: User Duplication Fix & Documentation (v0.4.0-v0.4.1) - Released 2025-10-25
+**v0.4.0:**
+1. ✅ Shortcode Implementation ([supabase_auth_form])
+2. ✅ Settings Page with Thank You Page selector
+3. ✅ Encrypted Credentials Storage (AES-256-CBC)
+4. ✅ Real-time Credentials Verification
+
+**v0.4.1 (Critical Fix):**
+1. ✅ Server-side Distributed Lock (WordPress Transient API)
+2. ✅ UUID-first Checking (before email lookup)
+3. ✅ 3-layer Race Condition Protection
+4. ✅ Elementor CSP Compatibility
+5. ✅ WordPress Text Filter Bypass (placeholder pattern)
+6. ✅ Dynamic Thank You Page Redirect
+7. ✅ TROUBLESHOOTING.md Created (full diagnostic workflow)
+8. ✅ DIAGNOSTIC_CHECKLIST.md Created (systematic debugging)
+9. ✅ CLAUDE.md Updated (mandatory debugging protocol)
+
+**Testing Results (v0.4.1):**
+- ✅ Magic Link: No duplication (tested)
+- ✅ Google OAuth: No duplication (Chrome + Safari)
+- ✅ Facebook OAuth: No duplication (tested)
+- ✅ Elementor Compatibility: Works perfectly
+- ✅ Cross-browser: Chrome, Safari verified
+- ✅ Race Condition: Fixed with distributed lock
+
+**Root Cause Documented:**
+- Problem: Two PHP processes (different PIDs) creating users simultaneously
+- Solution: Server-side lock prevents concurrent creation
+- Protection: UUID check + distributed lock + retry logic
+- Files: supabase-bridge.php (lines 367-467), auth-form.html, CLAUDE.md
+- Commit: 8c2ff48
 
 ---
 
@@ -226,6 +265,20 @@ WordPress плагин для интеграции Supabase Auth как един
 
 ## 🔄 История обновлений
 
+### 2025-10-25 - Phase 5 завершена (v0.4.0-v0.4.1) ✨
+- Реализовано: User duplication fix + comprehensive documentation
+- Прогресс: 100% MVP + Critical Bug Fixed
+- Следующий этап: Maintenance + plan v0.2.0 (Role Mapping)
+- Детали:
+  - v0.4.0: Shortcode implementation, Settings page, encrypted credentials
+  - v0.4.1: Server-side distributed lock, UUID-first checking, 3-layer protection
+  - Elementor CSP compatibility, WordPress text filter bypass
+  - Created TROUBLESHOOTING.md with full diagnostic workflow
+  - Created DIAGNOSTIC_CHECKLIST.md for systematic debugging
+  - Updated CLAUDE.md with mandatory debugging protocol
+- Тестирование: Все методы аутентификации без дублирования (Magic Link, Google OAuth, Facebook OAuth)
+- Commit: 8c2ff48
+
 ### 2025-10-23 - Phase 4 завершена (v0.3.5) + Migration to v1.2.4
 - Реализовано: Critical bug fixes для OAuth и Magic Link
 - Прогресс: 100% MVP + Production Tested ✨
@@ -286,14 +339,24 @@ WordPress плагин для интеграции Supabase Auth как един
 
 **Status:** ✅ Production Ready ✨
 **Live Site:** https://questtales.com
-**Version:** 0.3.5
-**Last Deploy:** 2025-10-23
+**Version:** 0.4.1
+**Last Deploy:** 2025-10-25
 **Uptime:** Stable
 **Known Bugs:** 0
-**Testing:** Magic Link (3/3), Google OAuth (✅)
+**Critical Fixes:** User duplication fixed (v0.4.1)
+**Testing:**
+- Magic Link (✅ No duplication)
+- Google OAuth (✅ No duplication, Chrome + Safari)
+- Facebook OAuth (✅ No duplication)
+- Elementor (✅ Full compatibility)
+
+**Documentation:**
+- ✅ TROUBLESHOOTING.md - Complete diagnostic workflow
+- ✅ DIAGNOSTIC_CHECKLIST.md - Systematic debugging guide
+- ✅ CLAUDE.md - Mandatory debugging protocol
 
 ---
 
 *Этот файл — SINGLE SOURCE OF TRUTH для текущего состояния проекта*
-*Обновлен: 2025-10-23 (Migrated from docs/STATUS.md)*
+*Обновлен: 2025-10-25 (Phase 5: v0.4.1 - User Duplication Fix)*
 *Обновляй после каждой фазы согласно PROCESS.md!*
