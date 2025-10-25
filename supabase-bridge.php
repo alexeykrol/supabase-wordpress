@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening.
- * Version: 0.4.0
+ * Version: 0.5.0-dev
  * Author: Alexey Krol
  * License: MIT
  * Requires PHP: 8.0
@@ -131,6 +131,104 @@ function sb_get_thankyou_url() {
     }
   }
   return '/registr/'; // default fallback
+}
+
+// === Phase 1: Supabase Tables Management ===
+// Execute SQL query via Supabase REST API
+function sb_execute_supabase_sql($sql) {
+  $url = sb_cfg('SUPABASE_URL');
+  $anon_key = sb_cfg('SUPABASE_ANON_KEY');
+
+  if (empty($url) || empty($anon_key)) {
+    return ['success' => false, 'error' => 'Supabase credentials not configured'];
+  }
+
+  // Supabase REST API endpoint for SQL queries
+  $endpoint = rtrim($url, '/') . '/rest/v1/rpc/exec_sql';
+
+  $response = wp_remote_post($endpoint, [
+    'headers' => [
+      'apikey' => $anon_key,
+      'Authorization' => 'Bearer ' . $anon_key,
+      'Content-Type' => 'application/json',
+    ],
+    'body' => json_encode(['query' => $sql]),
+    'timeout' => 30,
+  ]);
+
+  if (is_wp_error($response)) {
+    return ['success' => false, 'error' => $response->get_error_message()];
+  }
+
+  $code = wp_remote_retrieve_response_code($response);
+  $body = wp_remote_retrieve_body($response);
+
+  if ($code >= 200 && $code < 300) {
+    return ['success' => true, 'data' => json_decode($body, true)];
+  }
+
+  return ['success' => false, 'error' => "HTTP $code: $body"];
+}
+
+// Check if Supabase tables exist
+function sb_check_tables_exist() {
+  $url = sb_cfg('SUPABASE_URL');
+  $anon_key = sb_cfg('SUPABASE_ANON_KEY');
+
+  if (empty($url) || empty($anon_key)) {
+    return ['exists' => false, 'error' => 'Supabase credentials not configured'];
+  }
+
+  // Try to query wp_registration_pairs table
+  $endpoint = rtrim($url, '/') . '/rest/v1/wp_registration_pairs?limit=0';
+
+  $response = wp_remote_get($endpoint, [
+    'headers' => [
+      'apikey' => $anon_key,
+      'Authorization' => 'Bearer ' . $anon_key,
+    ],
+    'timeout' => 10,
+  ]);
+
+  if (is_wp_error($response)) {
+    return ['exists' => false, 'error' => $response->get_error_message()];
+  }
+
+  $code = wp_remote_retrieve_response_code($response);
+
+  // 200 = table exists, 404/400 = table doesn't exist
+  return ['exists' => ($code === 200), 'code' => $code];
+}
+
+// Create Supabase tables for registration pairs
+function sb_create_supabase_tables() {
+  // Read SQL file
+  $sql_file = plugin_dir_path(__FILE__) . 'supabase-tables.sql';
+
+  if (!file_exists($sql_file)) {
+    return ['success' => false, 'error' => 'SQL file not found: supabase-tables.sql'];
+  }
+
+  $sql = file_get_contents($sql_file);
+
+  if (empty($sql)) {
+    return ['success' => false, 'error' => 'SQL file is empty'];
+  }
+
+  // Note: Supabase REST API doesn't support direct SQL execution via anon key
+  // Tables must be created via Supabase Dashboard SQL Editor or Database URL
+  // This function returns instructions for manual setup
+
+  return [
+    'success' => false,
+    'manual_setup_required' => true,
+    'instructions' => 'Please execute the SQL script via Supabase Dashboard:
+1. Go to: https://supabase.com/dashboard/project/' . sb_cfg('SUPABASE_PROJECT_REF') . '/sql
+2. Copy content from: ' . $sql_file . '
+3. Paste and execute in SQL Editor
+4. Verify tables created: wp_registration_pairs, wp_user_registrations',
+    'sql_file' => $sql_file
+  ];
 }
 
 // Глобальная переменная для хранения контента auth form
@@ -688,6 +786,87 @@ function sb_render_setup_page() {
           <input type="submit" name="sb_save_settings" class="button button-primary" value="💾 Save Settings">
         </p>
       </form>
+    </div>
+
+    <hr style="margin: 40px 0;">
+
+    <!-- Phase 1: Database Status -->
+    <h2>📊 Supabase Database Status</h2>
+    <?php
+    // Check if tables exist
+    $tables_check = sb_check_tables_exist();
+    $tables_exist = $tables_check['exists'] ?? false;
+    ?>
+
+    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+      <?php if ($tables_exist): ?>
+        <!-- Tables exist -->
+        <div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724; margin-bottom: 15px;">
+          <strong>✅ Tables Status: READY</strong>
+          <p style="margin: 10px 0 0 0;">Registration pairs tables are created and accessible.</p>
+          <ul style="margin: 10px 0 0 20px; list-style: disc;">
+            <li><code>wp_registration_pairs</code> - Registration/Thank You page mappings</li>
+            <li><code>wp_user_registrations</code> - User registration logs for analytics</li>
+          </ul>
+        </div>
+        <p><em>💡 You're ready to create registration pairs in the next phase</em></p>
+      <?php else: ?>
+        <!-- Tables don't exist - show setup instructions -->
+        <div style="padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404; margin-bottom: 15px;">
+          <strong>⚠️ Tables Status: NOT CREATED</strong>
+          <p style="margin: 10px 0 0 0;">Registration pairs feature requires database tables in Supabase.</p>
+        </div>
+
+        <h3 style="margin-top: 20px;">🔧 Setup Instructions</h3>
+        <p>Follow these steps to create the required tables:</p>
+
+        <div style="background: #f8f9fa; padding: 20px; border-left: 4px solid #0969da; border-radius: 4px; margin: 20px 0;">
+          <h4 style="margin-top: 0;">Step 1: Open Supabase SQL Editor</h4>
+          <p>
+            <a href="https://supabase.com/dashboard/project/<?php echo esc_attr(sb_cfg('SUPABASE_PROJECT_REF', 'YOUR_PROJECT')); ?>/sql"
+               target="_blank"
+               class="button button-primary"
+               style="text-decoration: none;">
+              🔗 Open SQL Editor →
+            </a>
+          </p>
+
+          <h4>Step 2: Copy SQL Script</h4>
+          <p>SQL file location: <code><?php echo esc_html(plugin_dir_path(__FILE__) . 'supabase-tables.sql'); ?></code></p>
+          <textarea readonly style="width: 100%; height: 150px; font-family: monospace; font-size: 12px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" onclick="this.select();">
+<?php echo esc_textarea(file_get_contents(plugin_dir_path(__FILE__) . 'supabase-tables.sql')); ?>
+          </textarea>
+          <button
+            onclick="const textarea = this.previousElementSibling; textarea.select(); document.execCommand('copy'); this.textContent = '✅ Copied!'; setTimeout(() => this.textContent = '📋 Copy SQL', 2000);"
+            class="button"
+            style="margin-top: 10px;">
+            📋 Copy SQL
+          </button>
+
+          <h4>Step 3: Execute in Supabase</h4>
+          <ol style="margin-left: 20px;">
+            <li>Paste the SQL script into the Supabase SQL Editor</li>
+            <li>Click <strong>Run</strong> button</li>
+            <li>Verify success message: "Success. No rows returned"</li>
+          </ol>
+
+          <h4>Step 4: Verify Tables</h4>
+          <p>Refresh this page to verify tables were created successfully.</p>
+          <button
+            onclick="window.location.reload();"
+            class="button button-secondary">
+            🔄 Refresh Status
+          </button>
+        </div>
+
+        <div style="padding: 12px; background: #e7f3ff; border-left: 3px solid #0969da; border-radius: 4px; margin-top: 20px;">
+          <strong>💡 What do these tables do?</strong>
+          <p style="margin: 8px 0 0 0;">
+            <strong>wp_registration_pairs:</strong> Maps registration pages to their thank you pages (e.g., /services/ → /services-thankyou/)<br>
+            <strong>wp_user_registrations:</strong> Logs which users registered through which pages (for analytics & webhooks)
+          </p>
+        </div>
+      <?php endif; ?>
     </div>
 
     <hr style="margin: 40px 0;">
