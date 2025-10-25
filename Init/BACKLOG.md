@@ -690,8 +690,9 @@ wp supabase import-users users.csv
 
 #### Issue #1: Misleading `/registr/` slug documentation
 **Severity:** Low (UX/Documentation)
-**Status:** 🔴 Open
+**Status:** ✅ Resolved in v0.4.0
 **Reported:** 2025-10-23
+**Resolved:** 2025-10-24
 **Description:**
 Setup page (`supabase-bridge.php:342`) states: "Создайте страницу с URL slug: `/registr/`" which creates impression that this slug is reserved/hardcoded.
 
@@ -716,12 +717,16 @@ Update setup instructions to clarify:
 - `auth-form.html:722` (hardcoded default)
 - `docs/QUICKSTART.md`, `docs/INSTALL.md`, `docs/DEPLOYMENT.md`
 
+**Resolution (v0.4.0):**
+Settings page now has Thank You Page selector (wp_dropdown_pages). Users simply select page from dropdown - plugin automatically extracts URL. No manual slug configuration needed. Issue obsolete - users don't see or configure `/registr/` anymore.
+
 ---
 
 #### Issue #2: Permalink structure mismatch between environments
 **Severity:** Medium (Testing/Development)
-**Status:** 🔴 Open
+**Status:** ✅ Documented
 **Reported:** 2025-10-23
+**Resolved:** 2025-10-24
 **Description:**
 Production site uses "Day and name" permalink structure (`/%year%/%monthnum%/%day%/%postname%/`), but local Docker development environment defaults to "Plain" structure (`/?p=123`).
 
@@ -744,6 +749,9 @@ For OAuth testing, permalink structure MUST be identical across environments.
 - Supabase redirect whitelist configuration
 - Local development setup guide
 - Testing procedures
+
+**Resolution (v0.4.0):**
+Added warning in Setup page Step 4 (Testing section). Developers are now informed to check permalink structure before OAuth testing. This is a development environment configuration issue, not a plugin bug. Documented and closed.
 
 ---
 

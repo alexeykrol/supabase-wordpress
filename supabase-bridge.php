@@ -576,6 +576,7 @@ function sb_render_setup_page() {
     <h2>🐛 Troubleshooting</h2>
     <p><strong>Form doesn't appear:</strong> Open console (F12) → run <code>console.log(window.SUPABASE_CFG)</code> → should show <code>url</code> and <code>anon</code></p>
     <p><strong>OAuth doesn't work:</strong> Check Prerequisites + verify login URL in Supabase Redirect URLs</p>
+    <p><strong>⚠️ Development environment:</strong> Ensure permalink structure (Settings → Permalinks) matches production for OAuth testing</p>
 
     <div class="notice notice-success" style="margin-top: 30px;">
       <p><strong>🎉 Done!</strong> Your Supabase authentication is integrated with WordPress.</p>
