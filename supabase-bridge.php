@@ -200,6 +200,136 @@ function sb_check_tables_exist() {
   return ['exists' => ($code === 200), 'code' => $code];
 }
 
+// === Security: Input Validation Functions ===
+
+/**
+ * Validate email address (защита от SQL injection и XSS)
+ *
+ * @param string $email Email to validate
+ * @return string|false Sanitized email or false if invalid
+ */
+function sb_validate_email($email) {
+  if (empty($email)) {
+    return false;
+  }
+
+  // Remove whitespace and convert to lowercase
+  $email = trim(strtolower($email));
+
+  // WordPress built-in email validation
+  if (!is_email($email)) {
+    error_log("Supabase Bridge: Invalid email format: " . sanitize_text_field($email));
+    return false;
+  }
+
+  // Additional check: Max length 254 characters (RFC 5321)
+  if (strlen($email) > 254) {
+    error_log("Supabase Bridge: Email too long: " . strlen($email) . " characters");
+    return false;
+  }
+
+  // Sanitize for database
+  return sanitize_email($email);
+}
+
+/**
+ * Validate URL path (защита от open redirect и path traversal)
+ *
+ * @param string $path URL path to validate
+ * @return string|false Sanitized path or false if invalid
+ */
+function sb_validate_url_path($path) {
+  if (empty($path)) {
+    return false;
+  }
+
+  // Remove whitespace
+  $path = trim($path);
+
+  // Must start with /
+  if (!str_starts_with($path, '/')) {
+    error_log("Supabase Bridge: Invalid URL path (must start with /): $path");
+    return false;
+  }
+
+  // Block path traversal attempts
+  if (strpos($path, '..') !== false) {
+    error_log("Supabase Bridge: Path traversal attempt detected: $path");
+    return false;
+  }
+
+  // Block protocol attempts (http://, https://, javascript:, etc.)
+  if (preg_match('/^[a-z]+:/i', $path)) {
+    error_log("Supabase Bridge: Protocol in path not allowed: $path");
+    return false;
+  }
+
+  // Sanitize for database (removes harmful characters)
+  $path = esc_url_raw($path);
+
+  // Max length check (reasonable URL path)
+  if (strlen($path) > 2000) {
+    error_log("Supabase Bridge: URL path too long: " . strlen($path) . " characters");
+    return false;
+  }
+
+  return $path;
+}
+
+/**
+ * Validate UUID format (защита от injection)
+ *
+ * @param string $uuid UUID to validate
+ * @return string|false Sanitized UUID or false if invalid
+ */
+function sb_validate_uuid($uuid) {
+  if (empty($uuid)) {
+    return false;
+  }
+
+  // Remove whitespace and convert to lowercase
+  $uuid = trim(strtolower($uuid));
+
+  // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+  // Where y is one of [8, 9, a, b]
+  $uuid_pattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/';
+
+  if (!preg_match($uuid_pattern, $uuid)) {
+    error_log("Supabase Bridge: Invalid UUID format: $uuid");
+    return false;
+  }
+
+  return $uuid;
+}
+
+/**
+ * Validate and sanitize site URL
+ *
+ * @param string $url Site URL to validate
+ * @return string|false Sanitized URL or false if invalid
+ */
+function sb_validate_site_url($url) {
+  if (empty($url)) {
+    return false;
+  }
+
+  // WordPress built-in URL validation
+  $url = esc_url_raw($url);
+
+  if (empty($url)) {
+    error_log("Supabase Bridge: Invalid site URL");
+    return false;
+  }
+
+  // Must be http or https
+  if (!preg_match('/^https?:\/\//', $url)) {
+    error_log("Supabase Bridge: Site URL must use http or https protocol");
+    return false;
+  }
+
+  return $url;
+}
+
 // === Phase 3: Supabase Sync Functions ===
 
 // Sync registration pair to Supabase (non-blocking)
@@ -208,22 +338,38 @@ function sb_sync_pair_to_supabase($pair_data) {
     $url = sb_cfg('SUPABASE_URL');
     $anon_key = sb_cfg('SUPABASE_ANON_KEY');
 
+    // Validate credentials
     if (empty($url) || empty($anon_key)) {
-      error_log('Supabase Bridge: Cannot sync pair - credentials not configured');
+      error_log('Supabase Bridge: Sync failed - credentials not configured');
+      return false;
+    }
+
+    // SECURITY: Validate all inputs before sending to Supabase
+    $validated_site_url = sb_validate_site_url(get_site_url());
+    $validated_reg_url = sb_validate_url_path($pair_data['registration_page_url'] ?? '');
+    $validated_ty_url = sb_validate_url_path($pair_data['thankyou_page_url'] ?? '');
+    $validated_id = sb_validate_uuid($pair_data['id'] ?? '');
+
+    if (!$validated_site_url || !$validated_reg_url || !$validated_ty_url || !$validated_id) {
+      error_log('Supabase Bridge: Sync failed - Invalid data detected (possible injection attempt)');
+      error_log('  site_url: ' . ($validated_site_url ? 'OK' : 'INVALID'));
+      error_log('  registration_page_url: ' . ($validated_reg_url ? 'OK' : 'INVALID: ' . ($pair_data['registration_page_url'] ?? 'empty')));
+      error_log('  thankyou_page_url: ' . ($validated_ty_url ? 'OK' : 'INVALID: ' . ($pair_data['thankyou_page_url'] ?? 'empty')));
+      error_log('  id: ' . ($validated_id ? 'OK' : 'INVALID: ' . ($pair_data['id'] ?? 'empty')));
       return false;
     }
 
     // Endpoint for wp_registration_pairs table
     $endpoint = rtrim($url, '/') . '/rest/v1/wp_registration_pairs';
 
-    // Prepare data for Supabase
+    // Use validated data (защита от injection)
     $supabase_data = [
-      'id' => $pair_data['id'],
-      'site_url' => get_site_url(),
-      'registration_page_url' => $pair_data['registration_page_url'],
-      'thankyou_page_url' => $pair_data['thankyou_page_url'],
-      'registration_page_id' => $pair_data['registration_page_id'],
-      'thankyou_page_id' => $pair_data['thankyou_page_id'],
+      'id' => $validated_id,
+      'site_url' => $validated_site_url,
+      'registration_page_url' => $validated_reg_url,
+      'thankyou_page_url' => $validated_ty_url,
+      'registration_page_id' => intval($pair_data['registration_page_id']),
+      'thankyou_page_id' => intval($pair_data['thankyou_page_id']),
     ];
 
     // UPSERT using Prefer: resolution-merge-duplicates
@@ -233,6 +379,7 @@ function sb_sync_pair_to_supabase($pair_data) {
         'Authorization' => 'Bearer ' . $anon_key,
         'Content-Type' => 'application/json',
         'Prefer' => 'resolution=merge-duplicates',
+        'x-site-url' => $validated_site_url, // For RLS policy check
       ],
       'body' => json_encode($supabase_data),
       'timeout' => 10,
@@ -263,19 +410,31 @@ function sb_delete_pair_from_supabase($pair_id) {
     $url = sb_cfg('SUPABASE_URL');
     $anon_key = sb_cfg('SUPABASE_ANON_KEY');
 
+    // Validate credentials
     if (empty($url) || empty($anon_key)) {
-      error_log('Supabase Bridge: Cannot delete pair - credentials not configured');
+      error_log('Supabase Bridge: Delete failed - credentials not configured');
       return false;
     }
 
-    // Endpoint with filter by ID
-    $endpoint = rtrim($url, '/') . '/rest/v1/wp_registration_pairs?id=eq.' . urlencode($pair_id);
+    // SECURITY: Validate UUID before using in query
+    $validated_id = sb_validate_uuid($pair_id);
+    if (!$validated_id) {
+      error_log('Supabase Bridge: Delete failed - Invalid pair_id (possible injection attempt): ' . $pair_id);
+      return false;
+    }
+
+    // Endpoint with filter by ID (using validated UUID)
+    $endpoint = rtrim($url, '/') . '/rest/v1/wp_registration_pairs?id=eq.' . urlencode($validated_id);
+
+    // Validate site URL for RLS check
+    $validated_site_url = sb_validate_site_url(get_site_url());
 
     $response = wp_remote_request($endpoint, [
       'method' => 'DELETE',
       'headers' => [
         'apikey' => $anon_key,
         'Authorization' => 'Bearer ' . $anon_key,
+        'x-site-url' => $validated_site_url, // For RLS policy check
       ],
       'timeout' => 10,
     ]);
@@ -307,18 +466,42 @@ function sb_log_registration_to_supabase($user_email, $supabase_user_id, $regist
     $url = sb_cfg('SUPABASE_URL');
     $anon_key = sb_cfg('SUPABASE_ANON_KEY');
 
+    // Validate credentials
     if (empty($url) || empty($anon_key)) {
       error_log('Supabase Bridge: Cannot log registration - credentials not configured');
+      return false;
+    }
+
+    // SECURITY: Validate inputs before sending to Supabase
+    $validated_email = sb_validate_email($user_email);
+    $validated_user_id = sb_validate_uuid($supabase_user_id);
+    $validated_reg_url = sb_validate_url_path($registration_url);
+
+    if (!$validated_email || !$validated_user_id || !$validated_reg_url) {
+      error_log('Supabase Bridge: Registration log failed - Invalid data detected (possible injection attempt)');
+      error_log('  email: ' . ($validated_email ? 'OK' : 'INVALID: ' . $user_email));
+      error_log('  user_id: ' . ($validated_user_id ? 'OK' : 'INVALID: ' . $supabase_user_id));
+      error_log('  registration_url: ' . ($validated_reg_url ? 'OK' : 'INVALID: ' . $registration_url));
       return false;
     }
 
     // Find matching pair by registration_url
     $pairs = get_option('sb_registration_pairs', []);
     $pair_id = null;
+    $thankyou_page_url = null;
 
     foreach ($pairs as $pair) {
-      if ($pair['registration_page_url'] === $registration_url) {
-        $pair_id = $pair['id'];
+      if ($pair['registration_page_url'] === $validated_reg_url) {
+        // SECURITY: Validate pair_id before using
+        $validated_pair_id = sb_validate_uuid($pair['id'] ?? '');
+        $validated_ty_url = sb_validate_url_path($pair['thankyou_page_url'] ?? '');
+
+        if ($validated_pair_id && $validated_ty_url) {
+          $pair_id = $validated_pair_id;
+          $thankyou_page_url = $validated_ty_url;
+        } else {
+          error_log('Supabase Bridge: Warning - Invalid pair data in wp_options, skipping pair_id');
+        }
         break;
       }
     }
@@ -326,19 +509,29 @@ function sb_log_registration_to_supabase($user_email, $supabase_user_id, $regist
     // Endpoint for wp_user_registrations table
     $endpoint = rtrim($url, '/') . '/rest/v1/wp_user_registrations';
 
-    // Prepare data for Supabase
+    // Use validated data (защита от injection)
     $log_data = [
-      'user_id' => $supabase_user_id,
-      'pair_id' => $pair_id, // NULL if no pair found
-      'user_email' => $user_email,
-      'registration_url' => $registration_url,
+      'user_id' => $validated_user_id,
+      'pair_id' => $pair_id, // NULL if no pair found or invalid
+      'user_email' => $validated_email,
+      'registration_url' => $validated_reg_url,
+      'thankyou_page_url' => $thankyou_page_url, // NULL if no pair found or invalid
     ];
 
+    // Get validated site URL for RLS policy
+    $validated_site_url = sb_validate_site_url(get_site_url());
+    if (!$validated_site_url) {
+      error_log('Supabase Bridge: Registration log failed - Invalid site URL');
+      return false;
+    }
+
+    // Using Anon Key with RLS policy validation via x-site-url header
     $response = wp_remote_post($endpoint, [
       'headers' => [
         'apikey' => $anon_key,
         'Authorization' => 'Bearer ' . $anon_key,
         'Content-Type' => 'application/json',
+        'x-site-url' => $validated_site_url, // For RLS policy validation
       ],
       'body' => json_encode($log_data),
       'timeout' => 10,
@@ -853,6 +1046,7 @@ function sb_render_setup_page() {
     // Supabase credentials (encrypted)
     $url = sanitize_text_field($_POST['sb_supabase_url'] ?? '');
     $anon_key = sanitize_text_field($_POST['sb_supabase_anon_key'] ?? '');
+    $service_key = sanitize_text_field($_POST['sb_supabase_service_key'] ?? '');
 
     $credentials_updated = false;
 
@@ -862,6 +1056,10 @@ function sb_render_setup_page() {
     }
     if (!empty($anon_key)) {
       update_option('sb_supabase_anon_key', sb_encrypt($anon_key));
+      $credentials_updated = true;
+    }
+    if (!empty($service_key)) {
+      update_option('sb_supabase_service_key', sb_encrypt($service_key));
       $credentials_updated = true;
     }
 
@@ -935,7 +1133,7 @@ function sb_render_setup_page() {
 
           <tr>
             <th scope="row">
-              <label for="sb_supabase_anon_key">Anon Key</label>
+              <label for="sb_supabase_anon_key">Anon Key (Public)</label>
             </th>
             <td>
               <input
@@ -946,7 +1144,27 @@ function sb_render_setup_page() {
                 class="large-text"
                 placeholder="eyJhbGci..."
               >
-              <p class="description">Example: <code>eyJhbGciOiJIUzI1...</code> (will be encrypted in database)</p>
+              <p class="description">Used for frontend authentication (browser). Example: <code>eyJhbGciOiJIUzI1...</code></p>
+            </td>
+          </tr>
+
+          <tr>
+            <th scope="row">
+              <label for="sb_supabase_service_key">Service Role Key (Secret) 🔐</label>
+            </th>
+            <td>
+              <input
+                type="password"
+                name="sb_supabase_service_key"
+                id="sb_supabase_service_key"
+                value="<?php echo esc_attr(sb_cfg('SUPABASE_SERVICE_ROLE_KEY', '')); ?>"
+                class="large-text"
+                placeholder="eyJhbGci..."
+              >
+              <p class="description">
+                <strong>⚠️ NEVER expose this key to frontend!</strong> Used for server-side operations (sync, logging).
+                Bypasses RLS policies. Example: <code>eyJhbGciOiJIUzI1...</code>
+              </p>
             </td>
           </tr>
         </table>

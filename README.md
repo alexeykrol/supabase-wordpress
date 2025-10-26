@@ -1,16 +1,16 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.4.1-blue.svg)
+![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0%2B-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Security](https://img.shields.io/badge/security-hardened-brightgreen.svg)
+![Security](https://img.shields.io/badge/security-enterprise%20grade-brightgreen.svg)
 ![Dependencies](https://img.shields.io/badge/dependencies-0%20vulnerabilities-success.svg)
 ![Production](https://img.shields.io/badge/production-tested-success.svg)
 
-> WordPress plugin for Supabase Auth integration. Supports Google OAuth, Facebook OAuth, and Magic Link (passwordless) authentication with JWT verification and WordPress user sync.
+> WordPress plugin for Supabase Auth integration. Supports Google OAuth, Facebook OAuth, Magic Link authentication + Page-Specific Thank You Page Redirects + Enterprise-level Security.
 
-**🎉 Production Ready** | **✅ Tested on [questtales.com](https://questtales.com)** | **🔐 Security Hardened**
+**🎉 Production Ready** | **✅ Tested on [questtales.com](https://questtales.com)** | **🔐 Enterprise-Grade Security**
 
 ---
 
@@ -70,7 +70,53 @@ putenv('SUPABASE_PROJECT_REF=yourproject');
 
 ---
 
-## 📊 What's New in v0.4.1
+## 📊 What's New in v0.7.0
+
+### 🎉 Major Feature Release - Page-Specific Redirects + Enterprise Security (v0.7.0)
+
+**Released:** 2025-10-26
+
+#### New Features:
+- ✅ **Registration Pairs** - Map registration pages → thank you pages for analytics
+  - Settings UI in WordPress Admin → Supabase Bridge → Registration Pairs tab
+  - Add/Delete pairs with AJAX sync to Supabase
+  - Page-specific redirects (e.g., `/services/` → `/services-thankyou/`)
+  - Analytics: track which landing page converted each user
+
+- ✅ **Registration Logging to Supabase** - Complete analytics data
+  - `wp_user_registrations` table logs: user_id, email, registration_url, thankyou_page_url, pair_id
+  - JOIN queries for conversion tracking
+  - A/B testing support (multiple pairs for same audience)
+
+- ✅ **Enterprise-Grade Security** (4 layers of defense)
+  - **Layer 1:** WordPress input validation (`sb_validate_email`, `sb_validate_url_path`, `sb_validate_uuid`, `sb_validate_site_url`)
+  - **Layer 2:** Supabase RLS policies with `x-site-url` filtering
+  - **Layer 3:** Cloudflare WAF + Bot Fight + Turnstile (recommended)
+  - **Layer 4:** WordPress security plugins (AIOS recommended)
+
+- ✅ **Multi-layer Injection Protection**
+  - SQL Injection via email field → blocked by `sb_validate_email()`
+  - XSS via URL fields → blocked by `sb_validate_url_path()`
+  - Path Traversal (e.g., `../../../etc/passwd`) → blocked
+  - UUID injection → blocked by `sb_validate_uuid()`
+  - Cross-site data injection → blocked by RLS policies
+
+#### Security Architecture:
+- **Anon Key + RLS approach** (not Service Role Key - see SECURITY_ROLLBACK_SUMMARY.md)
+- Defense in depth: validation → RLS → WAF → AIOS
+- Protection even if Anon Key compromised (RLS blocks cross-site operations)
+- Production-ready with Cloudflare + LiteSpeed Cache configurations
+
+#### Documentation:
+- `IMPLEMENTATION_SUMMARY.md` - Complete overview of all 6 phases
+- `SECURITY_ROLLBACK_SUMMARY.md` - Security architecture explained
+- `PRODUCTION_SETUP.md` - AIOS/Cloudflare/LiteSpeed setup guide (no conflicts!)
+- `QUICK_SETUP_CHECKLIST.md` - 1-page deployment checklist
+- `SECURITY_RLS_POLICIES_FINAL.sql` - RLS policies for Supabase
+
+**Testing:** All 6 phases tested end-to-end with JOIN query validation ✅
+
+---
 
 ### 🚨 Critical Bug Fix - User Duplication (v0.4.1)
 - **Fixed:** Multiple users created with same email during authentication
