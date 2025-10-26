@@ -299,6 +299,70 @@ function sb_delete_pair_from_supabase($pair_id) {
   }
 }
 
+// === Phase 6: Registration Logging to Supabase ===
+
+// Log user registration to Supabase (non-blocking analytics)
+function sb_log_registration_to_supabase($user_email, $supabase_user_id, $registration_url) {
+  try {
+    $url = sb_cfg('SUPABASE_URL');
+    $anon_key = sb_cfg('SUPABASE_ANON_KEY');
+
+    if (empty($url) || empty($anon_key)) {
+      error_log('Supabase Bridge: Cannot log registration - credentials not configured');
+      return false;
+    }
+
+    // Find matching pair by registration_url
+    $pairs = get_option('sb_registration_pairs', []);
+    $pair_id = null;
+
+    foreach ($pairs as $pair) {
+      if ($pair['registration_page_url'] === $registration_url) {
+        $pair_id = $pair['id'];
+        break;
+      }
+    }
+
+    // Endpoint for wp_user_registrations table
+    $endpoint = rtrim($url, '/') . '/rest/v1/wp_user_registrations';
+
+    // Prepare data for Supabase
+    $log_data = [
+      'user_id' => $supabase_user_id,
+      'pair_id' => $pair_id, // NULL if no pair found
+      'user_email' => $user_email,
+      'registration_url' => $registration_url,
+    ];
+
+    $response = wp_remote_post($endpoint, [
+      'headers' => [
+        'apikey' => $anon_key,
+        'Authorization' => 'Bearer ' . $anon_key,
+        'Content-Type' => 'application/json',
+      ],
+      'body' => json_encode($log_data),
+      'timeout' => 10,
+    ]);
+
+    if (is_wp_error($response)) {
+      error_log('Supabase Bridge: Registration log failed - ' . $response->get_error_message());
+      return false;
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    if ($code >= 200 && $code < 300) {
+      return true;
+    } else {
+      $body = wp_remote_retrieve_body($response);
+      error_log("Supabase Bridge: Registration log failed - HTTP $code: $body");
+      return false;
+    }
+  } catch (Exception $e) {
+    error_log('Supabase Bridge: Exception during registration logging - ' . $e->getMessage());
+    return false;
+  }
+}
+
 // Create Supabase tables for registration pairs
 function sb_create_supabase_tables() {
   // Read SQL file
@@ -668,6 +732,16 @@ function sb_handle_callback(\WP_REST_Request $req) {
           delete_transient($lock_key);
 
           error_log('Supabase Bridge: User created successfully - User ID: ' . $uid);
+
+          // === Phase 6: Log registration to Supabase (non-blocking) ===
+          // Extract registration URL from referer
+          if ($referer) {
+            $registration_url = parse_url($referer, PHP_URL_PATH);
+            if ($registration_url) {
+              sb_log_registration_to_supabase($email, $supabase_user_id, $registration_url);
+              // Note: We don't check return value - logging is non-critical
+            }
+          }
         }
       }
     }
