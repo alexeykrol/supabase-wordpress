@@ -957,7 +957,10 @@ function sb_render_setup_page() {
           </div>
         <?php endif; ?>
 
-        <h3 style="border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; margin-top: 30px;">🎉 Thank You Page (New Users Redirect)</h3>
+        <h3 style="border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; margin-top: 30px;">🎉 Global Thank You Page (Fallback)</h3>
+        <p style="color: #666; margin-top: -5px; margin-bottom: 20px;">
+          💡 <strong>Used when:</strong> No specific pair configured in Registration Pairs tab, or registration from non-mapped page
+        </p>
         <table class="form-table">
           <tr>
             <th scope="row">
@@ -976,10 +979,10 @@ function sb_render_setup_page() {
               <?php if ($thankyou_page_id): ?>
                 <p class="description">
                   <strong>Current URL:</strong> <a href="<?php echo esc_url(get_permalink($thankyou_page_id)); ?>" target="_blank"><?php echo esc_url(get_permalink($thankyou_page_id)); ?></a>
-                  <br><em>💡 New users (registered < 60 seconds ago) will be redirected here</em>
+                  <br><em>💡 Fallback redirect for new users when no specific pair exists</em>
                 </p>
               <?php else: ?>
-                <p class="description">Select the page where new users will be redirected after registration</p>
+                <p class="description">Global fallback page for new user registrations (used when no specific pair configured)</p>
               <?php endif; ?>
             </td>
           </tr>
