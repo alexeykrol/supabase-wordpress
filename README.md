@@ -18,22 +18,39 @@
 
 ### Installation
 
-1. **Download** the latest release: [supabase-bridge-v0.4.1.zip](https://github.com/alexeykrol/supabase-wordpress/releases)
-2. **Upload** to WordPress via Plugins → Add New → Upload Plugin
-3. **Activate** the plugin
-4. **Configure** Supabase credentials in `wp-config.php`:
+1. **Clone or download** this repository:
+   ```bash
+   git clone https://github.com/alexeykrol/supabase-wordpress.git supabase-bridge
+   ```
 
-```php
-// Add to wp-config.php
-putenv('SUPABASE_URL=https://yourproject.supabase.co');
-putenv('SUPABASE_ANON_KEY=eyJhbGci...');
-putenv('SUPABASE_PROJECT_REF=yourproject');
-```
+2. **Install PHP dependencies**:
+   ```bash
+   cd supabase-bridge
+   composer install
+   ```
 
-5. **Create login page** in WordPress and insert code from `auth-form.html`
-6. **Done!** Users can now login with Google, Facebook, or Magic Link
+3. **Upload to WordPress**:
+   - Copy `supabase-bridge/` folder to `wp-content/plugins/`
+   - Or create a ZIP and upload via WordPress Admin → Plugins → Add New → Upload Plugin
 
-📖 **Full Documentation:** See [`docs/QUICKSTART.md`](docs/QUICKSTART.md)
+4. **Activate** the plugin in WordPress Admin → Plugins
+
+5. **Configure credentials** in WordPress Admin → Settings → Supabase Bridge:
+   - Supabase URL: `https://yourproject.supabase.co`
+   - Supabase Anon Key: `eyJhbGci...` (from Supabase Dashboard → Settings → API)
+   - Global Thank You Page: Select a page (fallback for all registrations)
+
+6. **Create registration pairs** (optional):
+   - WordPress Admin → Supabase Bridge → Registration Pairs
+   - Add pairs: e.g., `/services/` → `/services-thankyou/`
+
+7. **Setup Supabase database**:
+   - Run `supabase-tables.sql` in Supabase Dashboard → SQL Editor
+   - Run `SECURITY_RLS_POLICIES_FINAL.sql` to apply RLS policies
+
+8. **Done!** Users can now register and be tracked by landing page.
+
+📖 **Full Documentation:** See `QUICK_SETUP_CHECKLIST.md` for production deployment
 
 ---
 
@@ -276,21 +293,16 @@ This plugin follows WordPress security best practices:
 
 ## 📖 Documentation
 
-### User Guides
-- **[Quick Start Guide](docs/QUICKSTART.md)** - Get running in 5 minutes
-- **[Installation Guide](docs/INSTALL.md)** - Detailed setup instructions
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment checklist
-- **[Redirect Guide](docs/AUTH-FORM-REDIRECT-GUIDE.md)** - Configure redirect behavior
+### Quick Start & Deployment:
+- **[QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)** - 1-page deployment guide (5 minutes)
+- **[PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)** - Detailed AIOS/Cloudflare/LiteSpeed configuration
 
-### Troubleshooting
-- **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Known issues with verified solutions ⭐ NEW
-- **[Diagnostic Checklist](DIAGNOSTIC_CHECKLIST.md)** - Systematic debugging workflow ⭐ NEW
-- **[Debug Guide](docs/DEBUG.md)** - General troubleshooting tips
+### Security & Architecture:
+- **[SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)** - Security architecture explained
+- **[SECURITY_RLS_POLICIES_FINAL.sql](SECURITY_RLS_POLICIES_FINAL.sql)** - RLS policies for Supabase
 
-### Technical Documentation
-- **[Architecture](Init/ARCHITECTURE.md)** - Technical deep dive
-- **[Backlog](Init/BACKLOG.md)** - Feature roadmap and status
-- **[Security Policy](Init/SECURITY.md)** - Security best practices
+### Database Schema:
+- **[supabase-tables.sql](supabase-tables.sql)** - Create tables in Supabase
 
 ---
 
@@ -300,11 +312,13 @@ We welcome contributions! Here's how you can help:
 
 1. **Report bugs** - [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues)
 2. **Suggest features** - Vote 👍 on existing issues or create new ones
-3. **Submit PRs** - Especially for critical UX issues (#1-#5)
-4. **Improve docs** - Documentation PRs always welcome
-5. **Share feedback** - Let us know what you'd like to see!
+3. **Submit PRs** - Code improvements, bug fixes, documentation
+4. **Share feedback** - Let us know what you'd like to see!
 
-**Contribution Guidelines:** See [WORKFLOW.md](Init/WORKFLOW.md)
+**Before submitting:**
+- Test your changes thoroughly
+- Follow WordPress coding standards
+- Update documentation if needed
 
 ---
 
