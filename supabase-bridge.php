@@ -2,9 +2,11 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening.
- * Version: 0.5.0-dev
+ * Version: 0.7.0
  * Author: Alexey Krol
  * License: MIT
+ * Requires at least: 5.0
+ * Tested up to: 6.8
  * Requires PHP: 8.0
  */
 
