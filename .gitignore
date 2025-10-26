@@ -50,17 +50,16 @@ debug.log
 *-copy.html
 *-old.html
 
+# Build directory
+build/
+
 # Deployment archives (versioned releases)
 supabase-bridge-v*.zip
-*.zip
 
 # Legacy directories
 Init/
 archive/
 docs/
-
-# Shell scripts
-*.sh
 
 # WordPress debugging
 wp-content/debug.log

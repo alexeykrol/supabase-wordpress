@@ -16,41 +16,48 @@
 
 ## 🚀 Quick Start
 
-### Installation
+### Installation (Standard WordPress Method)
 
-1. **Clone or download** this repository:
-   ```bash
-   git clone https://github.com/alexeykrol/supabase-wordpress.git supabase-bridge
-   ```
+1. **Download** the latest release:
+   - [supabase-bridge-v0.7.0.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.7.0/supabase-bridge-v0.7.0.zip)
+   - Or build from source: `./build-release.sh` (requires git clone)
 
-2. **Install PHP dependencies**:
-   ```bash
-   cd supabase-bridge
-   composer install
-   ```
+2. **Install plugin**:
+   - WordPress Admin → Plugins → Add New → Upload Plugin
+   - Choose `supabase-bridge-v0.7.0.zip`
+   - Click "Install Now" → "Activate Plugin"
 
-3. **Upload to WordPress**:
-   - Copy `supabase-bridge/` folder to `wp-content/plugins/`
-   - Or create a ZIP and upload via WordPress Admin → Plugins → Add New → Upload Plugin
+3. **Setup Supabase database**:
+   - Open Supabase Dashboard → SQL Editor
+   - Run SQL from plugin directory:
+     - `supabase-tables.sql` (creates tables)
+     - `SECURITY_RLS_POLICIES_FINAL.sql` (applies RLS policies)
 
-4. **Activate** the plugin in WordPress Admin → Plugins
+4. **Configure plugin**:
+   - WordPress Admin → Settings → Supabase Bridge
+   - **Supabase URL**: `https://yourproject.supabase.co`
+   - **Supabase Anon Key**: `eyJhbGci...` (from Supabase Dashboard → Settings → API)
+   - **Global Thank You Page**: Select a page (fallback)
+   - Click "Save Settings"
 
-5. **Configure credentials** in WordPress Admin → Settings → Supabase Bridge:
-   - Supabase URL: `https://yourproject.supabase.co`
-   - Supabase Anon Key: `eyJhbGci...` (from Supabase Dashboard → Settings → API)
-   - Global Thank You Page: Select a page (fallback for all registrations)
-
-6. **Create registration pairs** (optional):
+5. **Create registration pairs** (optional):
    - WordPress Admin → Supabase Bridge → Registration Pairs
-   - Add pairs: e.g., `/services/` → `/services-thankyou/`
+   - Click "Add New Pair"
+   - Example: `/services/` → `/services-thankyou/`
 
-7. **Setup Supabase database**:
-   - Run `supabase-tables.sql` in Supabase Dashboard → SQL Editor
-   - Run `SECURITY_RLS_POLICIES_FINAL.sql` to apply RLS policies
+6. **Configure Supabase Auth**:
+   - Supabase Dashboard → Authentication → Settings
+   - **Enable email confirmations**: ON
+   - **Password minimum length**: 10
+   - Supabase Dashboard → Authentication → URL Configuration
+   - **Redirect URLs**: `https://yourdomain.com/*`
 
-8. **Done!** Users can now register and be tracked by landing page.
+7. **Done!** Users can now register and be tracked by landing page.
 
-📖 **Full Documentation:** See `QUICK_SETUP_CHECKLIST.md` for production deployment
+📖 **Full Documentation:**
+- Quick setup (5 min): `QUICK_SETUP_CHECKLIST.md`
+- Production deployment: `PRODUCTION_SETUP.md`
+- Security architecture: `SECURITY_ROLLBACK_SUMMARY.md`
 
 ---
 
