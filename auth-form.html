@@ -781,12 +781,27 @@
         return customPage;
       }
 
-      // 2. Ищем в mapping по странице откуда пришел
+      // === Phase 5: Use page-specific pairs from Settings ===
+      // 2a. Check registration pairs from Settings (wp_options → Supabase → JavaScript)
+      if (window.SUPABASE_CFG?.registrationPairs && Array.isArray(window.SUPABASE_CFG.registrationPairs)) {
+        const pair = window.SUPABASE_CFG.registrationPairs.find(
+          p => p.registration_url === ORIGIN_PAGE
+        );
+
+        if (pair && pair.thankyou_url) {
+          console.log('✅ Phase 5: Found pair for', ORIGIN_PAGE, '→', pair.thankyou_url);
+          return pair.thankyou_url;
+        }
+      }
+
+      // 2b. Fallback: Legacy hardcoded mapping (for backward compatibility)
       if (AUTH_CONFIG.thankYouPages[ORIGIN_PAGE]) {
+        console.log('⚠️ Using legacy hardcoded mapping for', ORIGIN_PAGE);
         return AUTH_CONFIG.thankYouPages[ORIGIN_PAGE];
       }
 
-      // 3. Default fallback
+      // 3. Default fallback (global Thank You Page from Settings)
+      console.log('ℹ️ No specific pair found, using global default:', AUTH_CONFIG.thankYouPages.default);
       return AUTH_CONFIG.thankYouPages.default;
     }
 
