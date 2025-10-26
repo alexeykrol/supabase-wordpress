@@ -200,6 +200,105 @@ function sb_check_tables_exist() {
   return ['exists' => ($code === 200), 'code' => $code];
 }
 
+// === Phase 3: Supabase Sync Functions ===
+
+// Sync registration pair to Supabase (non-blocking)
+function sb_sync_pair_to_supabase($pair_data) {
+  try {
+    $url = sb_cfg('SUPABASE_URL');
+    $anon_key = sb_cfg('SUPABASE_ANON_KEY');
+
+    if (empty($url) || empty($anon_key)) {
+      error_log('Supabase Bridge: Cannot sync pair - credentials not configured');
+      return false;
+    }
+
+    // Endpoint for wp_registration_pairs table
+    $endpoint = rtrim($url, '/') . '/rest/v1/wp_registration_pairs';
+
+    // Prepare data for Supabase
+    $supabase_data = [
+      'id' => $pair_data['id'],
+      'site_url' => get_site_url(),
+      'registration_page_url' => $pair_data['registration_page_url'],
+      'thankyou_page_url' => $pair_data['thankyou_page_url'],
+      'registration_page_id' => $pair_data['registration_page_id'],
+      'thankyou_page_id' => $pair_data['thankyou_page_id'],
+    ];
+
+    // UPSERT using Prefer: resolution-merge-duplicates
+    $response = wp_remote_post($endpoint, [
+      'headers' => [
+        'apikey' => $anon_key,
+        'Authorization' => 'Bearer ' . $anon_key,
+        'Content-Type' => 'application/json',
+        'Prefer' => 'resolution=merge-duplicates',
+      ],
+      'body' => json_encode($supabase_data),
+      'timeout' => 10,
+    ]);
+
+    if (is_wp_error($response)) {
+      error_log('Supabase Bridge: Sync failed - ' . $response->get_error_message());
+      return false;
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    if ($code >= 200 && $code < 300) {
+      return true;
+    } else {
+      $body = wp_remote_retrieve_body($response);
+      error_log("Supabase Bridge: Sync failed - HTTP $code: $body");
+      return false;
+    }
+  } catch (Exception $e) {
+    error_log('Supabase Bridge: Exception during sync - ' . $e->getMessage());
+    return false;
+  }
+}
+
+// Delete registration pair from Supabase (non-blocking)
+function sb_delete_pair_from_supabase($pair_id) {
+  try {
+    $url = sb_cfg('SUPABASE_URL');
+    $anon_key = sb_cfg('SUPABASE_ANON_KEY');
+
+    if (empty($url) || empty($anon_key)) {
+      error_log('Supabase Bridge: Cannot delete pair - credentials not configured');
+      return false;
+    }
+
+    // Endpoint with filter by ID
+    $endpoint = rtrim($url, '/') . '/rest/v1/wp_registration_pairs?id=eq.' . urlencode($pair_id);
+
+    $response = wp_remote_request($endpoint, [
+      'method' => 'DELETE',
+      'headers' => [
+        'apikey' => $anon_key,
+        'Authorization' => 'Bearer ' . $anon_key,
+      ],
+      'timeout' => 10,
+    ]);
+
+    if (is_wp_error($response)) {
+      error_log('Supabase Bridge: Delete failed - ' . $response->get_error_message());
+      return false;
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    if ($code >= 200 && $code < 300) {
+      return true;
+    } else {
+      $body = wp_remote_retrieve_body($response);
+      error_log("Supabase Bridge: Delete failed - HTTP $code: $body");
+      return false;
+    }
+  } catch (Exception $e) {
+    error_log('Supabase Bridge: Exception during delete - ' . $e->getMessage());
+    return false;
+  }
+}
+
 // Create Supabase tables for registration pairs
 function sb_create_supabase_tables() {
   // Read SQL file
@@ -1208,6 +1307,22 @@ function sb_ajax_save_pair() {
   // Save to wp_options
   update_option('sb_registration_pairs', $pairs);
 
+  // === Phase 3: Sync to Supabase (non-blocking) ===
+  // Find the saved pair data
+  $saved_pair = null;
+  foreach ($pairs as $pair) {
+    if ($pair['id'] === $pair_id) {
+      $saved_pair = $pair;
+      break;
+    }
+  }
+
+  if ($saved_pair) {
+    // Try to sync to Supabase, but don't fail if it doesn't work
+    sb_sync_pair_to_supabase($saved_pair);
+    // Note: We don't check the return value - if Supabase fails, wp_options still works
+  }
+
   wp_send_json_success(['message' => 'Pair saved successfully', 'pair_id' => $pair_id]);
 }
 
@@ -1257,6 +1372,11 @@ function sb_ajax_delete_pair() {
 
   // Save to wp_options
   update_option('sb_registration_pairs', $pairs);
+
+  // === Phase 3: Delete from Supabase (non-blocking) ===
+  // Try to delete from Supabase, but don't fail if it doesn't work
+  sb_delete_pair_from_supabase($pair_id);
+  // Note: We don't check the return value - if Supabase fails, wp_options still works
 
   wp_send_json_success(['message' => 'Pair deleted successfully']);
 }
