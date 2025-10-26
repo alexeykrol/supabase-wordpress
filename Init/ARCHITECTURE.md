@@ -1,8 +1,8 @@
 # Project Architecture
 
-**Project:** [PROJECT_NAME]
-**Version:** [0.1.0]
-**Last Updated:** [DATE]
+**Project:** WordPress-Supabase Bridge
+**Version:** 0.7.0
+**Last Updated:** 2025-10-26
 
 ---
 
@@ -42,9 +42,15 @@
 
 ### Backend & Infrastructure
 ```
-- Database: WordPress (`wp_users`, `wp_usermeta`) + Supabase PostgreSQL (auth.users)
+- Database:
+  - WordPress: `wp_users`, `wp_usermeta`, `wp_options` (settings storage)
+  - Supabase PostgreSQL:
+    - auth.users (Supabase Auth)
+    - wp_registration_pairs (registration analytics)
+    - wp_user_registrations (event logging)
 - Authentication: Supabase Auth (JWT-based) + WordPress session
-- API Type: WordPress REST API
+- API Type: WordPress REST API + Supabase REST API
+- Security: Supabase Row-Level Security (RLS) with site_url filtering
 - File Storage: WordPress Media Library (plugin doesn't handle files)
 - Hosting: Any WordPress hosting (production: questtales.com)
 - Dependencies: Composer (firebase/php-jwt ^6.11.1)
@@ -67,41 +73,52 @@
 
 ```
 supabase-bridge/
-├── supabase-bridge.php              # Main plugin file
+├── supabase-bridge.php              # Main plugin file (v0.7.0)
 │   ├── REST API endpoints (callback, logout)
 │   ├── JWT verification logic (JWKS)
-│   ├── WordPress user sync
-│   └── Security headers & rate limiting
+│   ├── WordPress user sync (with distributed lock v0.4.1)
+│   ├── Security headers & rate limiting
+│   ├── Settings page (v0.4.0 - encrypted credentials, thank you page selector)
+│   ├── Registration Pairs UI (v0.7.0 - CRUD for pairs)
+│   ├── Input validation functions (v0.7.0 - sb_validate_*)
+│   └── Supabase sync functions (v0.7.0 - sb_sync_*, sb_log_*)
 │
 ├── composer.json                    # PHP dependencies
 ├── composer.lock                    # Locked versions
 ├── vendor/                          # Composer autoload
 │   └── firebase/php-jwt/            # JWT library
 │
-├── auth-form.html                   # Ready-to-use auth form
+├── auth-form.html                   # Auth form with [supabase_auth_form] shortcode (v0.4.0)
 │   ├── Google OAuth button
 │   ├── Facebook OAuth button
-│   └── Magic Link (6-digit code)
+│   ├── Magic Link (6-digit code)
+│   └── Dynamic pair injection (v0.7.0)
 │
-├── wp-config-supabase-example.php   # Configuration example
-├── docs/                            # Documentation
-│   ├── QUICKSTART.md
-│   ├── INSTALL.md
-│   ├── DEPLOYMENT.md
-│   ├── AUTH-FORM-REDIRECT-GUIDE.md
-│   ├── DEBUG.md
-│   └── STATUS.md
+├── supabase-tables.sql              # Supabase database schema (v0.7.0)
+│   ├── wp_registration_pairs table
+│   └── wp_user_registrations table
+│
+├── SECURITY_RLS_POLICIES_FINAL.sql  # RLS policies with site_url filtering (v0.7.0)
+│
+├── build-release.sh                 # Release automation script (v0.7.0)
+│
+├── PRODUCTION_SETUP.md              # Cloudflare/AIOS/LiteSpeed config guide (v0.7.0)
+├── QUICK_SETUP_CHECKLIST.md         # 1-page deployment guide (v0.7.0)
+├── SECURITY_ROLLBACK_SUMMARY.md     # Security architecture explanation (v0.7.0)
+├── CLAUDE.md                        # Project context for Claude Code
 │
 ├── Init/                            # Claude Code Starter framework
 │   ├── PROJECT_INTAKE.md
 │   ├── ARCHITECTURE.md (this file)
 │   ├── SECURITY.md
 │   ├── BACKLOG.md
+│   ├── PROJECT_SNAPSHOT.md
+│   ├── WORKFLOW.md
 │   └── AGENTS.md
 │
 ├── .gitignore                       # Git ignore rules
 ├── LICENSE                          # MIT License
-└── README.md                        # Main documentation
+└── README.md                        # Production documentation
 ```
 
 ---
@@ -184,33 +201,139 @@ putenv('SUPABASE_URL=https://xxx.supabase.co');
 putenv('SUPABASE_ANON_KEY=eyJhbGci...');
 ```
 
-### 2. [Архитектурное решение #2]
+---
 
-**Decision:** [Что решили]
+### 4. Input Validation Functions (v0.7.0 - Defense Layer 1)
+
+**Decision:** Централизованные функции валидации для всех пользовательских вводов
 **Reasoning:**
-- ✅ [Причина 1]
-- ✅ [Причина 2]
+- ✅ Предотвращает SQL injection, XSS, path traversal attacks
+- ✅ Единообразная валидация во всём проекте
+- ✅ Fail-safe design - invalid data rejected с логированием атак
+- ✅ Defense in depth - первый уровень защиты перед Supabase RLS
 
 **Alternatives considered:**
-- ❌ [Альтернатива] - [почему отвергли]
+- ❌ Валидация только на клиенте - легко обойти
+- ❌ Без валидации - критическая уязвимость безопасности
+
+**Implementation:**
+```php
+// Email validation (RFC 5322 + length limits)
+function sb_validate_email($email) {
+  if (!is_email($email)) return false;
+  if (strlen($email) > 254) return false;
+  return sanitize_email($email);
+}
+
+// URL path validation (prevents path traversal)
+function sb_validate_url_path($path) {
+  if (strpos($path, '..') !== false) return false;  // No ../../etc/passwd
+  if (preg_match('/^[a-z]+:/i', $path)) return false; // No file://
+  return esc_url_raw($path);
+}
+
+// UUID v4 validation (format checking)
+function sb_validate_uuid($uuid) {
+  $pattern = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/';
+  if (!preg_match($pattern, $uuid)) return false;
+  return $uuid;
+}
+
+// Site URL validation (protocol enforcement)
+function sb_validate_site_url($url) {
+  if (!preg_match('/^https?:\/\//', $url)) return false; // Only http/https
+  return esc_url_raw($url);
+}
+```
 
 ---
 
-### Template для новых решений:
+### 5. Supabase RLS Policies (v0.7.0 - Defense Layer 2)
 
-```markdown
-### N. [Название решения]
-
-**Decision:** [Краткое описание решения]
+**Decision:** Row-Level Security с фильтрацией по site_url для мульти-сайтовой изоляции
 **Reasoning:**
-- ✅ [Преимущество 1]
-- ✅ [Преимущество 2]
+- ✅ PostgreSQL native security - невозможно обойти через API
+- ✅ Cross-site isolation - Site A не видит данные Site B
+- ✅ Работает с Anon Key - не нужен Service Role Key
+- ✅ Automatic enforcement - разработчик не может забыть проверку
 
 **Alternatives considered:**
-- ❌ [Отвергнутая альтернатива] - [причина]
+- ❌ Service Role Key - критическая уязвимость безопасности (если WordPress скомпрометирован, полный доступ к Supabase)
+- ❌ Без RLS - любой site может читать/писать чужие данные
 
-**Data structure/Implementation:**
-[Код или структура данных]
+**Implementation:**
+```sql
+-- RLS Policy for wp_registration_pairs
+CREATE POLICY "Allow operations only for matching site_url"
+ON wp_registration_pairs
+FOR ALL
+USING (
+  site_url = current_setting('request.headers', true)::json->>'x-site-url'
+)
+WITH CHECK (
+  site_url = current_setting('request.headers', true)::json->>'x-site-url'
+);
+
+-- WordPress sends x-site-url header on every request
+wp_remote_post($endpoint, [
+  'headers' => [
+    'apikey' => $anon_key,
+    'x-site-url' => get_site_url(), // RLS filter
+  ]
+]);
+```
+
+---
+
+### 6. Multi-Site Architecture (v0.7.0)
+
+**Decision:** site_url column для отслеживания владельца записи
+**Reasoning:**
+- ✅ Один Supabase проект для нескольких WordPress сайтов пользователя
+- ✅ Простая архитектура - один столбец вместо сложной схемы tenancy
+- ✅ Совместима с RLS policies - прямая фильтрация
+- ✅ Не коммерческий SaaS - только собственные сайты пользователя
+
+**Alternatives considered:**
+- ❌ Отдельный Supabase проект на каждый сайт - дорого и неудобно
+- ❌ Shared table без site_url - уязвимость безопасности
+
+**Data structure:**
+```sql
+CREATE TABLE wp_registration_pairs (
+  id UUID PRIMARY KEY,
+  site_url TEXT NOT NULL,              -- https://site1.com
+  registration_page_url TEXT NOT NULL, -- /register/
+  thankyou_page_url TEXT NOT NULL,     -- /thanks/
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- RLS policy automatically filters by site_url
+```
+
+---
+
+### 7. Registration Pairs Analytics (v0.7.0)
+
+**Decision:** Отслеживание какая страница регистрации ведет на какую thank you page
+**Reasoning:**
+- ✅ Аналитика конверсии - какие страницы регистрации эффективнее
+- ✅ A/B testing support - разные thank you pages для разных лендингов
+- ✅ Динамические редиректы - JavaScript читает пары из базы
+- ✅ Централизованное управление - изменения через WordPress Admin
+
+**Alternatives considered:**
+- ❌ Hardcode redirects в JavaScript - нужно редактировать код для каждого изменения
+- ❌ Без аналитики - нет данных для оптимизации
+
+**Data flow:**
+```
+1. WordPress Admin создает pair: /register-a/ → /thanks-a/
+2. Pair синхронизируется в Supabase (sb_sync_pair_to_supabase)
+3. auth-form.html загружает пары через REST API (/wp-json/supabase-bridge/v1/registration-pairs)
+4. JavaScript инжектит пары в AUTH_CONFIG.thankYouPages
+5. После регистрации: редирект на /thanks-a/ (page-specific)
+6. Event логируется в wp_user_registrations
 ```
 
 ---

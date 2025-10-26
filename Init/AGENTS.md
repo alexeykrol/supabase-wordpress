@@ -279,41 +279,209 @@ make security  # npm audit проверка
 > **Важно:** Этот раздел для СПЕЦИФИЧНЫХ для ЭТОГО проекта security patterns.
 > Общие правила безопасности см. SECURITY.md
 
-[ЗАПОЛНИТЬ по мере разработки проекта]
-
-### Pattern 1: [Project-Specific Security Rule]
-[Описание специфичного для проекта security pattern]
-
-**Template:**
-```markdown
-### Pattern N: [Name]
-**Context:** [When this applies]
-**Rule:** [What to do]
-**Reason:** [Why this is important for THIS project]
+### Pattern 1: Always Validate Before Supabase Sync (v0.7.0)
+**Context:** When syncing Registration Pairs or User Registrations to Supabase
+**Rule:** ALWAYS validate ALL inputs using sb_validate_* functions before wp_remote_post()
+**Reason:** Defense Layer 1 - prevents injection attacks before data reaches Supabase RLS policies
 **Example:**
-[Code example]
+```php
+// ✅ CORRECT - Validate before sync
+$validated_email = sb_validate_email($pair_data['email']);
+$validated_url = sb_validate_url_path($pair_data['registration_page_url']);
+if (!$validated_email || !$validated_url) {
+  error_log('Validation failed - possible injection attempt');
+  return false;
+}
+// Now safe to sync to Supabase
+sb_sync_pair_to_supabase($validated_data);
+
+// ❌ WRONG - Direct sync without validation
+wp_remote_post($endpoint, ['body' => json_encode($pair_data)]); // VULNERABLE!
+```
+
+---
+
+### Pattern 2: Always Include x-site-url Header for RLS (v0.7.0)
+**Context:** When making ANY request to Supabase REST API
+**Rule:** MUST include x-site-url header with validated site_url for RLS filtering
+**Reason:** Supabase RLS policies require this header to filter records by site
+**Example:**
+```php
+// ✅ CORRECT - Include x-site-url for RLS
+$validated_site_url = sb_validate_site_url(get_site_url());
+$response = wp_remote_post($endpoint, [
+  'headers' => [
+    'apikey' => $anon_key,
+    'Authorization' => 'Bearer ' . $anon_key,
+    'x-site-url' => $validated_site_url, // REQUIRED for RLS
+  ],
+  'body' => json_encode($data)
+]);
+
+// ❌ WRONG - Missing x-site-url header
+$response = wp_remote_post($endpoint, [
+  'headers' => ['apikey' => $anon_key],
+  'body' => json_encode($data)
+]); // RLS will return HTTP 401!
+```
+
+---
+
+### Pattern 3: Never Use Service Role Key (v0.7.0 Security Decision)
+**Context:** When configuring Supabase credentials
+**Rule:** ONLY use Anon (Public) Key - NEVER Service Role Key
+**Reason:** If WordPress is compromised, attacker gets full Supabase access with Service Key
+**Example:**
+```php
+// ✅ CORRECT - Anon Key only (v0.7.0 architecture)
+$anon_key = sb_cfg('SUPABASE_ANON_KEY');
+$response = wp_remote_post($endpoint, [
+  'headers' => ['apikey' => $anon_key]
+]);
+// Security relies on: Anon Key + RLS Policies + Input Validation
+
+// ❌ WRONG - Service Role Key (rejected in v0.7.0)
+$service_key = sb_cfg('SUPABASE_SERVICE_ROLE_KEY'); // NEVER DO THIS!
+// If WordPress hacked = full Supabase access
+```
+
+---
+
+### Pattern 4: Distributed Lock for Concurrent User Creation (v0.4.1)
+**Context:** When creating WordPress users during authentication callback
+**Rule:** Use WordPress Transient API distributed lock to prevent race conditions
+**Reason:** Two concurrent auth requests can create duplicate users without lock
+**Example:**
+```php
+// ✅ CORRECT - Use distributed lock
+$lock_key = 'sb_user_creation_' . $supabase_user_id;
+if (!wp_cache_add($lock_key, time(), '', 5)) {
+  usleep(100000); // Wait 100ms for other process
+  $user = get_user_by('meta', 'supabase_user_id', $supabase_user_id);
+  if ($user) return $user; // Other process created user
+}
+// Now safe to create user
+$user_id = wp_insert_user($user_data);
+wp_cache_delete($lock_key);
+
+// ❌ WRONG - No lock (can create duplicates)
+$user_id = wp_insert_user($user_data); // RACE CONDITION!
 ```
 
 ---
 
 ## 🐛 Common Issues & Solutions
 
-[ЗАПОЛНИТЬ по мере обнаружения проблем]
-
-### Issue: [Название проблемы]
-**Symptom:** [Описание симптома]
-**Root Cause:** [Причина]
-**Solution:** [Решение]
-**File:** [Где исправлять]
-
-### Template для добавления:
-```markdown
-### Issue: [Название]
-**Symptom:** [Что видит пользователь/разработчик]
-**Root Cause:** [Почему происходит]
-**Solution:** [Как исправить]
-**File:** [Где находится код]
+### Issue: HTTP 401 When Syncing to Supabase (v0.7.0)
+**Symptom:** wp_remote_post() to Supabase returns HTTP 401 Unauthorized, sync fails
+**Root Cause:** RLS policies require x-site-url header but it's missing from request
+**Solution:** Add x-site-url header to ALL Supabase REST API requests
+**File:** `supabase-bridge.php` (sb_sync_pair_to_supabase, sb_delete_pair_from_supabase functions)
+**Fix:**
+```php
+$response = wp_remote_post($endpoint, [
+  'headers' => [
+    'apikey' => $anon_key,
+    'x-site-url' => sb_validate_site_url(get_site_url()), // ADD THIS!
+  ]
+]);
 ```
+
+---
+
+### Issue: User Duplication During Concurrent Auth (v0.4.1)
+**Symptom:** Two users created with same email during Magic Link/OAuth authentication
+**Root Cause:** Race condition - two PHP processes (different PIDs) call wp_insert_user() simultaneously
+**Solution:** Implement distributed lock using WordPress Transient API + UUID-first checking
+**File:** `supabase-bridge.php` (sb_handle_callback function, lines 367-467)
+**Fix:**
+```php
+// UUID-first check
+$user = get_users(['meta_key' => 'supabase_user_id', 'meta_value' => $sub]);
+
+// Distributed lock
+$lock_key = 'sb_user_creation_' . $sub;
+if (!wp_cache_add($lock_key, time(), '', 5)) {
+  usleep(100000); // Wait for other process
+}
+```
+**Documentation:** TROUBLESHOOTING.md, DIAGNOSTIC_CHECKLIST.md (v0.4.1)
+
+---
+
+### Issue: CSP Headers Breaking Elementor/Page Builders (v0.4.1)
+**Symptom:** Elementor/Divi/Beaver Builder admin panel not loading, JavaScript errors
+**Root Cause:** Strict Content-Security-Policy headers block inline scripts used by page builders
+**Solution:** Conditionally disable CSP headers on admin pages and specific pages
+**File:** `supabase-bridge.php` (send_headers hook)
+**Fix:**
+```php
+// Don't send CSP headers in admin or on Elementor pages
+if (is_admin() || isset($_GET['elementor-preview'])) {
+  return; // No CSP headers
+}
+```
+
+---
+
+### Issue: WordPress Text Filters Replacing Placeholders (v0.4.1)
+**Symptom:** AUTH_CONFIG placeholder "__REGISTRATION_PAIRS_JSON__" replaced by WordPress wpautop filter
+**Root Cause:** WordPress text filters (wpautop, wptexturize) modify HTML content including placeholders
+**Solution:** Use pattern that WordPress doesn't recognize (/* PLACEHOLDER_JSON */)
+**File:** `auth-form.html` and `supabase-bridge.php` (REST endpoint)
+**Fix:**
+```javascript
+// Before (broken by WordPress)
+const pairsData = "__REGISTRATION_PAIRS_JSON__";
+
+// After (WordPress-safe)
+const pairsData = /* __PAIRS_PLACEHOLDER__ */ {};
+```
+
+---
+
+### Issue: RLS Policies Blocking Legitimate Requests (v0.7.0)
+**Symptom:** PostgreSQL error "new row violates row-level security policy" when inserting records
+**Root Cause:** RLS policy USING clause too restrictive or x-site-url header mismatch
+**Solution:** Verify x-site-url header matches site_url column value exactly
+**File:** `SECURITY_RLS_POLICIES_FINAL.sql` and `supabase-bridge.php`
+**Debugging:**
+```sql
+-- Check RLS policy
+SELECT * FROM pg_policies WHERE tablename = 'wp_registration_pairs';
+
+-- Test header parsing
+SELECT current_setting('request.headers', true)::json->>'x-site-url';
+```
+**Fix:** Ensure WordPress sends exact site_url:
+```php
+'x-site-url' => get_site_url() // Must match Supabase site_url column
+```
+
+---
+
+### Issue: AIOS PHP Firewall Breaking AJAX (v0.7.0)
+**Symptom:** WordPress admin-ajax.php returns 403 Forbidden, Settings page CRUD doesn't work
+**Root Cause:** All-In-One Security (AIOS) PHP Firewall blocks legitimate AJAX requests
+**Solution:** Disable AIOS PHP Firewall (it breaks WordPress core functionality)
+**File:** WordPress Admin → AIOS → Firewall → PHP Firewall
+**Fix:** Set "Enable PHP Firewall" to OFF (see PRODUCTION_SETUP.md)
+**Alternative:** Whitelist /wp-admin/admin-ajax.php (but may still break other requests)
+
+---
+
+### Issue: LiteSpeed Cache Caching AJAX Responses (v0.7.0)
+**Symptom:** Registration Pairs not updating in real-time, cached JSON returned
+**Root Cause:** LiteSpeed Cache caching admin-ajax.php responses and API endpoints
+**Solution:** Exclude admin-ajax.php and query strings from cache
+**File:** LiteSpeed Cache → Cache → Excludes
+**Fix:**
+```
+/wp-admin/admin-ajax.php
+/wp-json/*
+?action=*
+```
+**Documentation:** PRODUCTION_SETUP.md (v0.7.0)
 
 ---
 

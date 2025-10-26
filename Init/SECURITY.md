@@ -97,29 +97,53 @@ User Input → Validation → Sanitization → Processing → Output Encoding
 
 ### WordPress-Supabase Bridge Security Architecture
 
-**Version:** 0.3.3 (Production Ready 🛡️ Hardened)
+**Version:** 0.7.0 (Production Ready 🛡️ Enterprise-Grade)
 
 #### API Key Management
 - ✅ **ONLY anon public key** used in frontend/WordPress
-- ✅ **NEVER service_role key** exposed to client
+- ✅ **NEVER service_role key** exposed to client (decision: v0.7.0 - rejected service key approach for security)
 - ❌ API ключи НИКОГДА не передаются напрямую клиенту
-- ✅ Environment variables: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`
-- ✅ Configuration через `wp-config.php` (НЕ коммитить!)
+- ✅ **Encrypted credentials storage** - AES-256-CBC encryption using WordPress salts (v0.4.0)
+- ✅ Configuration via WordPress Admin → Settings (v0.4.0) or fallback `wp-config.php`
+- ✅ Backward compatibility - supports both encrypted wp_options and wp-config.php
 
-#### JWT Verification
+#### Input Validation (v0.7.0 - Defense Layer 1)
+- ✅ **sb_validate_email()** - RFC 5322 compliance, length limits (max 254 chars), format validation
+- ✅ **sb_validate_url_path()** - Path traversal prevention (`..` detection), protocol checking, length limits (max 2000 chars)
+- ✅ **sb_validate_uuid()** - UUID v4 format validation with regex pattern matching
+- ✅ **sb_validate_site_url()** - URL format validation, protocol enforcement (http/https only)
+- ✅ **All inputs validated before Supabase sync** - prevents injection attacks (SQL, XSS, path traversal)
+
+#### Supabase RLS Policies (v0.7.0 - Defense Layer 2)
+- ✅ **Row-Level Security enabled** on `wp_registration_pairs` and `wp_user_registrations`
+- ✅ **Site-specific filtering** - RLS policies use `x-site-url` header for multi-site isolation
+- ✅ **Policy enforcement** - USING clause checks `site_url = current_setting('request.headers')::json->>'x-site-url'`
+- ✅ **Anonymous key security** - Anon Key + RLS policies prevents cross-site data access
+- ✅ **SQL Injection prevention** - PostgreSQL parameterized queries + RLS double protection
+
+#### 4-Layer Defense Architecture (v0.7.0)
+1. **Layer 1: WordPress Validation** - Input validation functions (sb_validate_*)
+2. **Layer 2: Supabase RLS** - Row-Level Security with site_url filtering
+3. **Layer 3: Cloudflare** - Bot Fight Mode, Turnstile CAPTCHA, Rate Limiting, WAF
+4. **Layer 4: WordPress Security** - AIOS (All-In-One Security) plugin integration
+- ✅ **Defense in depth** - Multiple independent security layers
+- ✅ **Fail securely** - Each layer rejects malicious requests independently
+
+#### JWT Verification (v0.1.0-v0.3.3)
 - ✅ RS256 signature verification using JWKS (JSON Web Key Set)
 - ✅ Public key cryptography - server-side verification only
 - ✅ Strict claim validation: `iss`, `aud`, `exp`, `email_verified`
 - ✅ JWKS caching (1-hour) with SSL verification
-- ✅ Mandatory email verification check
+- ✅ Mandatory email verification check (fixed in v0.3.5 - allows NULL for OAuth)
 
 #### Authentication Flow
 1. User clicks "Login via Google/Facebook/Magic Link"
 2. Supabase handles OAuth/passwordless auth
 3. Supabase redirects to WordPress callback page with JWT
 4. WordPress REST endpoint `/wp-json/supabase-auth/callback` verifies JWT
-5. Plugin creates/updates mirror user in `wp_users`
+5. Plugin creates/updates mirror user in `wp_users` (with distributed lock v0.4.1)
 6. WordPress session established (`wp_set_auth_cookie`)
+7. **(v0.7.0)** Registration event logged to Supabase `wp_user_registrations` table
 
 #### CSRF Protection
 - ✅ Origin/Referer header validation (v0.3.2 strict host matching)
@@ -131,6 +155,7 @@ User Input → Validation → Sanitization → Processing → Output Encoding
 - ✅ Transient-based storage (WordPress native)
 - ✅ HTTP 429 response on limit exceeded
 - ✅ Automatic reset on successful authentication
+- ✅ **(v0.7.0)** Cloudflare Rate Limiting as additional layer
 
 #### HTTP Security Headers
 ```http
@@ -140,6 +165,13 @@ X-XSS-Protection: 1; mode=block
 Referrer-Policy: strict-origin-when-cross-origin
 Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co; ...
 ```
+**Note:** CSP headers conditionally applied (v0.4.1) - disabled on Elementor pages for compatibility
+
+#### Multi-Site Security (v0.7.0)
+- ✅ **site_url column** - Tracks which WordPress site created each record
+- ✅ **Cross-site isolation** - RLS policies prevent Site A from reading Site B's data
+- ✅ **Header-based filtering** - x-site-url header validated on every Supabase request
+- ✅ **Intended use** - Owner's own sites only (not commercial multi-tenant SaaS)
 
 #### Dependency Security
 - ✅ `firebase/php-jwt: ^6.11.1` (latest stable)
@@ -148,16 +180,23 @@ Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' h
 
 #### Error Handling & Audit Logging
 - ✅ Generic error messages to users (no info leakage)
-- ✅ Detailed server logs (`error_log`) for debugging
+- ✅ Detailed server logs (`error_log`) for debugging with context
 - ✅ Audit trail: successful logins, failures, logouts with IP
+- ✅ **(v0.7.0)** Validation failures logged with attack type (injection attempt, path traversal, etc.)
 
 #### HTTPS & Cookie Security
 - ✅ HTTPS enforced in production
 - ✅ Secure cookies (`is_ssl()` checks)
 - ✅ WordPress session management
 
-**Last Security Audit:** 2025-10-07
-**Status:** Production Ready 🛡️
+#### Production Deployment Security (v0.7.0)
+- ✅ **PRODUCTION_SETUP.md** - Comprehensive Cloudflare/AIOS/LiteSpeed configuration
+- ✅ **AIOS Integration** - Firewall rules, login protection, file permissions (⚠️ PHP Firewall disabled to prevent AJAX breakage)
+- ✅ **LiteSpeed Cache** - Exclusions for /wp-admin/admin-ajax.php and query strings
+- ✅ **Cloudflare Turnstile** - Bot protection on authentication forms
+
+**Last Security Audit:** 2025-10-26
+**Status:** Production Ready 🛡️ Enterprise-Grade
 
 ---
 
