@@ -382,10 +382,24 @@ add_action('wp_enqueue_scripts', function () {
   // Только для страниц сайта (не админки)
   if (is_admin()) return;
   wp_enqueue_script('supabase-js', 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2', [], null, true);
+
+  // === Phase 4: Inject registration pairs into JavaScript ===
+  $pairs = get_option('sb_registration_pairs', []);
+
+  // Prepare pairs for JavaScript (only needed fields)
+  $js_pairs = [];
+  foreach ($pairs as $pair) {
+    $js_pairs[] = [
+      'registration_url' => $pair['registration_page_url'],
+      'thankyou_url' => $pair['thankyou_page_url'],
+    ];
+  }
+
   wp_add_inline_script('supabase-js', 'window.SUPABASE_CFG = ' . wp_json_encode([
     'url'  => sb_cfg('SUPABASE_URL', ''),       // напр. https://<project-ref>.supabase.co
     'anon' => sb_cfg('SUPABASE_ANON_KEY', ''),  // public anon key
-    'thankYouUrl' => sb_get_thankyou_url(),     // Thank You Page URL from Settings
+    'thankYouUrl' => sb_get_thankyou_url(),     // Thank You Page URL from Settings (global fallback)
+    'registrationPairs' => $js_pairs,           // Phase 4: Page-specific pairs
   ]) . ';', 'before');
 });
 
