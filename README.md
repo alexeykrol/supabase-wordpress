@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.8.1-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0--6.8-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -19,12 +19,12 @@
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
-   - [supabase-bridge-v0.7.0.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.7.0/supabase-bridge-v0.7.0.zip)
+   - [supabase-bridge-v0.8.1.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.8.1/supabase-bridge-v0.8.1.zip)
    - Or build from source: `./build-release.sh` (requires git clone)
 
 2. **Install plugin**:
    - WordPress Admin → Plugins → Add New → Upload Plugin
-   - Choose `supabase-bridge-v0.7.0.zip`
+   - Choose `supabase-bridge-v0.8.1.zip`
    - Click "Install Now" → "Activate Plugin"
 
 3. **Setup Supabase database**:
@@ -94,9 +94,45 @@
 
 ---
 
-## 📊 What's New in v0.7.0
+## 📊 What's New in v0.8.1
 
-### 🎉 Major Feature Release - Page-Specific Redirects + Enterprise Security (v0.7.0)
+### 🔗 Webhook System - Real-time Integration with n8n/Make.com (v0.8.1)
+
+**Released:** 2025-10-27
+**Status:** ✅ Production Ready
+
+Send real-time webhooks to n8n/make when users register. Perfect for automation workflows, email marketing, CRM integration, and analytics.
+
+**Key Features:**
+- ✅ **Immediate Delivery** - Webhooks sent instantly via database triggers (no cron delays)
+- ✅ **Automatic Retries** - 3 attempts with exponential backoff (1s, 2s, 4s)
+- ✅ **Full Logging** - All webhook attempts logged in Supabase
+- ✅ **WordPress Admin UI** - Test webhooks without real registration
+- ✅ **Comprehensive Documentation** - Deployment guide with critical issues section
+
+**Critical Fixes (12-hour debugging session):**
+- ✅ JWT Authentication fix (Edge Function JWT verification)
+- ✅ RLS policies for anon role (INSERT/UPDATE permissions)
+- ✅ pg_net extension configuration
+- ✅ Edge Function error handling (failed webhook status)
+- ✅ WordPress encrypted URL decryption
+
+**Documentation:**
+- [webhook-system/README.md](./webhook-system/README.md) - Project overview
+- [webhook-system/DEPLOYMENT.md](./webhook-system/DEPLOYMENT.md) - **Start here!** Critical issues section
+- [webhook-system/ARCHITECTURE.md](./webhook-system/ARCHITECTURE.md) - Technical details
+- [webhook-system/OAUTH-SETUP-GUIDE.md](./webhook-system/OAUTH-SETUP-GUIDE.md) - Google & Facebook OAuth
+
+**Architecture:**
+```
+WordPress Registration → Database Trigger → Edge Function → n8n/Make.com
+                                    ↓
+                          webhook_logs table (monitoring)
+```
+
+---
+
+### 🎉 Page-Specific Redirects + Enterprise Security (v0.7.0)
 
 **Released:** 2025-10-26
 
