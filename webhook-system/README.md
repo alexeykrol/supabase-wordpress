@@ -63,10 +63,12 @@ webhook-system/
 ├── QUICK-START.md                  ← START HERE! Step-by-step guide
 ├── ADD-WEBHOOKS-TAB.md             ← Instructions for adding tab
 ├── webhooks-tab-full-code.php      ← Full UI code (copy-paste ready)
-├── ARCHITECTURE.md                 ← System architecture
-├── DEPLOYMENT.md                   ← Backend deployment guide (later)
+├── ARCHITECTURE.md                 ← System architecture + critical technical details
+├── DEPLOYMENT.md                   ← Backend deployment guide + critical issues
+├── OAUTH-SETUP-GUIDE.md            ← Google & Facebook OAuth configuration
 ├── webhook-system.sql              ← Database schema
-└── send-webhook-function.ts        ← Edge Function code
+├── send-webhook-function.ts        ← Edge Function code v0.8.1
+└── OUTBOX-PATTERN-PROPOSAL.md      ← Future enhancement proposal
 ```
 
 ---

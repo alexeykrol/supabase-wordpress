@@ -1,6 +1,6 @@
 # PROJECT SNAPSHOT — Текущее состояние проекта
 
-*Последнее обновление: 2025-10-25*
+*Последнее обновление: 2025-10-26*
 
 > 📋 **Процесс обновления этого файла:** см. [`PROCESS.md`](./PROCESS.md)
 >
@@ -16,10 +16,11 @@
 **Phase 4: Bug Fixes & Testing (v0.3.5)** [статус: ✅]
 **Phase 5: UX Improvements (v0.4.0-v0.4.1)** [статус: ✅]
 **Phase 6: Analytics & Multi-Site (v0.7.0)** [статус: ✅]
+**Phase 7: Webhook System for n8n/make (v0.8.1)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete (Production Ready)
 
-**Текущая фаза:** Production Deployment (v0.7.0)
+**Текущая фаза:** v0.8.1 Webhook System Deployed & Working (Production Ready)
 
 ---
 
@@ -53,6 +54,13 @@ supabase-bridge/
 ├── auth-form.html                   [статус: ✅] Auth form (v0.7.0)
 ├── supabase-tables.sql              [статус: ✅] Database schema (v0.7.0)
 ├── SECURITY_RLS_POLICIES_FINAL.sql  [статус: ✅] RLS policies (v0.7.0)
+├── webhook-system/                  [статус: ✅] Webhook system (v0.8.1)
+│   ├── ARCHITECTURE.md              ✅ Architecture + critical technical details
+│   ├── webhook-system.sql           ✅ Database schema, triggers, RLS policies
+│   ├── send-webhook-function.ts     ✅ Edge Function v0.8.1 (Deno/TypeScript)
+│   ├── webhooks-tab-full-code.php   ✅ WordPress Admin UI (full code)
+│   ├── DEPLOYMENT.md                ✅ Deployment guide + critical issues
+│   └── README.md                    ✅ Project overview, roadmap, version history
 ├── build-release.sh                 [статус: ✅] Release automation (v0.7.0)
 ├── PRODUCTION_SETUP.md              [статус: ✅] Production guides (v0.7.0)
 ├── QUICK_SETUP_CHECKLIST.md         [статус: ✅] 1-page guide (v0.7.0)
@@ -214,9 +222,49 @@ supabase-bridge/
 - README.md: Updated with WordPress Admin → Upload Plugin instructions
 - No manual file copying required - standard WordPress plugin installation flow
 
+### Phase 7: Webhook System for n8n/make (v0.8.1) - Completed 2025-10-27
+**Status:** ✅ Complete (Deployed & Working End-to-End)
+1. ✅ webhook-system/ARCHITECTURE.md - Architecture + critical technical details (~400 lines)
+2. ✅ webhook-system/webhook-system.sql - Database schema, triggers, RLS policies
+3. ✅ webhook-system/send-webhook-function.ts - Edge Function v0.8.1 with error handling fix
+4. ✅ webhook-system/webhooks-tab-full-code.php - WordPress Admin UI (full code)
+5. ✅ webhook-system/DEPLOYMENT.md - "CRITICAL: Read This First!" section
+6. ✅ webhook-system/README.md - Production ready status, version history
+7. ✅ Init/ARCHITECTURE.md updated - Decision 8 added
+8. ✅ Init/BACKLOG.md updated - v0.8.1 entry with critical fixes
+9. ✅ Init/PROJECT_SNAPSHOT.md updated - Phase 7 completed
+10. ✅ Deploy SQL to Supabase (completed)
+11. ✅ Deploy Edge Function v0.8.1 (completed)
+12. ✅ Configure environment variables (completed)
+13. ✅ **CRITICAL:** Disable JWT verification in Edge Function (completed)
+14. ✅ **CRITICAL:** Add RLS policies for anon role (completed)
+15. ✅ Enable pg_net extension (completed)
+16. ✅ End-to-end testing with Make.com (working perfectly)
+
+**Architecture Highlights:**
+- Database Trigger → Edge Function → Make.com webhook
+- Immediate delivery via pg_net.http_post() (no cron delays)
+- 3 retries with exponential backoff (1s, 2s, 4s)
+- WordPress Admin UI with "Test Webhook" button
+- Real-time logs table (auto-refresh every 10s)
+- JSON payload visible for debugging
+
+**Critical Fixes (12-hour debugging session):**
+- ✅ JWT Authentication: Disabled Edge Function JWT verification (HTTP 401 fix)
+- ✅ RLS Policies: Added anon role INSERT/UPDATE permissions
+- ✅ pg_net Extension: Installation guide and correct syntax (v0.19.5)
+- ✅ Edge Function Error Handling: Fixed failed webhook status updates
+- ✅ WordPress Encrypted URL: Decrypt before extracting project_ref
+
+**Security:**
+- SERVICE_ROLE_KEY stored only in Edge Function secrets
+- RLS policies: anon can INSERT/UPDATE, WordPress reads
+- JWT verification disabled for internal use (alternative: add Authorization header)
+- Server-side HTTP calls via pg_net (can't be intercepted)
+
 ---
 
-## 🔜 Следующий этап: Phase 7
+## 🔜 Следующий этап: Phase 8
 
 **v0.2.0 - Role Mapping**
 
@@ -304,6 +352,37 @@ WordPress плагин для интеграции Supabase Auth как един
 ---
 
 ## 🔄 История обновлений
+
+### 2025-10-27 - Phase 7 завершена (v0.8.1) 🎯✨
+- Реализовано: Webhook System deployed & working end-to-end with Make.com
+- Прогресс: 100% MVP + Analytics Module + Webhook System Complete
+- Следующий этап: Maintenance + plan v0.9.0 (future enhancements)
+- Детали:
+  - Architecture: webhook-system/ARCHITECTURE.md (~400 lines critical technical details)
+  - Database: webhook-system/webhook-system.sql (triggers, RLS policies)
+  - Edge Function: webhook-system/send-webhook-function.ts v0.8.1 (error handling fix)
+  - WordPress UI: webhook-system/webhooks-tab-full-code.php (complete code)
+  - Deployment: webhook-system/DEPLOYMENT.md ("CRITICAL: Read This First!" section)
+  - README: webhook-system/README.md (production ready status, version history)
+  - Updated: Init/ARCHITECTURE.md, BACKLOG.md, PROJECT_SNAPSHOT.md
+- **Critical Fixes (12-hour debugging session):**
+  - ✅ JWT Authentication: Disabled Edge Function JWT verification (HTTP 401 fix)
+  - ✅ RLS Policies: Added anon role INSERT/UPDATE permissions
+  - ✅ pg_net Extension: Installation guide and correct syntax (v0.19.5)
+  - ✅ Edge Function Error Handling: Fixed failed webhook status updates
+  - ✅ WordPress Encrypted URL: Decrypt before extracting project_ref
+- Архитектура:
+  - Database Trigger (AFTER INSERT wp_user_registrations) → pg_net.http_post()
+  - Edge Function (send-webhook v0.8.1) → Make.com endpoint
+  - Webhook Logs Table (all delivery attempts logged with proper status updates)
+  - WordPress Admin UI (test + monitor with real-time logs)
+- Безопасность:
+  - SERVICE_ROLE_KEY only in Edge Function secrets (never exposed to WordPress)
+  - RLS policies: anon can INSERT/UPDATE webhook_logs
+  - JWT verification disabled for internal use (simpler, documented alternative: add Authorization header)
+  - pg_net server-side HTTP calls (can't be intercepted by client)
+- Тестирование: End-to-end webhook delivery working perfectly to Make.com
+- Commits: ce4267d (webhook system v0.8.1), + documentation updates
 
 ### 2025-10-26 - Phase 6 завершена (v0.7.0) 🎯
 - Реализовано: Registration Pairs Analytics System + Enterprise Security

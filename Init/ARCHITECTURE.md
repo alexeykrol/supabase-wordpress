@@ -1,7 +1,7 @@
 # Project Architecture
 
 **Project:** WordPress-Supabase Bridge
-**Version:** 0.7.0
+**Version:** 0.8.0
 **Last Updated:** 2025-10-26
 
 ---
@@ -99,6 +99,13 @@ supabase-bridge/
 │   └── wp_user_registrations table
 │
 ├── SECURITY_RLS_POLICIES_FINAL.sql  # RLS policies with site_url filtering (v0.7.0)
+│
+├── webhook-system/                  # Webhook system for n8n/make (v0.8.0)
+│   ├── ARCHITECTURE.md              # Webhook system architecture documentation
+│   ├── webhook-system.sql           # Database schema, triggers, RLS policies
+│   ├── send-webhook-function.ts     # Supabase Edge Function (Deno/TypeScript)
+│   ├── wordpress-admin-ui.php       # WordPress Admin UI for testing/monitoring
+│   └── DEPLOYMENT.md                # Step-by-step deployment guide
 │
 ├── build-release.sh                 # Release automation script (v0.7.0)
 │
@@ -335,6 +342,90 @@ CREATE TABLE wp_registration_pairs (
 5. После регистрации: редирект на /thanks-a/ (page-specific)
 6. Event логируется в wp_user_registrations
 ```
+
+---
+
+### 8. Webhook System for n8n/make Integration (v0.8.0)
+
+**Decision:** Автоматическая отправка webhooks в n8n/make при регистрации пользователей
+**Reasoning:**
+- ✅ Immediate delivery - вебхук отправляется мгновенно через database trigger (не cron)
+- ✅ Reliability - автоматические retry с exponential backoff (3 попытки: 1s, 2s, 4s)
+- ✅ Monitoring - все попытки логируются в `webhook_logs` таблицу
+- ✅ Easy testing - WordPress Admin UI с кнопкой "Send Test Webhook"
+- ✅ Transparency - JSON payload visible для debugging
+
+**Alternatives considered:**
+- ❌ Cron-based delivery - задержка до следующего запуска cron
+- ❌ WordPress hooks - не работают для Supabase Auth (регистрация в Supabase, не в WordPress)
+- ❌ Manual API calls - требует кастомной интеграции для каждого workflow
+
+**Architecture:**
+```
+User Registration (WordPress)
+    ↓
+INSERT wp_user_registrations (Phase 6)
+    ↓
+Database Trigger: trigger_registration_webhook()
+    ↓ (async via pg_net.http_post)
+Edge Function: send-webhook (Deno/TypeScript)
+    ↓ (3 retries, exponential backoff)
+n8n/make Webhook Endpoint
+    ↓
+Update webhook_logs with delivery status
+```
+
+**Components:**
+1. **Database Trigger** (`trigger_registration_webhook`) - Fires AFTER INSERT on `wp_user_registrations`
+2. **Edge Function** (`send-webhook`) - Delivers webhook with retry logic
+3. **Webhook Logs Table** (`webhook_logs`) - Stores all delivery attempts
+4. **WordPress Admin UI** - Test webhook button + real-time logs table (auto-refresh every 10s)
+
+**Implementation:**
+```sql
+-- Database Trigger (webhook-system.sql)
+CREATE TRIGGER on_registration_send_webhook
+AFTER INSERT ON wp_user_registrations
+FOR EACH ROW
+EXECUTE FUNCTION trigger_registration_webhook();
+```
+
+```typescript
+// Edge Function (send-webhook-function.ts)
+for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+  const response = await fetch(WEBHOOK_URL, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  if (response.ok) break; // Success
+  await sleep(RETRY_DELAYS[attempt]); // Exponential backoff
+}
+```
+
+**Payload Format:**
+```json
+{
+  "event": "user_registered",
+  "data": {
+    "id": "uuid-v4",
+    "user_id": "supabase-user-uuid",
+    "user_email": "user@example.com",
+    "registration_url": "/services/",
+    "thankyou_page_url": "/services-thankyou/",
+    "pair_id": "pair-uuid-or-null",
+    "registered_at": "2025-10-26T12:34:56.789Z"
+  },
+  "timestamp": "2025-10-26T12:34:56.789Z"
+}
+```
+
+**Security:**
+- ✅ SERVICE_ROLE_KEY stored only in Edge Function secrets (never exposed to WordPress)
+- ✅ pg_net extension for server-side HTTP calls (can't be intercepted by client)
+- ✅ RLS policies: WordPress (Anon Key) reads logs, Edge Function (Service Role) writes
+- ✅ No HMAC signature needed (own Supabase, trusted environment)
+
+**Detailed Documentation:** See `webhook-system/ARCHITECTURE.md` for complete architecture documentation and `webhook-system/DEPLOYMENT.md` for step-by-step deployment guide.
 
 ---
 

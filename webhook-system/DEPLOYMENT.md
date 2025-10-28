@@ -738,6 +738,12 @@ define('WP_DEBUG_DISPLAY', false);
 
 ## 📚 Additional Resources
 
+### Webhook System Documentation:
+- **[OAUTH-SETUP-GUIDE.md](./OAUTH-SETUP-GUIDE.md)** - 🔐 Configure Google & Facebook OAuth for webhook data enrichment
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - 🏗️ Complete system architecture + critical technical details
+- **[README.md](./README.md)** - 📖 Project overview, roadmap, version history
+
+### External Documentation:
 - **Supabase Edge Functions:** https://supabase.com/docs/guides/functions
 - **pg_net Extension:** https://supabase.com/docs/guides/database/extensions/pgnet
 - **n8n Webhooks:** https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/

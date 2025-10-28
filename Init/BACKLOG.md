@@ -1,12 +1,58 @@
 # Project Backlog
 
 **Project:** Supabase Bridge (Auth) for WordPress
-**Version:** 0.7.0
+**Version:** 0.8.0
 **Last Updated:** 2025-10-26
 
 ---
 
 ## 🎯 Recent Updates
+
+### 2025-10-27 - v0.8.1 - Webhook System for n8n/make Integration (PRODUCTION READY)
+**Status:** ✅ Complete (Deployed & Working End-to-End)
+**Description:** Real-time webhook delivery system for n8n/make when users register
+**Details:**
+- **Architecture Created:**
+  - webhook-system/ARCHITECTURE.md - Complete system architecture + critical technical details
+  - Database triggers + Edge Functions + WordPress Admin UI design
+  - Immediate delivery (no cron delays) via pg_net.http_post()
+- **Code Implemented:**
+  - webhook-system/webhook-system.sql - Database schema, triggers, RLS policies
+  - webhook-system/send-webhook-function.ts - Edge Function v0.8.1 with retry logic (3 attempts, exponential backoff)
+  - webhook-system/webhooks-tab-full-code.php - Full WordPress Admin UI code
+  - WordPress plugin updated: Encrypted URL decryption, version tracking (v0.8.3)
+- **Documentation:**
+  - webhook-system/DEPLOYMENT.md - "CRITICAL: Read This First!" section with 5 critical issues
+  - webhook-system/ARCHITECTURE.md - "Critical Technical Details (v0.8.1)" section (~400 lines)
+  - webhook-system/README.md - Production ready status, version history, roadmap completed
+  - Init/ARCHITECTURE.md updated with decision 8 (Webhook System architecture)
+- **Critical Fixes (12-hour debugging session):**
+  - ✅ **JWT Authentication** - Disabled Edge Function JWT verification (HTTP 401 fix)
+  - ✅ **RLS Policies** - Added anon role INSERT/UPDATE permissions
+  - ✅ **pg_net Extension** - Installation guide and correct syntax (v0.19.5)
+  - ✅ **Edge Function Error Handling** - Fixed failed webhook status updates
+  - ✅ **WordPress Encrypted URL** - Decrypt Supabase URL before extracting project_ref
+- **Key Features:**
+  - ✅ Immediate webhook delivery on user registration (database trigger)
+  - ✅ Automatic retries with exponential backoff (1s, 2s, 4s)
+  - ✅ Comprehensive logging in webhook_logs table
+  - ✅ WordPress Admin UI for testing (creates fake registration without full auth flow)
+  - ✅ JSON payload visible for debugging
+  - ✅ RLS policies (anon can INSERT/UPDATE, WordPress reads)
+- **Security:**
+  - SERVICE_ROLE_KEY stored only in Edge Function secrets (never exposed to WordPress)
+  - pg_net extension for server-side HTTP calls (can't be intercepted)
+  - JWT verification disabled for internal use (alternative: add Authorization header)
+- **Deployment Completed:**
+  - [x] Deploy webhook-system.sql to Supabase SQL Editor ✅
+  - [x] Deploy send-webhook Edge Function (v0.8.1) ✅
+  - [x] Configure environment variables (WEBHOOK_URL, SUPABASE_URL, SERVICE_ROLE_KEY) ✅
+  - [x] **CRITICAL:** Disable JWT verification in Edge Function settings ✅
+  - [x] **CRITICAL:** Add RLS policies for anon role ✅
+  - [x] Enable pg_net extension ✅
+  - [x] End-to-end testing with Make.com ✅
+  - [x] Update documentation with all critical issues ✅
+  - [x] Update Sprint Completion docs (BACKLOG.md, PROJECT_SNAPSHOT.md, ARCHITECTURE.md) ✅
 
 ### 2025-10-26 - Release v0.7.0 - Registration Pairs Analytics & Multi-Site Support
 **Status:** ✅ Complete
