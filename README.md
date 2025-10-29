@@ -82,6 +82,20 @@
 - ✅ **Email Verification** - OAuth providers require verified emails
 - ✅ **Open Redirect Protection** - Same-origin validation on redirects
 - ✅ **0 Vulnerabilities** - Clean `composer audit` report
+- ✅ **4-Layer Security Architecture** - WordPress validation → Supabase RLS → Cloudflare WAF → AIOS
+
+### Analytics & Tracking
+- ✅ **Registration Pairs** - Map landing pages → thank you pages for conversion tracking
+- ✅ **Supabase Logging** - All registrations logged to Supabase with full metadata
+- ✅ **Page-Specific Redirects** - Different thank you pages per landing page
+- ✅ **Multi-Site Support** - Site-specific data filtering with RLS policies
+
+### Webhook Integration (v0.8.1)
+- ✅ **Real-time Webhooks** - Send registration events to n8n/Make.com instantly
+- ✅ **Automatic Retries** - 3 attempts with exponential backoff (1s, 2s, 4s)
+- ✅ **Webhook Logs** - Complete audit trail in Supabase
+- ✅ **WordPress Admin UI** - Test webhooks and monitor logs in real-time
+- ✅ **Database Triggers** - Immediate delivery via PostgreSQL triggers (no cron!)
 
 ### WordPress Integration
 - ✅ **Automatic User Sync** - Creates WordPress users on first login
@@ -89,13 +103,16 @@
 - ✅ **Supabase User ID Storage** - Links WP user to Supabase `auth.uid()`
 - ✅ **Smart Redirects** - Different redirects for new vs existing users
 - ✅ **Role Assignment** - Default subscriber role (configurable)
+- ✅ **Shortcode Support** - `[supabase_auth_form]` works in Elementor, Gutenberg, etc.
+- ✅ **Settings UI** - WordPress Admin → Settings → Supabase Bridge (3 tabs)
 
 ### Developer Experience
 - ✅ **Ready-to-use Form** - `auth-form.html` with all 3 auth methods
 - ✅ **REST API** - `/wp-json/supabase-auth/callback` and `/logout` endpoints
-- ✅ **Environment Variables** - Secure configuration via `wp-config.php`
+- ✅ **Encrypted Settings** - AES-256-CBC encryption for credentials in database
 - ✅ **No Database Changes** - Uses existing `wp_users` and `wp_usermeta`
 - ✅ **Composer** - Modern PHP dependency management
+- ✅ **ZIP Installation** - Standard WordPress plugin upload method
 
 ---
 
@@ -173,112 +190,79 @@ WordPress Registration → Database Trigger → Edge Function → n8n/Make.com
 - Production-ready with Cloudflare + LiteSpeed Cache configurations
 
 #### Documentation:
-- `IMPLEMENTATION_SUMMARY.md` - Complete overview of all 6 phases
-- `SECURITY_ROLLBACK_SUMMARY.md` - Security architecture explained
-- `PRODUCTION_SETUP.md` - AIOS/Cloudflare/LiteSpeed setup guide (no conflicts!)
-- `QUICK_SETUP_CHECKLIST.md` - 1-page deployment checklist
-- `SECURITY_RLS_POLICIES_FINAL.sql` - RLS policies for Supabase
+- **[SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)** - Security architecture explained
+- **[PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)** - AIOS/Cloudflare/LiteSpeed setup guide (no conflicts!)
+- **[QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)** - 1-page deployment checklist
+- **[SECURITY_RLS_POLICIES_FINAL.sql](SECURITY_RLS_POLICIES_FINAL.sql)** - RLS policies for Supabase
+- **[Init/BACKLOG.md](Init/BACKLOG.md)** - Complete development history and changelog
 
 **Testing:** All 6 phases tested end-to-end with JOIN query validation ✅
 
 ---
 
-### 🚨 Critical Bug Fix - User Duplication (v0.4.1)
-- **Fixed:** Multiple users created with same email during authentication
-  - Root cause: Race condition - two PHP processes (different PIDs) creating users simultaneously
-  - Solution: Server-side distributed lock using WordPress Transient API
-  - Protection layers: UUID-first checking + distributed lock + retry logic
-  - Affected: Magic Link, Google OAuth, Facebook OAuth
-  - Status: ✅ **RESOLVED** (tested in production)
+### 🔧 Previous Releases
 
-### 🎉 New Features (v0.4.0)
-- **Shortcode Support** - `[supabase_auth_form]` works in any page builder (Elementor, Gutenberg, etc.)
-- **Settings Page** - WordPress Admin → Settings → Supabase Bridge
-  - Thank You Page selector (dropdown)
-  - Real-time credentials verification
-- **Encrypted Credentials Storage** - AES-256-CBC encryption in database
-- **Elementor Compatibility** - Full support for Elementor page builder
+**v0.7.0** - Page-Specific Redirects + Enterprise Security (2025-10-26)
+- Registration Pairs analytics system
+- Multi-site support with RLS policies
+- 4-layer security architecture
 
-### 📚 New Documentation (v0.4.1)
-- **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Complete diagnostic workflow for known issues
-- **[DIAGNOSTIC_CHECKLIST.md](DIAGNOSTIC_CHECKLIST.md)** - Systematic debugging guide
+**v0.4.1** - Critical Bug Fix (2025-10-25)
+- ✅ Fixed user duplication race condition
+- Server-side distributed lock with WordPress Transient API
 
-### Testing Results ✅
-- Magic Link: No duplication (tested)
-- Google OAuth: No duplication (Chrome + Safari)
-- Facebook OAuth: No duplication (tested)
-- Elementor: Full compatibility
-- Cross-browser: Chrome, Safari verified
+**v0.4.0** - Settings Page & Shortcodes (2025-10-25)
+- WordPress Admin settings UI
+- `[supabase_auth_form]` shortcode
+- Encrypted credentials storage (AES-256-CBC)
 
-**Full Changelog:** See [BACKLOG.md](Init/BACKLOG.md)
+**v0.3.5** - Bug Fixes & Production Testing (2025-10-23)
+- Google OAuth email verification fix
+- Magic Link localStorage timing fix
+- CSP compatibility improvements
+
+**Full Changelog:** See [Init/BACKLOG.md](Init/BACKLOG.md)
 
 ---
 
 ## 🗺️ Roadmap
 
-### Recently Released ✅
+### Current Status: v0.8.1 ✅
 
-**v0.4.0 - Settings Page & Shortcodes** ✅ (Released 2025-10-25)
-- ✅ Admin Settings Page (WordPress Admin → Settings → Supabase Bridge)
-- ✅ Shortcode `[supabase_auth_form]` works in any page builder
-- ✅ Encrypted credentials storage (AES-256-CBC)
-- ✅ Thank You Page selector with dropdown
+**Plugin is production-ready** with all core features implemented:
+- ✅ Multi-provider authentication (Google, Facebook, Magic Link)
+- ✅ Enterprise-grade security (4-layer defense)
+- ✅ Analytics & tracking (Registration Pairs)
+- ✅ Webhook integration (n8n/Make.com)
+- ✅ WordPress settings UI (3 tabs)
+- ✅ Production documentation
 
-**v0.4.1 - Critical Bug Fixes** ✅ (Released 2025-10-25)
-- ✅ User duplication fix (server-side distributed lock)
-- ✅ Elementor compatibility
-- ✅ Comprehensive troubleshooting documentation
+### Future Enhancements
 
-### Coming Soon
+**v0.9.0+ - Potential Features** (community-driven)
 
-**v0.2.0 - Role Mapping** ([#6](https://github.com/alexeykrol/supabase-wordpress/issues/6))
-- Map Supabase roles → WordPress roles (admin, editor, subscriber)
-- Update roles on each login
-- Configurable via filter hooks
+Based on feedback, we may add:
+- **Role Mapping** - Map Supabase roles → WordPress roles (admin, editor, subscriber)
+- **Enhanced Metadata Sync** - Sync avatar, first name, last name from OAuth providers
+- **Email/Password Authentication** - Native Supabase email/password login
+- **Outbox Pattern for Webhooks** - Zero event loss guarantee for webhook delivery ([#11](https://github.com/alexeykrol/supabase-wordpress/issues/11))
 
-**v0.5.0 - Enhanced Metadata Sync** ([#7](https://github.com/alexeykrol/supabase-wordpress/issues/7))
-- Sync avatar, first name, last name from OAuth providers
-- Custom field mapping via filters
-- User profile updates
+**Full Roadmap & Changelog:** See [Init/BACKLOG.md](Init/BACKLOG.md)
 
-**v0.6.0 - Email/Password Authentication**
-- Native Supabase email/password login
-- Password reset flow
-- Email verification flow
-
-**Full Roadmap:** See [BACKLOG.md](Init/BACKLOG.md)
+**Want a feature?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues) or ⭐ star the repo!
 
 ---
 
-## 🚨 Known Issues & Improvements
+## 📝 Support & Issues
 
-We're actively working on improving the plugin UX. Help us prioritize by 👍 voting on issues!
+**Production Status:** ✅ Plugin is stable and tested on [questtales.com](https://questtales.com)
 
-### Recently Resolved ✅
-
-3. **[#3 - Plaintext credentials in wp-config.php](https://github.com/alexeykrol/supabase-wordpress/issues/3)** ✅ RESOLVED (v0.4.0)
-   - ✅ Encrypted storage in database with AES-256-CBC
-   - ✅ Settings page for easy configuration
-
-5. **[#5 - No UI for Thank You page configuration](https://github.com/alexeykrol/supabase-wordpress/issues/5)** ✅ RESOLVED (v0.4.0)
-   - ✅ Settings page with page dropdown selector
-   - ✅ No code editing required
-
-### Critical UX Issues 🔴
-
-1. **[#1 - Setup requires FTP access to copy form code](https://github.com/alexeykrol/supabase-wordpress/issues/1)** 🔥
-   - Current: Users need FTP to retrieve `auth-form.html` code
-   - Planned: Embed code in setup page with copy button
-   - Status: Partially resolved (shortcode `[supabase_auth_form]` available, but initial setup still needs documentation)
-
-2. **[#2 - Manual page creation and shortcode insertion](https://github.com/alexeykrol/supabase-wordpress/issues/2)** 🔥
-   - Current: Manual page creation + shortcode insertion
-   - Planned: One-click page creation with auto-setup
-   - Status: Partially resolved (Settings page exists, shortcode available)
-
-4. **[#4 - Confusing auth-form.html structure](https://github.com/alexeykrol/supabase-wordpress/issues/4)** 🔥
-   - Current: 1211 lines with 142 lines of comments
-   - Planned: Separate clean code from documentation
+**Need Help?**
+- 📖 **Documentation:** See [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md) for quick start
+- 📖 **Production Setup:** See [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md) for detailed deployment
+- 📖 **Webhook Setup:** See [webhook-system/DEPLOYMENT.md](webhook-system/DEPLOYMENT.md) for webhook integration
+- 🐛 **Found a Bug?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues)
+- 💡 **Feature Request?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues) and vote 👍
 
 **See all issues:** https://github.com/alexeykrol/supabase-wordpress/issues
 
@@ -382,7 +366,8 @@ Copyright (c) 2025 Alexey Krol
 
 - **[Supabase](https://supabase.com)** - Amazing open-source Firebase alternative
 - **[firebase/php-jwt](https://github.com/firebase/php-jwt)** - JWT verification library
-- **Claude Code Starter Framework** - Documentation structure
+- **[Claude Code Starter Framework](https://github.com/anthropics/claude-code-starter)** - Documentation structure
+- **[Build AI Agents Course](https://github.com/alexeykrol/build-ai-agents-course)** - This plugin was developed as part of a comprehensive course on AI-assisted development (370-470 person-hours of work completed in 21 days)
 
 ---
 
