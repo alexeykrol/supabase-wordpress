@@ -12,6 +12,11 @@
 
 **🎉 Production Ready** | **✅ Tested on [questtales.com](https://questtales.com)** | **🔐 Enterprise-Grade Security**
 
+>
+> **🎓 Created to support students of the AI Agents course for beginners:**
+> - Full course: [AI Agents Full Course](https://alexeykrol.com/courses/ai_full/) (Russian)
+> - For complete beginners: [Free AI Intro Course](https://alexeykrol.com/courses/ai_intro/) (Russian)
+
 ---
 
 ## 🚀 Quick Start
