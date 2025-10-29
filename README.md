@@ -60,9 +60,10 @@
 7. **Done!** Users can now register and be tracked by landing page.
 
 📖 **Full Documentation:**
-- Quick setup (5 min): `QUICK_SETUP_CHECKLIST.md`
-- Production deployment: `PRODUCTION_SETUP.md`
-- Security architecture: `SECURITY_ROLLBACK_SUMMARY.md`
+- **Complete feature list:** [FEATURES.md](FEATURES.md) - 🎯 **129 features organized by category!**
+- Quick setup (5 min): [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)
+- Production deployment: [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)
+- Security architecture: [SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)
 
 ---
 
@@ -325,6 +326,9 @@ This plugin follows WordPress security best practices:
 
 ## 📖 Documentation
 
+### Feature Overview:
+- **[FEATURES.md](FEATURES.md)** - 🎯 Complete feature list (129 features organized by category!)
+
 ### Quick Start & Deployment:
 - **[QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)** - 1-page deployment guide (5 minutes)
 - **[PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)** - Detailed AIOS/Cloudflare/LiteSpeed configuration
@@ -335,6 +339,12 @@ This plugin follows WordPress security best practices:
 
 ### Database Schema:
 - **[supabase-tables.sql](supabase-tables.sql)** - Create tables in Supabase
+
+### Webhook System:
+- **[webhook-system/README.md](webhook-system/README.md)** - Webhook system overview
+- **[webhook-system/DEPLOYMENT.md](webhook-system/DEPLOYMENT.md)** - Deployment guide with critical issues
+- **[webhook-system/ARCHITECTURE.md](webhook-system/ARCHITECTURE.md)** - Technical architecture details
+- **[webhook-system/OAUTH-SETUP-GUIDE.md](webhook-system/OAUTH-SETUP-GUIDE.md)** - Google & Facebook OAuth setup
 
 ---
 
