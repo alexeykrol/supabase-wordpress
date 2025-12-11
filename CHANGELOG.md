@@ -2,6 +2,29 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.8.3] - 2025-12-11
+
+### Fixed
+- **sb_cfg() function** now correctly reads environment variables from `$_ENV` and `$_SERVER`
+- Fixes issue where `getenv()` doesn't work with `putenv()` in wp-config.php
+- JWKS cache clearing for JWT Signing Keys migration
+
+### Added
+- Support for Supabase JWT Signing Keys (migrated from Legacy JWT Secret)
+- Better fallback chain for reading credentials: Database → $_ENV → $_SERVER → getenv()
+
+## [0.8.2] - 2025-12-11
+
+### Added
+- **Webhooks Tab** in WordPress Admin UI (third tab)
+- Complete integration of webhook system into main plugin interface
+- Visual status indicators for webhook configuration
+- Collapsible setup instructions for Supabase deployment
+- Test webhook button in admin interface
+
+### Fixed
+- Missing Webhooks tab in admin interface (was developed but not integrated)
+
 ## [0.8.1] - 2025-10-27
 
 ### Added

@@ -22,10 +22,11 @@
 **Phase 5: UX Improvements (v0.4.0-v0.4.1)** [статус: ✅]
 **Phase 6: Analytics & Multi-Site (v0.7.0)** [статус: ✅]
 **Phase 7: Webhook System for n8n/make (v0.8.1)** [статус: ✅]
+**Phase 8: Webhook UI Integration (v0.8.2)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + UI Integration (Production Ready)
 
-**Текущая фаза:** v0.8.1 Webhook System Deployed & Working (Production Ready)
+**Текущая фаза:** v0.8.2 Webhook UI Integrated (Production Ready)
 
 ---
 
@@ -151,12 +152,18 @@ supabase-bridge/
 ### Phase 7: Webhook System (v0.8.1) - Completed 2025-10-27
 1. ✅ Database triggers for webhooks
 2. ✅ Edge Function with retry logic
-3. ✅ WordPress Admin UI
+3. ✅ WordPress Admin UI code (standalone file)
 4. ✅ End-to-end testing with Make.com
+
+### Phase 8: Webhook UI Integration (v0.8.2) - Completed 2025-12-11
+1. ✅ Added Webhooks tab to WordPress Admin UI navigation
+2. ✅ Integrated sb_render_webhooks_tab() function into main plugin
+3. ✅ Visual status indicators for webhook configuration
+4. ✅ Complete admin interface with setup instructions
 
 ---
 
-## 🔜 Следующий этап: Phase 8
+## 🔜 Следующий этап: Phase 9
 
 **v0.2.0 - Role Mapping**
 
@@ -187,8 +194,8 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready ✨
 **Live Site:** https://questtales.com
-**Version:** 0.8.1
-**Last Deploy:** 2025-10-27
+**Version:** 0.8.2
+**Last Update:** 2025-12-11
 **Uptime:** Stable
 **Known Bugs:** 0
 
