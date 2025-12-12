@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening. Includes webhook system for n8n/Make.com integration.
- * Version: 0.8.3
+ * Version: 0.8.4
  * Author: Alexey Krol
  * License: MIT
  * Requires at least: 5.0
@@ -744,6 +744,26 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
   $jwt = $req->get_param('access_token');
   if (!$jwt) return new \WP_Error('no_jwt','Missing access_token',['status'=>400]);
+
+  // КРИТИЧНО: Защита от дублирующих callback запросов с атомарной блокировкой MySQL
+  // Один токен должен обрабатываться только один раз
+  global $wpdb;
+  $token_lock_key = 'sb_lock_' . md5($jwt);
+
+  // GET_LOCK() атомарно возвращает 1 если получили блокировку, 0 если уже заблокировано, NULL при ошибке
+  // Таймаут 0 = не ждать, сразу вернуть результат
+  $lock_acquired = $wpdb->get_var($wpdb->prepare("SELECT GET_LOCK(%s, 0)", $token_lock_key));
+
+  if ($lock_acquired != 1) {
+    error_log('Supabase Bridge: Token already being processed (duplicate request blocked via MySQL lock)');
+    return new \WP_Error('duplicate','Authentication already in progress',['status'=>409]);
+  }
+
+  // Блокировка автоматически освободится при закрытии соединения MySQL
+  // Но для надежности освободим явно в конце функции через register_shutdown_function
+  register_shutdown_function(function() use ($wpdb, $token_lock_key) {
+    $wpdb->query($wpdb->prepare("SELECT RELEASE_LOCK(%s)", $token_lock_key));
+  });
 
   $projectRef = sb_cfg('SUPABASE_PROJECT_REF', '');
   if (!$projectRef) {

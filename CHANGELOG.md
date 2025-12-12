@@ -2,6 +2,33 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.8.4] - 2025-12-11
+
+### Fixed
+- **Critical: Magic Link authentication** - Race condition causing duplicate callbacks
+- Implemented atomic MySQL `GET_LOCK()` to prevent concurrent token processing
+- WordPress cookies now properly saved when using Magic Link (email) authentication
+- Fixes issue where callback succeeded but user wasn't logged in due to session corruption
+- Added `credentials: 'include'` to fetch request for proper cookie handling
+- **Clean localStorage on login page** - Auth form now automatically clears Supabase localStorage before showing login form
+- Prevents re-login issues after logout without manually clearing browser data
+- Ensures fresh authentication state every time user visits login page
+
+### Changed
+- Replaced non-atomic transient lock with MySQL `GET_LOCK()` for true concurrency protection
+- Second duplicate request now returns HTTP 409 immediately
+- Lock automatically released after callback completion via `register_shutdown_function()`
+- Added `credentials: 'include'` to callback fetch request for proper cookie handling
+- Added cleanup script to auth-form.html that runs immediately on page load
+- Clears all `sb-*` and `sb_processed_*` localStorage keys before form initialization
+- More reliable than wp_logout hook which can be interrupted by redirects
+
+### Technical Details
+- Root cause: Supabase `onAuthStateChange` fires twice simultaneously for Magic Link
+- Both requests called `wp_set_auth_cookie()`, second call corrupted first session
+- Solution: Atomic database-level lock ensures only one request processes each JWT token
+- Tested successfully in Safari, Chrome, and Firefox
+
 ## [0.8.3] - 2025-12-11
 
 ### Fixed

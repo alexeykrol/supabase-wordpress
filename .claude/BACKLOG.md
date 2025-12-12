@@ -1,13 +1,13 @@
 # BACKLOG — Supabase Bridge
 
 *Framework: Claude Code Starter v2.2*
-*Last Updated: 2025-12-10*
+*Last Updated: 2025-12-11*
 
 ---
 
 ## Current Status
 
-**Version:** 0.8.1 (Production Ready)
+**Version:** 0.8.4 (Production Ready)
 **Phase:** Maintenance
 
 ---

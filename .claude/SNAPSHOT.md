@@ -1,7 +1,7 @@
 # SNAPSHOT — Supabase Bridge
 
 *Framework: Claude Code Starter v2.2*
-*Last Updated: 2025-12-10*
+*Last Updated: 2025-12-11*
 
 ---
 
@@ -23,10 +23,12 @@
 **Phase 6: Analytics & Multi-Site (v0.7.0)** [статус: ✅]
 **Phase 7: Webhook System for n8n/make (v0.8.1)** [статус: ✅]
 **Phase 8: Webhook UI Integration (v0.8.2)** [статус: ✅]
+**Phase 9: Environment Variable Fixes (v0.8.3)** [статус: ✅]
+**Phase 10: Magic Link Authentication Fix (v0.8.4)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + UI Integration (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed (Production Ready)
 
-**Текущая фаза:** v0.8.2 Webhook UI Integrated (Production Ready)
+**Текущая фаза:** v0.8.4 Magic Link Fixed (Production Ready)
 
 ---
 
@@ -161,9 +163,23 @@ supabase-bridge/
 3. ✅ Visual status indicators for webhook configuration
 4. ✅ Complete admin interface with setup instructions
 
+### Phase 9: Environment Variable Fixes (v0.8.3) - Completed 2025-12-11
+1. ✅ Fixed sb_cfg() function to read from $_ENV and $_SERVER
+2. ✅ Support for Supabase JWT Signing Keys (migrated from Legacy JWT Secret)
+3. ✅ Better fallback chain for credentials reading
+4. ✅ JWKS cache clearing for JWT key migration
+
+### Phase 10: Magic Link Authentication Fix (v0.8.4) - Completed 2025-12-11
+1. ✅ Fixed race condition causing duplicate callbacks
+2. ✅ Implemented atomic MySQL GET_LOCK() for concurrency protection
+3. ✅ Added credentials: 'include' to fetch request for proper cookie handling
+4. ✅ Fixed localStorage cleanup on login page
+5. ✅ Tested successfully in Safari, Chrome, and Firefox
+6. ✅ All authentication methods now working perfectly
+
 ---
 
-## 🔜 Следующий этап: Phase 9
+## 🔜 Следующий этап: Phase 11
 
 **v0.2.0 - Role Mapping**
 
@@ -194,7 +210,7 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready ✨
 **Live Site:** https://questtales.com
-**Version:** 0.8.2
+**Version:** 0.8.4
 **Last Update:** 2025-12-11
 **Uptime:** Stable
 **Known Bugs:** 0

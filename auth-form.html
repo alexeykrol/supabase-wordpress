@@ -546,6 +546,30 @@
   (function() {
     'use strict';
 
+    // ========== CLEANUP: Clear Supabase session BEFORE form loads ==========
+    // This ensures fresh login state every time user visits login page
+    (function cleanupSupabaseSession() {
+      try {
+        // Clear all Supabase localStorage keys
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.startsWith('sb_processed_'))) {
+            keysToRemove.push(key);
+          }
+        }
+
+        if (keysToRemove.length > 0) {
+          console.log('🧹 Cleaning up Supabase localStorage before login:', keysToRemove.length, 'keys');
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+          console.log('✅ Supabase localStorage cleared - ready for fresh login');
+        }
+      } catch (e) {
+        console.warn('Could not clean localStorage:', e);
+      }
+    })();
+    // ========== END CLEANUP ==========
+
     // Защита от запуска если DOM не готов
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initAuthForm);
@@ -866,8 +890,9 @@
           return;
         }
 
-        // Помечаем в localStorage
-        localStorage.setItem(processedTokenKey, 'processing');
+        // КРИТИЧНО #4: Помечаем в localStorage КАК МОЖНО РАНЬШЕ (до fetch!)
+        // Это предотвращает дублирование даже если два экземпляра страницы запущены одновременно
+        localStorage.setItem(processedTokenKey, Date.now());
 
         const user = session.user;
         const accessToken = session.access_token;
@@ -877,7 +902,8 @@
           const wpResponse = await fetch(window.location.origin + '/wp-json/supabase-auth/callback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ access_token: accessToken })
+            body: JSON.stringify({ access_token: accessToken }),
+            credentials: 'include'  // CRITICAL: Required for cookies to be saved
           });
 
           const wpData = await wpResponse.json();
