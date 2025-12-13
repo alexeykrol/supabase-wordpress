@@ -1,18 +1,26 @@
 # BACKLOG — Supabase Bridge
 
 *Framework: Claude Code Starter v2.2*
-*Last Updated: 2025-12-11*
+*Last Updated: 2025-12-13*
 
 ---
 
 ## Current Status
 
-**Version:** 0.8.4 (Production Ready)
+**Version:** 0.8.5 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed (v0.8.5)
+- [x] Fix Registration Pairs tracking accuracy (Referer → explicit POST param)
+- [x] Implement Edit Pair functionality
+- [x] Add custom delete confirmation modal (Safari compatible)
+- [x] Fix registration logging bug (remove thankyou_page_url column)
+- [x] Improve HTTP 409 duplicate callback handling
+- [x] Add RLS policies for anon role on registration tables
 
 *No active development tasks. Project is in maintenance mode.*
 

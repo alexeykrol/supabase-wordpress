@@ -1,7 +1,7 @@
 # SNAPSHOT — Supabase Bridge
 
 *Framework: Claude Code Starter v2.2*
-*Last Updated: 2025-12-11*
+*Last Updated: 2025-12-13*
 
 ---
 
@@ -25,10 +25,11 @@
 **Phase 8: Webhook UI Integration (v0.8.2)** [статус: ✅]
 **Phase 9: Environment Variable Fixes (v0.8.3)** [статус: ✅]
 **Phase 10: Magic Link Authentication Fix (v0.8.4)** [статус: ✅]
+**Phase 11: Registration Pairs Fixes (v0.8.5)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete (Production Ready)
 
-**Текущая фаза:** v0.8.4 Magic Link Fixed (Production Ready)
+**Текущая фаза:** v0.8.5 Registration Pairs Complete (Production Ready)
 
 ---
 
@@ -177,9 +178,18 @@ supabase-bridge/
 5. ✅ Tested successfully in Safari, Chrome, and Firefox
 6. ✅ All authentication methods now working perfectly
 
+### Phase 11: Registration Pairs Fixes (v0.8.5) - Completed 2025-12-13
+1. ✅ Fixed Registration Pairs tracking accuracy (explicit POST param instead of Referer)
+2. ✅ Implemented Edit Pair functionality with modal pre-population
+3. ✅ Added custom delete confirmation modal (Safari compatible)
+4. ✅ Fixed registration logging bug (removed non-existent thankyou_page_url column)
+5. ✅ Improved HTTP 409 duplicate callback handling for seamless redirects
+6. ✅ Added RLS policies for anon role on both registration tables
+7. ✅ Fully tested - registration events successfully logged to Supabase
+
 ---
 
-## 🔜 Следующий этап: Phase 11
+## 🔜 Следующий этап: Phase 12
 
 **v0.2.0 - Role Mapping**
 
@@ -210,8 +220,8 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready ✨
 **Live Site:** https://questtales.com
-**Version:** 0.8.4
-**Last Update:** 2025-12-11
+**Version:** 0.8.5
+**Last Update:** 2025-12-13
 **Uptime:** Stable
 **Known Bugs:** 0
 
