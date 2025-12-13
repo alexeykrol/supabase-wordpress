@@ -7,12 +7,21 @@
 
 ## Current Status
 
-**Version:** 0.8.5 (Production Ready)
+**Version:** 0.9.0 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed (v0.9.0)
+- [x] MemberPress Integration - Auto-assign FREE memberships on registration
+- [x] New Memberships tab with CRUD operations
+- [x] LearnDash Integration - Auto-enroll users in courses on registration
+- [x] New Courses tab with CRUD operations
+- [x] LearnDash banner removal patch script (idempotent, upgrade-safe)
+- [x] Remove redundant Supabase sync for Registration Pairs
+- [x] Test all integrations with MemberPress 1.x and LearnDash 4.x
 
 ### Completed (v0.8.5)
 - [x] Fix Registration Pairs tracking accuracy (Referer → explicit POST param)
@@ -30,9 +39,9 @@
 
 When development resumes, pick from ROADMAP.md:
 
-1. **v0.2.0 - Role Mapping** (High priority)
-2. **v0.4.0 - User Metadata Sync** (High priority)
-3. **v0.5.0 - Email/Password Auth** (Medium priority)
+1. **v0.10.0 - Role Mapping** (High priority)
+2. **v0.11.0 - User Metadata Sync** (High priority)
+3. **v0.12.0 - Email/Password Auth** (Medium priority)
 
 ---
 
