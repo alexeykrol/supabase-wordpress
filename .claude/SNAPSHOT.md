@@ -26,10 +26,12 @@
 **Phase 9: Environment Variable Fixes (v0.8.3)** [статус: ✅]
 **Phase 10: Magic Link Authentication Fix (v0.8.4)** [статус: ✅]
 **Phase 11: Registration Pairs Fixes (v0.8.5)** [статус: ✅]
+**Phase 12: MemberPress Integration (v0.9.0)** [статус: ✅]
+**Phase 13: LearnDash Integration (v0.9.0)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete (Production Ready)
 
-**Текущая фаза:** v0.8.5 Registration Pairs Complete (Production Ready)
+**Текущая фаза:** v0.9.0 MemberPress & LearnDash Integrations Complete (Production Ready)
 
 ---
 
@@ -187,11 +189,28 @@ supabase-bridge/
 6. ✅ Added RLS policies for anon role on both registration tables
 7. ✅ Fully tested - registration events successfully logged to Supabase
 
+### Phase 12: MemberPress Integration (v0.9.0) - Completed 2025-12-13
+1. ✅ New "🎫 Memberships" tab in WordPress Admin
+2. ✅ Dropdown showing only FREE memberships (price = 0)
+3. ✅ CRUD operations for membership assignment rules
+4. ✅ Auto-assign membership function using `MeprTransaction::store()`
+5. ✅ Integration with registration callback endpoint
+6. ✅ Tested successfully with MemberPress 1.x
+
+### Phase 13: LearnDash Integration (v0.9.0) - Completed 2025-12-13
+1. ✅ New "📚 Courses" tab in WordPress Admin
+2. ✅ Dropdown listing all available LearnDash courses
+3. ✅ CRUD operations for course enrollment rules
+4. ✅ Auto-enroll function using native `ld_update_course_access()`
+5. ✅ Integration with registration callback endpoint
+6. ✅ LearnDash banner removal patch script (idempotent, upgrade-safe)
+7. ✅ Tested successfully with LearnDash 4.x
+
 ---
 
-## 🔜 Следующий этап: Phase 12
+## 🔜 Следующий этап: Phase 14
 
-**v0.2.0 - Role Mapping**
+**v0.10.0 - Role Mapping**
 
 ### Задачи:
 1. Read role from JWT app_metadata
@@ -199,7 +218,7 @@ supabase-bridge/
 3. Update role on each login
 4. Configurable via filter hooks
 
-**Зависимости:** v0.3.3 complete (✅)
+**Зависимости:** v0.9.0 complete (✅)
 
 ---
 
@@ -220,7 +239,7 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready ✨
 **Live Site:** https://questtales.com
-**Version:** 0.8.5
+**Version:** 0.9.0
 **Last Update:** 2025-12-13
 **Uptime:** Stable
 **Known Bugs:** 0

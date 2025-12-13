@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.8.5-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0--6.8-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -24,12 +24,12 @@
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
-   - [supabase-bridge-v0.8.5.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.8.5/supabase-bridge-v0.8.5.zip)
+   - [supabase-bridge-v0.9.0.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.0/supabase-bridge-v0.9.0.zip)
    - Or build from source: `./build-release.sh` (requires git clone)
 
 2. **Install plugin**:
    - WordPress Admin → Plugins → Add New → Upload Plugin
-   - Choose `supabase-bridge-v0.8.5.zip`
+   - Choose `supabase-bridge-v0.9.0.zip`
    - Click "Install Now" → "Activate Plugin"
 
 3. **Setup Supabase database**:
@@ -64,6 +64,28 @@
 - Quick setup (5 min): [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)
 - Production deployment: [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)
 - Security architecture: [SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)
+
+---
+
+## 🎉 What's New in v0.9.0
+
+### MemberPress Integration
+- Auto-assign FREE memberships on registration
+- New "🎫 Memberships" tab in WordPress Admin
+- Automatic membership activation when users register from specific landing pages
+- Fully tested with MemberPress 1.x
+
+### LearnDash Integration
+- Auto-enroll users in courses on registration
+- New "📚 Courses" tab in WordPress Admin
+- Seamless course access when users register from designated pages
+- Includes LearnDash banner removal patch script
+- Fully tested with LearnDash 4.x
+
+### Architecture Improvements
+- Removed redundant Supabase synchronization for Registration Pairs
+- Settings now stored ONLY in WordPress `wp_options`
+- Cleaner separation: WordPress handles settings, Supabase logs events
 
 ---
 

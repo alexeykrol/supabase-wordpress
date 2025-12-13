@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="0.8.5"
+VERSION="0.9.0"
 PLUGIN_NAME="supabase-bridge"
 BUILD_DIR="build"
 RELEASE_NAME="${PLUGIN_NAME}-v${VERSION}"

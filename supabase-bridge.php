@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening. Includes webhook system for n8n/Make.com integration.
- * Version: 0.8.5
+ * Version: 0.9.0
  * Author: Alexey Krol
  * License: MIT
  * Requires at least: 5.0
@@ -566,6 +566,134 @@ function sb_log_registration_to_supabase($user_email, $supabase_user_id, $regist
   }
 }
 
+// === Phase 4: Auto-assign MemberPress membership on registration ===
+function sb_assign_membership_on_registration($wp_user_id, $registration_url) {
+  try {
+    // Check if MemberPress is active
+    if (!class_exists('MeprTransaction') || !class_exists('MeprProduct')) {
+      error_log('Supabase Bridge: MemberPress not active, skipping membership assignment');
+      return false;
+    }
+
+    // Get membership pairs from wp_options
+    $membership_pairs = get_option('sb_membership_pairs', []);
+
+    if (empty($membership_pairs)) {
+      // No membership pairs configured - this is normal
+      return false;
+    }
+
+    // Find matching pair by registration URL
+    $membership_id = null;
+    foreach ($membership_pairs as $pair) {
+      if ($pair['registration_page_url'] === $registration_url) {
+        $membership_id = intval($pair['membership_id']);
+        break;
+      }
+    }
+
+    if (!$membership_id) {
+      // No matching membership for this registration page - this is normal
+      return false;
+    }
+
+    // Verify membership exists and is free
+    $product = new MeprProduct($membership_id);
+    if (!$product->ID) {
+      error_log("Supabase Bridge: Membership ID $membership_id not found");
+      return false;
+    }
+
+    if (floatval($product->price) > 0) {
+      error_log("Supabase Bridge: Membership ID $membership_id is not free (price: {$product->price}), skipping");
+      return false;
+    }
+
+    // Create MeprTransaction to assign membership
+    $txn = new MeprTransaction();
+    $txn->user_id = $wp_user_id;
+    $txn->product_id = $membership_id;
+    $txn->status = MeprTransaction::$complete_str;
+    $txn->txn_type = MeprTransaction::$payment_str;
+    $txn->gateway = 'free';
+    $txn->created_at = gmdate('Y-m-d H:i:s');
+    $txn->trans_num = 'sb-' . uniqid();
+
+    // Let MemberPress handle expires_at based on product settings
+    $txn->store();
+
+    error_log(sprintf(
+      'Supabase Bridge: Membership assigned - User ID: %d, Membership ID: %d, Transaction ID: %d',
+      $wp_user_id,
+      $membership_id,
+      $txn->id
+    ));
+
+    return true;
+
+  } catch (Exception $e) {
+    error_log('Supabase Bridge: Exception during membership assignment - ' . $e->getMessage());
+    return false;
+  }
+}
+
+// === Phase 5: Auto-enroll LearnDash course on registration ===
+function sb_enroll_course_on_registration($wp_user_id, $registration_url) {
+  try {
+    // Check if LearnDash is active
+    if (!function_exists('ld_update_course_access')) {
+      error_log('Supabase Bridge: LearnDash not active, skipping course enrollment');
+      return false;
+    }
+
+    // Get course pairs from wp_options
+    $course_pairs = get_option('sb_course_pairs', []);
+
+    if (empty($course_pairs)) {
+      // No course pairs configured - this is normal
+      return false;
+    }
+
+    // Find matching pair by registration URL
+    $course_id = null;
+    foreach ($course_pairs as $pair) {
+      if ($pair['registration_page_url'] === $registration_url) {
+        $course_id = intval($pair['course_id']);
+        break;
+      }
+    }
+
+    if (!$course_id) {
+      // No matching course for this registration page - this is normal
+      return false;
+    }
+
+    // Verify course exists
+    $course = get_post($course_id);
+    if (!$course || $course->post_type !== 'sfwd-courses') {
+      error_log("Supabase Bridge: Course ID $course_id not found or not a LearnDash course");
+      return false;
+    }
+
+    // Enroll user in course
+    // ld_update_course_access($user_id, $course_id, $remove = false)
+    ld_update_course_access($wp_user_id, $course_id, false);
+
+    error_log(sprintf(
+      'Supabase Bridge: Course enrollment successful - User ID: %d, Course ID: %d, Course: %s',
+      $wp_user_id,
+      $course_id,
+      $course->post_title
+    ));
+
+    return true;
+
+  } catch (Exception $e) {
+    error_log('Supabase Bridge: Exception during course enrollment - ' . $e->getMessage());
+    return false;
+  }
+}
+
 // Create Supabase tables for registration pairs
 function sb_create_supabase_tables() {
   // Read SQL file
@@ -972,6 +1100,12 @@ function sb_handle_callback(\WP_REST_Request $req) {
             if ($validated_url) {
               sb_log_registration_to_supabase($email, $supabase_user_id, $validated_url);
               // Note: We don't check return value - logging is non-critical
+
+              // === Phase 4: Auto-assign MemberPress membership (v0.9.0) ===
+              sb_assign_membership_on_registration($uid, $validated_url);
+
+              // === Phase 5: Auto-enroll LearnDash course (v0.9.0) ===
+              sb_enroll_course_on_registration($uid, $validated_url);
             } else {
               error_log('Supabase Bridge: Invalid registration_url rejected: ' . $registration_url);
             }
@@ -1132,6 +1266,12 @@ function sb_render_setup_page() {
       </a>
       <a href="?page=supabase-bridge-setup&tab=pairs" class="nav-tab <?php echo $current_tab === 'pairs' ? 'nav-tab-active' : ''; ?>">
         🔗 Registration Pairs
+      </a>
+      <a href="?page=supabase-bridge-setup&tab=memberships" class="nav-tab <?php echo $current_tab === 'memberships' ? 'nav-tab-active' : ''; ?>">
+        🎫 Memberships
+      </a>
+      <a href="?page=supabase-bridge-setup&tab=courses" class="nav-tab <?php echo $current_tab === 'courses' ? 'nav-tab-active' : ''; ?>">
+        📚 Courses
       </a>
       <a href="?page=supabase-bridge-setup&tab=webhooks" class="nav-tab <?php echo $current_tab === 'webhooks' ? 'nav-tab-active' : ''; ?>">
         🪝 Webhooks
@@ -1380,6 +1520,18 @@ function sb_render_setup_page() {
         <?php sb_render_pairs_tab(); ?>
       </div><!-- End Tab 2: Registration Pairs -->
 
+    <?php elseif ($current_tab === 'memberships'): ?>
+      <!-- TAB 3: Memberships -->
+      <div class="tab-content">
+        <?php sb_render_memberships_tab(); ?>
+      </div><!-- End Tab 3: Memberships -->
+
+    <?php elseif ($current_tab === 'courses'): ?>
+      <!-- TAB 4: Courses -->
+      <div class="tab-content">
+        <?php sb_render_courses_tab(); ?>
+      </div><!-- End Tab 4: Courses -->
+
     <?php elseif ($current_tab === 'webhooks'): ?>
       <!-- TAB 3: Webhooks -->
       <div class="tab-content">
@@ -1624,6 +1776,588 @@ function sb_render_pairs_tab() {
       });
 
       pendingDelete = null;
+    }
+    </script>
+  </div>
+  <?php
+}
+
+// === Phase 4: Memberships Tab (v0.9.0) - MemberPress Integration ===
+function sb_render_memberships_tab() {
+  // Get membership pairs from wp_options
+  $pairs = get_option('sb_membership_pairs', []);
+
+  // Get FREE memberships from MemberPress
+  $free_memberships = [];
+  if (class_exists('MeprProduct')) {
+    $all_products = MeprProduct::get_all();
+    foreach ($all_products as $product) {
+      // Only include FREE memberships (price = 0)
+      if (floatval($product->price) == 0) {
+        $free_memberships[] = [
+          'id' => $product->ID,
+          'title' => $product->post_title,
+          'price' => $product->price
+        ];
+      }
+    }
+  } else {
+    // Fallback: query directly if MeprProduct class not available
+    $args = [
+      'post_type' => 'memberpressproduct',
+      'posts_per_page' => -1,
+      'post_status' => 'publish',
+      'meta_query' => [
+        [
+          'key' => '_mepr_product_price',
+          'value' => '0',
+          'type' => 'NUMERIC',
+          'compare' => '='
+        ]
+      ]
+    ];
+    $products = get_posts($args);
+    foreach ($products as $product) {
+      $free_memberships[] = [
+        'id' => $product->ID,
+        'title' => $product->post_title,
+        'price' => '0'
+      ];
+    }
+  }
+  ?>
+  <div style="margin-top: 20px;">
+    <h2>🎫 Registration / Membership Pairs</h2>
+    <p>Map registration pages to FREE memberships. When a user registers from a mapped page, they will automatically be assigned the corresponding membership.</p>
+
+    <?php if (empty($free_memberships)): ?>
+      <!-- No FREE Memberships Warning -->
+      <div class="notice notice-warning" style="margin: 20px 0; padding: 15px;">
+        <h3 style="margin-top: 0;">⚠️ No FREE Memberships Found</h3>
+        <p>To use this feature, create at least one FREE membership in MemberPress:</p>
+        <p><a href="<?php echo admin_url('post-new.php?post_type=memberpressproduct'); ?>" class="button">➕ Create Membership</a></p>
+        <p class="description">Set the price to $0 to make it a free membership.</p>
+      </div>
+    <?php else: ?>
+
+    <!-- Add New Pair Button -->
+    <p style="margin: 20px 0;">
+      <button type="button" class="button button-primary" onclick="sbShowAddMembershipModal()">
+        ➕ Add New Membership Pair
+      </button>
+    </p>
+
+    <?php if (empty($pairs)): ?>
+      <!-- Empty State -->
+      <div style="background: #f0f6fc; border: 1px solid #d1e4f5; border-radius: 6px; padding: 40px; text-align: center; margin: 20px 0;">
+        <p style="font-size: 16px; color: #666; margin: 0;">
+          📋 No membership pairs created yet.
+        </p>
+        <p style="color: #999; margin: 10px 0 0 0;">
+          Click "Add New Membership Pair" to automatically assign memberships upon registration.
+        </p>
+      </div>
+    <?php else: ?>
+      <!-- Pairs Table -->
+      <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+        <thead>
+          <tr>
+            <th style="width: 35%;">Registration Page</th>
+            <th style="width: 35%;">Membership</th>
+            <th style="width: 20%;">Created</th>
+            <th style="width: 10%;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($pairs as $pair): ?>
+            <tr>
+              <td>
+                <strong><?php echo esc_html(get_the_title($pair['registration_page_id'])); ?></strong>
+                <br>
+                <code style="font-size: 11px; color: #666;"><?php echo esc_html($pair['registration_page_url']); ?></code>
+              </td>
+              <td>
+                <strong>🎫 <?php echo esc_html(get_the_title($pair['membership_id'])); ?></strong>
+                <br>
+                <span style="font-size: 11px; color: #666;">ID: <?php echo esc_html($pair['membership_id']); ?> (FREE)</span>
+              </td>
+              <td>
+                <?php echo esc_html(date('Y-m-d H:i', strtotime($pair['created_at']))); ?>
+              </td>
+              <td>
+                <button type="button" class="button button-small" onclick="sbEditMembership('<?php echo esc_js($pair['id']); ?>')">
+                  ✏️ Edit
+                </button>
+                <button type="button" class="button button-small button-link-delete" onclick="sbDeleteMembership('<?php echo esc_js($pair['id']); ?>', '<?php echo esc_js(get_the_title($pair['registration_page_id'])); ?>')">
+                  🗑️ Delete
+                </button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
+
+    <!-- Add/Edit Membership Modal -->
+    <div id="sb-membership-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+      <div style="background: #fff; margin: 50px auto; padding: 30px; width: 600px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <h2 id="sb-membership-modal-title">Add New Membership Pair</h2>
+        <form id="sb-membership-form">
+          <input type="hidden" id="sb-membership-pair-id" name="pair_id" value="">
+
+          <table class="form-table">
+            <tr>
+              <th scope="row">
+                <label for="sb-membership-reg-page">Registration Page</label>
+              </th>
+              <td>
+                <?php
+                wp_dropdown_pages([
+                  'name' => 'registration_page_id',
+                  'id' => 'sb-membership-reg-page',
+                  'show_option_none' => '— Select a page —',
+                  'option_none_value' => '0'
+                ]);
+                ?>
+                <p class="description">The page where users fill the registration form</p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <label for="sb-membership-select">Membership</label>
+              </th>
+              <td>
+                <select name="membership_id" id="sb-membership-select" class="regular-text">
+                  <option value="0">— Select a FREE membership —</option>
+                  <?php foreach ($free_memberships as $membership): ?>
+                    <option value="<?php echo esc_attr($membership['id']); ?>">
+                      🎫 <?php echo esc_html($membership['title']); ?> (FREE)
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+                <p class="description">User will be automatically assigned this membership upon registration</p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin-top: 20px;">
+            <button type="button" class="button button-primary" onclick="sbSaveMembership()">💾 Save Membership Pair</button>
+            <button type="button" class="button" onclick="sbCloseMembershipModal()">Cancel</button>
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="sb-membership-delete-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+      <div style="background: #fff; margin: 100px auto; padding: 30px; width: 500px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <h2 style="margin-top: 0; color: #d63638;">⚠️ Confirm Delete</h2>
+        <p id="sb-membership-delete-message" style="font-size: 14px; margin: 20px 0;">Are you sure you want to delete this membership pair?</p>
+        <p style="margin-top: 30px; text-align: right;">
+          <button type="button" class="button" onclick="sbCancelMembershipDelete()" style="margin-right: 10px;">Cancel</button>
+          <button type="button" class="button button-primary" onclick="sbConfirmMembershipDelete()" style="background: #d63638; border-color: #d63638;">🗑️ Delete</button>
+        </p>
+      </div>
+    </div>
+
+    <?php endif; // end if free_memberships ?>
+
+    <script>
+    // Global membership pairs data
+    const SB_MEMBERSHIP_PAIRS_DATA = <?php echo json_encode($pairs); ?>;
+
+    // Delete confirmation state
+    let pendingMembershipDelete = null;
+
+    function sbShowAddMembershipModal() {
+      document.getElementById('sb-membership-modal-title').textContent = 'Add New Membership Pair';
+      document.getElementById('sb-membership-pair-id').value = '';
+      document.getElementById('sb-membership-reg-page').value = '0';
+      document.getElementById('sb-membership-select').value = '0';
+      document.getElementById('sb-membership-modal').style.display = 'block';
+    }
+
+    function sbEditMembership(pairId) {
+      const pair = SB_MEMBERSHIP_PAIRS_DATA.find(p => p.id === pairId);
+
+      if (!pair) {
+        alert('⚠️ Membership pair not found');
+        return;
+      }
+
+      document.getElementById('sb-membership-modal-title').textContent = 'Edit Membership Pair';
+      document.getElementById('sb-membership-pair-id').value = pair.id;
+      document.getElementById('sb-membership-reg-page').value = pair.registration_page_id;
+      document.getElementById('sb-membership-select').value = pair.membership_id;
+      document.getElementById('sb-membership-modal').style.display = 'block';
+    }
+
+    function sbCloseMembershipModal() {
+      document.getElementById('sb-membership-modal').style.display = 'none';
+    }
+
+    function sbSaveMembership() {
+      const pairId = document.getElementById('sb-membership-pair-id').value;
+      const regPageId = document.getElementById('sb-membership-reg-page').value;
+      const membershipId = document.getElementById('sb-membership-select').value;
+
+      if (regPageId === '0') {
+        alert('⚠️ Please select a Registration Page');
+        return;
+      }
+
+      if (membershipId === '0') {
+        alert('⚠️ Please select a Membership');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('action', 'sb_save_membership_pair');
+      formData.append('nonce', '<?php echo wp_create_nonce('sb_membership_pair_nonce'); ?>');
+      formData.append('pair_id', pairId);
+      formData.append('registration_page_id', regPageId);
+      formData.append('membership_id', membershipId);
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Membership pair saved successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+    }
+
+    function sbDeleteMembership(pairId, pageName) {
+      pendingMembershipDelete = { pairId: pairId, pageName: pageName };
+      document.getElementById('sb-membership-delete-message').textContent =
+        'Are you sure you want to delete the membership pair for "' + pageName + '"?';
+      document.getElementById('sb-membership-delete-modal').style.display = 'block';
+    }
+
+    function sbCancelMembershipDelete() {
+      pendingMembershipDelete = null;
+      document.getElementById('sb-membership-delete-modal').style.display = 'none';
+    }
+
+    function sbConfirmMembershipDelete() {
+      if (!pendingMembershipDelete) return;
+
+      const { pairId, pageName } = pendingMembershipDelete;
+      document.getElementById('sb-membership-delete-modal').style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('action', 'sb_delete_membership_pair');
+      formData.append('nonce', '<?php echo wp_create_nonce('sb_membership_pair_nonce'); ?>');
+      formData.append('pair_id', pairId);
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Membership pair deleted successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+
+      pendingMembershipDelete = null;
+    }
+    </script>
+  </div>
+  <?php
+}
+
+// === Phase 5: Courses Tab (v0.9.0) - LearnDash Integration ===
+function sb_render_courses_tab() {
+  // Get course pairs from wp_options
+  $pairs = get_option('sb_course_pairs', []);
+
+  // Get all LearnDash courses
+  $courses = [];
+  if (function_exists('learndash_get_courses') || post_type_exists('sfwd-courses')) {
+    $args = [
+      'post_type' => 'sfwd-courses',
+      'posts_per_page' => -1,
+      'post_status' => 'publish',
+      'orderby' => 'title',
+      'order' => 'ASC'
+    ];
+    $course_posts = get_posts($args);
+    foreach ($course_posts as $course) {
+      $courses[] = [
+        'id' => $course->ID,
+        'title' => $course->post_title
+      ];
+    }
+  }
+  ?>
+  <div style="margin-top: 20px;">
+    <h2>📚 Registration / Course Enrollment Pairs</h2>
+    <p>Map registration pages to LearnDash courses. When a user registers from a mapped page, they will automatically be enrolled in the corresponding course.</p>
+
+    <?php if (empty($courses)): ?>
+      <!-- No Courses Warning -->
+      <div class="notice notice-warning" style="margin: 20px 0; padding: 15px;">
+        <h3 style="margin-top: 0;">⚠️ No LearnDash Courses Found</h3>
+        <p>To use this feature, create at least one course in LearnDash:</p>
+        <p><a href="<?php echo admin_url('post-new.php?post_type=sfwd-courses'); ?>" class="button">➕ Create Course</a></p>
+        <p class="description">Or make sure LearnDash plugin is installed and activated.</p>
+      </div>
+    <?php else: ?>
+
+    <!-- Add New Pair Button -->
+    <p style="margin: 20px 0;">
+      <button type="button" class="button button-primary" onclick="sbShowAddCourseModal()">
+        ➕ Add New Course Enrollment
+      </button>
+    </p>
+
+    <?php if (empty($pairs)): ?>
+      <!-- Empty State -->
+      <div style="background: #f0f6fc; border: 1px solid #d1e4f5; border-radius: 6px; padding: 40px; text-align: center; margin: 20px 0;">
+        <p style="font-size: 16px; color: #666; margin: 0;">
+          📋 No course enrollments configured yet.
+        </p>
+        <p style="color: #999; margin: 10px 0 0 0;">
+          Click "Add New Course Enrollment" to automatically enroll users upon registration.
+        </p>
+      </div>
+    <?php else: ?>
+      <!-- Pairs Table -->
+      <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+        <thead>
+          <tr>
+            <th style="width: 35%;">Registration Page</th>
+            <th style="width: 35%;">Course</th>
+            <th style="width: 20%;">Created</th>
+            <th style="width: 10%;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($pairs as $pair): ?>
+            <tr>
+              <td>
+                <strong><?php echo esc_html(get_the_title($pair['registration_page_id'])); ?></strong>
+                <br>
+                <code style="font-size: 11px; color: #666;"><?php echo esc_html($pair['registration_page_url']); ?></code>
+              </td>
+              <td>
+                <strong>📚 <?php echo esc_html(get_the_title($pair['course_id'])); ?></strong>
+                <br>
+                <span style="font-size: 11px; color: #666;">ID: <?php echo esc_html($pair['course_id']); ?></span>
+              </td>
+              <td>
+                <?php echo esc_html(date('Y-m-d H:i', strtotime($pair['created_at']))); ?>
+              </td>
+              <td>
+                <button type="button" class="button button-small" onclick="sbEditCourse('<?php echo esc_js($pair['id']); ?>')">
+                  ✏️ Edit
+                </button>
+                <button type="button" class="button button-small button-link-delete" onclick="sbDeleteCourse('<?php echo esc_js($pair['id']); ?>', '<?php echo esc_js(get_the_title($pair['registration_page_id'])); ?>')">
+                  🗑️ Delete
+                </button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php endif; ?>
+
+    <!-- Add/Edit Course Modal -->
+    <div id="sb-course-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+      <div style="background: #fff; margin: 50px auto; padding: 30px; width: 600px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <h2 id="sb-course-modal-title">Add New Course Enrollment</h2>
+        <form id="sb-course-form">
+          <input type="hidden" id="sb-course-pair-id" name="pair_id" value="">
+
+          <table class="form-table">
+            <tr>
+              <th scope="row">
+                <label for="sb-course-reg-page">Registration Page</label>
+              </th>
+              <td>
+                <?php
+                wp_dropdown_pages([
+                  'name' => 'registration_page_id',
+                  'id' => 'sb-course-reg-page',
+                  'show_option_none' => '— Select a page —',
+                  'option_none_value' => '0'
+                ]);
+                ?>
+                <p class="description">The page where users fill the registration form</p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <label for="sb-course-select">Course</label>
+              </th>
+              <td>
+                <select name="course_id" id="sb-course-select" class="regular-text">
+                  <option value="0">— Select a course —</option>
+                  <?php foreach ($courses as $course): ?>
+                    <option value="<?php echo esc_attr($course['id']); ?>">
+                      📚 <?php echo esc_html($course['title']); ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+                <p class="description">User will be automatically enrolled in this course upon registration</p>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin-top: 20px;">
+            <button type="button" class="button button-primary" onclick="sbSaveCourse()">💾 Save Course Enrollment</button>
+            <button type="button" class="button" onclick="sbCloseCourseModal()">Cancel</button>
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="sb-course-delete-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+      <div style="background: #fff; margin: 100px auto; padding: 30px; width: 500px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <h2 style="margin-top: 0; color: #d63638;">⚠️ Confirm Delete</h2>
+        <p id="sb-course-delete-message" style="font-size: 14px; margin: 20px 0;">Are you sure you want to delete this course enrollment?</p>
+        <p style="margin-top: 30px; text-align: right;">
+          <button type="button" class="button" onclick="sbCancelCourseDelete()" style="margin-right: 10px;">Cancel</button>
+          <button type="button" class="button button-primary" onclick="sbConfirmCourseDelete()" style="background: #d63638; border-color: #d63638;">🗑️ Delete</button>
+        </p>
+      </div>
+    </div>
+
+    <?php endif; // end if courses ?>
+
+    <script>
+    // Global course pairs data
+    const SB_COURSE_PAIRS_DATA = <?php echo json_encode($pairs); ?>;
+
+    // Delete confirmation state
+    let pendingCourseDelete = null;
+
+    function sbShowAddCourseModal() {
+      document.getElementById('sb-course-modal-title').textContent = 'Add New Course Enrollment';
+      document.getElementById('sb-course-pair-id').value = '';
+      document.getElementById('sb-course-reg-page').value = '0';
+      document.getElementById('sb-course-select').value = '0';
+      document.getElementById('sb-course-modal').style.display = 'block';
+    }
+
+    function sbEditCourse(pairId) {
+      const pair = SB_COURSE_PAIRS_DATA.find(p => p.id === pairId);
+
+      if (!pair) {
+        alert('⚠️ Course enrollment not found');
+        return;
+      }
+
+      document.getElementById('sb-course-modal-title').textContent = 'Edit Course Enrollment';
+      document.getElementById('sb-course-pair-id').value = pair.id;
+      document.getElementById('sb-course-reg-page').value = pair.registration_page_id;
+      document.getElementById('sb-course-select').value = pair.course_id;
+      document.getElementById('sb-course-modal').style.display = 'block';
+    }
+
+    function sbCloseCourseModal() {
+      document.getElementById('sb-course-modal').style.display = 'none';
+    }
+
+    function sbSaveCourse() {
+      const pairId = document.getElementById('sb-course-pair-id').value;
+      const regPageId = document.getElementById('sb-course-reg-page').value;
+      const courseId = document.getElementById('sb-course-select').value;
+
+      if (regPageId === '0') {
+        alert('⚠️ Please select a Registration Page');
+        return;
+      }
+
+      if (courseId === '0') {
+        alert('⚠️ Please select a Course');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('action', 'sb_save_course_pair');
+      formData.append('nonce', '<?php echo wp_create_nonce('sb_course_pair_nonce'); ?>');
+      formData.append('pair_id', pairId);
+      formData.append('registration_page_id', regPageId);
+      formData.append('course_id', courseId);
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Course enrollment saved successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+    }
+
+    function sbDeleteCourse(pairId, pageName) {
+      pendingCourseDelete = { pairId: pairId, pageName: pageName };
+      document.getElementById('sb-course-delete-message').textContent =
+        'Are you sure you want to delete the course enrollment for "' + pageName + '"?';
+      document.getElementById('sb-course-delete-modal').style.display = 'block';
+    }
+
+    function sbCancelCourseDelete() {
+      pendingCourseDelete = null;
+      document.getElementById('sb-course-delete-modal').style.display = 'none';
+    }
+
+    function sbConfirmCourseDelete() {
+      if (!pendingCourseDelete) return;
+
+      const { pairId, pageName } = pendingCourseDelete;
+      document.getElementById('sb-course-delete-modal').style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('action', 'sb_delete_course_pair');
+      formData.append('nonce', '<?php echo wp_create_nonce('sb_course_pair_nonce'); ?>');
+      formData.append('pair_id', pairId);
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Course enrollment deleted successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+
+      pendingCourseDelete = null;
     }
     </script>
   </div>
@@ -1951,11 +2685,7 @@ function sb_ajax_save_pair() {
     }
   }
 
-  if ($saved_pair) {
-    // Try to sync to Supabase, but don't fail if it doesn't work
-    sb_sync_pair_to_supabase($saved_pair);
-    // Note: We don't check the return value - if Supabase fails, wp_options still works
-  }
+  // Note: Pairs stored only in wp_options (no Supabase sync needed)
 
   wp_send_json_success(['message' => 'Pair saved successfully', 'pair_id' => $pair_id]);
 }
@@ -2007,10 +2737,247 @@ function sb_ajax_delete_pair() {
   // Save to wp_options
   update_option('sb_registration_pairs', $pairs);
 
-  // === Phase 3: Delete from Supabase (non-blocking) ===
-  // Try to delete from Supabase, but don't fail if it doesn't work
-  sb_delete_pair_from_supabase($pair_id);
-  // Note: We don't check the return value - if Supabase fails, wp_options still works
+  // Note: Pairs stored only in wp_options (no Supabase sync needed)
 
   wp_send_json_success(['message' => 'Pair deleted successfully']);
+}
+
+// === Phase 4: Membership Pairs AJAX Handlers ===
+
+// AJAX: Save membership pair
+add_action('wp_ajax_sb_save_membership_pair', 'sb_ajax_save_membership_pair');
+function sb_ajax_save_membership_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_membership_pair_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Get and validate inputs
+  $pair_id = sanitize_text_field($_POST['pair_id'] ?? '');
+  $registration_page_id = intval($_POST['registration_page_id'] ?? 0);
+  $membership_id = intval($_POST['membership_id'] ?? 0);
+
+  if ($registration_page_id <= 0) {
+    wp_send_json_error('Registration page required');
+    return;
+  }
+
+  if ($membership_id <= 0) {
+    wp_send_json_error('Membership required');
+    return;
+  }
+
+  // Get page URL for matching during registration
+  $registration_page_url = get_page_uri($registration_page_id);
+  if ($registration_page_url) {
+    $registration_page_url = '/' . trim($registration_page_url, '/') . '/';
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_membership_pairs', []);
+
+  if (empty($pair_id)) {
+    // Create new pair
+    $pair_id = wp_generate_uuid4();
+    $pairs[] = [
+      'id' => $pair_id,
+      'registration_page_id' => $registration_page_id,
+      'registration_page_url' => $registration_page_url,
+      'membership_id' => $membership_id,
+      'created_at' => current_time('mysql'),
+    ];
+  } else {
+    // Update existing pair
+    foreach ($pairs as &$pair) {
+      if ($pair['id'] === $pair_id) {
+        $pair['registration_page_id'] = $registration_page_id;
+        $pair['registration_page_url'] = $registration_page_url;
+        $pair['membership_id'] = $membership_id;
+        break;
+      }
+    }
+    unset($pair);
+  }
+
+  // Save to wp_options
+  update_option('sb_membership_pairs', $pairs);
+
+  wp_send_json_success(['message' => 'Membership pair saved successfully', 'pair_id' => $pair_id]);
+}
+
+// AJAX: Delete membership pair
+add_action('wp_ajax_sb_delete_membership_pair', 'sb_ajax_delete_membership_pair');
+function sb_ajax_delete_membership_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_membership_pair_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Get pair ID
+  $pair_id = sanitize_text_field($_POST['pair_id'] ?? '');
+
+  if (empty($pair_id)) {
+    wp_send_json_error('Pair ID required');
+    return;
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_membership_pairs', []);
+
+  // Find and remove pair
+  $pair_found = false;
+  $pairs = array_filter($pairs, function($pair) use ($pair_id, &$pair_found) {
+    if ($pair['id'] === $pair_id) {
+      $pair_found = true;
+      return false; // Remove this pair
+    }
+    return true; // Keep this pair
+  });
+
+  if (!$pair_found) {
+    wp_send_json_error('Membership pair not found');
+    return;
+  }
+
+  // Reindex array
+  $pairs = array_values($pairs);
+
+  // Save to wp_options
+  update_option('sb_membership_pairs', $pairs);
+
+  wp_send_json_success(['message' => 'Membership pair deleted successfully']);
+}
+
+// === Phase 5: Course Pairs AJAX Handlers ===
+
+// AJAX: Save course pair
+add_action('wp_ajax_sb_save_course_pair', 'sb_ajax_save_course_pair');
+function sb_ajax_save_course_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_course_pair_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Get and validate inputs
+  $pair_id = sanitize_text_field($_POST['pair_id'] ?? '');
+  $registration_page_id = intval($_POST['registration_page_id'] ?? 0);
+  $course_id = intval($_POST['course_id'] ?? 0);
+
+  if ($registration_page_id <= 0) {
+    wp_send_json_error('Registration page required');
+    return;
+  }
+
+  if ($course_id <= 0) {
+    wp_send_json_error('Course required');
+    return;
+  }
+
+  // Get page URL for matching during registration
+  $registration_page_url = get_page_uri($registration_page_id);
+  if ($registration_page_url) {
+    $registration_page_url = '/' . trim($registration_page_url, '/') . '/';
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_course_pairs', []);
+
+  if (empty($pair_id)) {
+    // Create new pair
+    $pair_id = wp_generate_uuid4();
+    $pairs[] = [
+      'id' => $pair_id,
+      'registration_page_id' => $registration_page_id,
+      'registration_page_url' => $registration_page_url,
+      'course_id' => $course_id,
+      'created_at' => current_time('mysql'),
+    ];
+  } else {
+    // Update existing pair
+    foreach ($pairs as &$pair) {
+      if ($pair['id'] === $pair_id) {
+        $pair['registration_page_id'] = $registration_page_id;
+        $pair['registration_page_url'] = $registration_page_url;
+        $pair['course_id'] = $course_id;
+        break;
+      }
+    }
+    unset($pair);
+  }
+
+  // Save to wp_options
+  update_option('sb_course_pairs', $pairs);
+
+  wp_send_json_success(['message' => 'Course enrollment saved successfully', 'pair_id' => $pair_id]);
+}
+
+// AJAX: Delete course pair
+add_action('wp_ajax_sb_delete_course_pair', 'sb_ajax_delete_course_pair');
+function sb_ajax_delete_course_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_course_pair_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Get pair ID
+  $pair_id = sanitize_text_field($_POST['pair_id'] ?? '');
+
+  if (empty($pair_id)) {
+    wp_send_json_error('Pair ID required');
+    return;
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_course_pairs', []);
+
+  // Find and remove pair
+  $pair_found = false;
+  $pairs = array_filter($pairs, function($pair) use ($pair_id, &$pair_found) {
+    if ($pair['id'] === $pair_id) {
+      $pair_found = true;
+      return false; // Remove this pair
+    }
+    return true; // Keep this pair
+  });
+
+  if (!$pair_found) {
+    wp_send_json_error('Course enrollment not found');
+    return;
+  }
+
+  // Reindex array
+  $pairs = array_values($pairs);
+
+  // Save to wp_options
+  update_option('sb_course_pairs', $pairs);
+
+  wp_send_json_success(['message' => 'Course enrollment deleted successfully']);
 }

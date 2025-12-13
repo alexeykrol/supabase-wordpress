@@ -2,6 +2,42 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.9.0] - 2025-12-13
+
+### Added
+- **MemberPress Integration** - Auto-assign FREE memberships on registration
+  - New "🎫 Memberships" tab in WordPress Admin
+  - Dropdown shows only FREE memberships (price = 0)
+  - CRUD operations for membership assignment rules
+  - Uses `MeprTransaction::store()` to trigger all MemberPress hooks
+  - Automatic membership activation when users register from specific landing pages
+- **LearnDash Integration** - Auto-enroll users in courses on registration
+  - New "📚 Courses" tab in WordPress Admin
+  - Dropdown lists all available LearnDash courses
+  - CRUD operations for course enrollment rules
+  - Uses native `ld_update_course_access()` for enrollment
+  - Seamless course access when users register from designated pages
+- **LearnDash Banner Removal Tool** - Patch script to disable unwanted enrollment banner
+  - `patch-learndash-free-banner.php` - Idempotent patch script
+  - Completely disables "NOT ENROLLED / Free / Take this Course" banner for ALL course types
+  - Creates automatic backups before patching
+  - Can re-run safely after LearnDash updates
+  - Access control managed via MemberPress and custom Elementor conditions
+
+### Changed
+- **Registration Pairs architecture** - Removed redundant Supabase synchronization
+  - Pairs now stored ONLY in WordPress `wp_options` (no Supabase sync)
+  - Simplified architecture - settings belong in WordPress, not external database
+  - Removed `sb_sync_pair_to_supabase()` and `sb_delete_pair_from_supabase()` calls
+  - Cleaner separation: WordPress handles settings, Supabase logs events
+
+### Technical Details
+- MemberPress: Creates completed transaction with `gateway = 'free'` and `status = 'complete'`
+- LearnDash: Enrolls user with `$remove_access = false` parameter
+- Both integrations trigger on successful registration via callback endpoint
+- Patch script detects and upgrades old patches to latest version
+- All features fully tested with MemberPress 1.x and LearnDash 4.x
+
 ## [0.8.5] - 2025-12-13
 
 ### Fixed
