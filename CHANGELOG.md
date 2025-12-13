@@ -2,6 +2,32 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.8.5] - 2025-12-13
+
+### Fixed
+- **Registration Pairs tracking accuracy** - Registration URL now sent explicitly in POST body
+- No longer relies on unreliable HTTP Referer header
+- Backward compatible fallback to Referer for older deployments
+- **Registration logging bug** - Fixed HTTP 400 error caused by non-existent `thankyou_page_url` column
+- Removed redundant column from INSERT (thank you page accessible via `pair_id` foreign key)
+- **Duplicate callback handling** - Improved HTTP 409 response handling for seamless redirects
+- First duplicate request now exits silently, allowing second request to complete authentication
+
+### Added
+- **Edit Pair functionality** - Can now modify existing Registration Pairs
+- Modal pre-populates with current pair values (registration page and thank you page)
+- Syncs updates to both WordPress wp_options and Supabase
+- **Custom delete confirmation modal** - Replaces browser `confirm()` dialog (Safari compatible)
+- Styled to match WordPress admin interface
+
+### Technical Details
+- JavaScript sends `registration_url` (ORIGIN_PAGE) with callback request
+- PHP validates using `sb_validate_url_path()` before logging
+- Edit function loads pair data from global JavaScript array `SB_PAIRS_DATA`
+- Maintains backward compatibility - falls back to Referer if POST param missing
+- HTTP 409 responses handled gracefully without showing errors to users
+- RLS policies added for `anon` role on both `wp_registration_pairs` and `wp_user_registrations` tables
+
 ## [0.8.4] - 2025-12-11
 
 ### Fixed

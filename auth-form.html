@@ -902,13 +902,24 @@
           const wpResponse = await fetch(window.location.origin + '/wp-json/supabase-auth/callback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ access_token: accessToken }),
+            body: JSON.stringify({
+              access_token: accessToken,
+              registration_url: ORIGIN_PAGE  // Phase 6: Explicit registration source for accurate tracking
+            }),
             credentials: 'include'  // CRITICAL: Required for cookies to be saved
           });
 
           const wpData = await wpResponse.json();
 
           if (!wpResponse.ok) {
+            // HTTP 409 = Duplicate callback (другой запрос уже обрабатывает этот токен)
+            if (wpResponse.status === 409) {
+              console.log('⏳ Duplicate callback detected, another request is processing this token');
+              // Тихо выходим - второй параллельный запрос завершит аутентификацию и сделает редирект
+              processingTokens.delete(tokenKey);
+              return; // Не показываем ошибку, просто ждём завершения другого запроса
+            }
+
             throw new Error(wpData.message || 'WordPress authentication failed');
           }
 

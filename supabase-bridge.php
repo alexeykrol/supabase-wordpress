@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening. Includes webhook system for n8n/Make.com integration.
- * Version: 0.8.4
+ * Version: 0.8.5
  * Author: Alexey Krol
  * License: MIT
  * Requires at least: 5.0
@@ -501,19 +501,16 @@ function sb_log_registration_to_supabase($user_email, $supabase_user_id, $regist
     // Find matching pair by registration_url
     $pairs = get_option('sb_registration_pairs', []);
     $pair_id = null;
-    $thankyou_page_url = null;
 
     foreach ($pairs as $pair) {
       if ($pair['registration_page_url'] === $validated_reg_url) {
         // SECURITY: Validate pair_id before using
         $validated_pair_id = sb_validate_uuid($pair['id'] ?? '');
-        $validated_ty_url = sb_validate_url_path($pair['thankyou_page_url'] ?? '');
 
-        if ($validated_pair_id && $validated_ty_url) {
+        if ($validated_pair_id) {
           $pair_id = $validated_pair_id;
-          $thankyou_page_url = $validated_ty_url;
         } else {
-          error_log('Supabase Bridge: Warning - Invalid pair data in wp_options, skipping pair_id');
+          error_log('Supabase Bridge: Warning - Invalid pair_id in wp_options, skipping');
         }
         break;
       }
@@ -528,7 +525,7 @@ function sb_log_registration_to_supabase($user_email, $supabase_user_id, $regist
       'pair_id' => $pair_id, // NULL if no pair found or invalid
       'user_email' => $validated_email,
       'registration_url' => $validated_reg_url,
-      'thankyou_page_url' => $thankyou_page_url, // NULL if no pair found or invalid
+      // Note: thankyou_page_url accessible via pair_id → wp_registration_pairs foreign key
     ];
 
     // Get validated site URL for RLS policy
@@ -960,12 +957,23 @@ function sb_handle_callback(\WP_REST_Request $req) {
           error_log('Supabase Bridge: User created successfully - User ID: ' . $uid);
 
           // === Phase 6: Log registration to Supabase (non-blocking) ===
-          // Extract registration URL from referer
-          if ($referer) {
+          // Priority 1: Explicit registration_url from POST body (v0.8.5+)
+          $registration_url = $req->get_param('registration_url');
+
+          // Priority 2: Fallback to Referer for backward compatibility
+          if (empty($registration_url) && !empty($referer)) {
             $registration_url = parse_url($referer, PHP_URL_PATH);
-            if ($registration_url) {
-              sb_log_registration_to_supabase($email, $supabase_user_id, $registration_url);
+          }
+
+          // Validate and log if we have a registration URL
+          if (!empty($registration_url)) {
+            // SECURITY: Validate user-controlled input from POST body
+            $validated_url = sb_validate_url_path($registration_url);
+            if ($validated_url) {
+              sb_log_registration_to_supabase($email, $supabase_user_id, $validated_url);
               // Note: We don't check return value - logging is non-critical
+            } else {
+              error_log('Supabase Bridge: Invalid registration_url rejected: ' . $registration_url);
             }
           }
         }
@@ -1501,7 +1509,25 @@ function sb_render_pairs_tab() {
       </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="sb-delete-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+      <div style="background: #fff; margin: 100px auto; padding: 30px; width: 500px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <h2 style="margin-top: 0; color: #d63638;">⚠️ Confirm Delete</h2>
+        <p id="sb-delete-message" style="font-size: 14px; margin: 20px 0;">Are you sure you want to delete this pair?</p>
+        <p style="margin-top: 30px; text-align: right;">
+          <button type="button" class="button" onclick="sbCancelDelete()" style="margin-right: 10px;">Cancel</button>
+          <button type="button" class="button button-primary" onclick="sbConfirmDelete()" style="background: #d63638; border-color: #d63638;">🗑️ Delete</button>
+        </p>
+      </div>
+    </div>
+
     <script>
+    // Global pairs data (safe outside function scope)
+    const SB_PAIRS_DATA = <?php echo json_encode($pairs); ?>;
+
+    // Delete confirmation state
+    let pendingDelete = null;
+
     function sbShowAddPairModal() {
       document.getElementById('sb-modal-title').textContent = 'Add New Pair';
       document.getElementById('sb-pair-id').value = '';
@@ -1511,8 +1537,22 @@ function sb_render_pairs_tab() {
     }
 
     function sbEditPair(pairId) {
-      // TODO: Load pair data and populate form
-      alert('Edit functionality coming in next commit');
+      // Use global pairs data
+      const pair = SB_PAIRS_DATA.find(p => p.id === pairId);
+
+      if (!pair) {
+        alert('⚠️ Pair not found');
+        return;
+      }
+
+      // Populate modal fields with existing data
+      document.getElementById('sb-modal-title').textContent = 'Edit Pair';
+      document.getElementById('sb-pair-id').value = pair.id;
+      document.getElementById('sb-reg-page').value = pair.registration_page_id;
+      document.getElementById('sb-ty-page').value = pair.thankyou_page_id;
+
+      // Show modal
+      document.getElementById('sb-pair-modal').style.display = 'block';
     }
 
     function sbCloseModal() {
@@ -1543,9 +1583,23 @@ function sb_render_pairs_tab() {
     }
 
     function sbDeletePair(pairId, pageName) {
-      if (!confirm('Delete pair for "' + pageName + '"?')) {
-        return;
-      }
+      // Show custom confirmation modal (browser confirm() blocked by Safari)
+      pendingDelete = { pairId: pairId, pageName: pageName };
+      document.getElementById('sb-delete-message').textContent =
+        'Are you sure you want to delete the pair for "' + pageName + '"?';
+      document.getElementById('sb-delete-modal').style.display = 'block';
+    }
+
+    function sbCancelDelete() {
+      pendingDelete = null;
+      document.getElementById('sb-delete-modal').style.display = 'none';
+    }
+
+    function sbConfirmDelete() {
+      if (!pendingDelete) return;
+
+      const { pairId, pageName } = pendingDelete;
+      document.getElementById('sb-delete-modal').style.display = 'none';
 
       const formData = new FormData();
       formData.append('action', 'sb_delete_pair');
@@ -1568,6 +1622,8 @@ function sb_render_pairs_tab() {
       .catch(error => {
         alert('❌ Network error: ' + error.message);
       });
+
+      pendingDelete = null;
     }
     </script>
   </div>
