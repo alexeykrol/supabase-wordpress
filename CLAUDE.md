@@ -64,6 +64,7 @@ npm run build
 - `.claude/BACKLOG.md` — mark completed tasks `[x]`
 - `.claude/SNAPSHOT.md` — update version and status
 - `CHANGELOG.md` — add entry (if release)
+- **`README.md`** — **MANDATORY:** update version badges, download links, "What's New" section, Current Status
 - `.claude/ARCHITECTURE.md` — update if code structure changed
 
 ### 3. Git Commit
@@ -79,7 +80,25 @@ EOF
 )"
 ```
 
-### 4. Ask About Push & PR
+### 4. Create Release (if version changed)
+
+**Check if project uses releases:**
+```bash
+[ -f build-release.sh ] && echo "has_releases" || echo "no_releases"
+```
+
+**If has_releases:**
+1. Verify version in main plugin file matches CHANGELOG.md
+2. Run build script: `./build-release.sh`
+3. Create GitHub release:
+```bash
+gh release create v0.X.X \
+  supabase-bridge-v0.X.X.zip \
+  --title "v0.X.X - [Title from CHANGELOG]" \
+  --notes-file <(head -n 50 CHANGELOG.md | sed -n '/^## \[0.X.X\]/,/^## \[/p' | head -n -1)
+```
+
+### 5. Ask About Push & PR
 
 **Push:**
 - Ask user: "Push to remote?"
@@ -92,7 +111,7 @@ git log origin/main..HEAD --oneline
 - If **empty** → All merged, no PR needed
 - If **has commits** → Ask: "Create PR?"
 
-### 5. Mark Session Clean
+### 6. Mark Session Clean
 ```bash
 echo '{"status": "clean", "timestamp": "'$(date -Iseconds)'"}' > .claude/.last_session
 ```
@@ -117,6 +136,8 @@ echo '{"status": "clean", "timestamp": "'$(date -Iseconds)'"}' > .claude/.last_s
 
 - DO NOT skip Crash Recovery check
 - DO NOT commit without updating metafiles
+- **DO NOT forget README.md** — version badges, download links, What's New section are MANDATORY
+- **DO NOT skip release creation** — if project has build-release.sh, create GitHub release
 - ALWAYS mark session clean at completion
 
 ---
