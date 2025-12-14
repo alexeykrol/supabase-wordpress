@@ -7,12 +7,20 @@
 
 ## Current Status
 
-**Version:** 0.9.0 (Production Ready)
+**Version:** 0.9.1 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed (v0.9.1)
+- [x] LearnDash Banner Management UI - WordPress Admin tab for banner patch control
+- [x] New "🎓 Banner" tab with checkbox to enable/disable banner removal
+- [x] Real-time patch status indicator with color-coded badges
+- [x] One-click apply/restore via AJAX with automatic backups
+- [x] Warning notifications after LearnDash updates
+- [x] Backward compatible with old patch versions
 
 ### Completed (v0.9.0)
 - [x] MemberPress Integration - Auto-assign FREE memberships on registration

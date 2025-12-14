@@ -28,10 +28,11 @@
 **Phase 11: Registration Pairs Fixes (v0.8.5)** [статус: ✅]
 **Phase 12: MemberPress Integration (v0.9.0)** [статус: ✅]
 **Phase 13: LearnDash Integration (v0.9.0)** [статус: ✅]
+**Phase 14: LearnDash Banner Management UI (v0.9.1)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete + Banner Management UI (Production Ready)
 
-**Текущая фаза:** v0.9.0 MemberPress & LearnDash Integrations Complete (Production Ready)
+**Текущая фаза:** v0.9.1 LearnDash Banner Management UI Complete (Production Ready)
 
 ---
 
@@ -206,9 +207,18 @@ supabase-bridge/
 6. ✅ LearnDash banner removal patch script (idempotent, upgrade-safe)
 7. ✅ Tested successfully with LearnDash 4.x
 
+### Phase 14: LearnDash Banner Management UI (v0.9.1) - Completed 2025-12-13
+1. ✅ New "🎓 Banner" tab in WordPress Admin
+2. ✅ Checkbox to enable/disable enrollment banner removal
+3. ✅ Real-time patch status indicator (Active, Not Active, Update Needed, Not Found)
+4. ✅ One-click apply/restore functionality via AJAX
+5. ✅ Automatic backup creation before modifications
+6. ✅ Warning notifications after LearnDash updates
+7. ✅ Backward compatible with old patch versions
+
 ---
 
-## 🔜 Следующий этап: Phase 14
+## 🔜 Следующий этап: Phase 15
 
 **v0.10.0 - Role Mapping**
 
@@ -239,7 +249,7 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready ✨
 **Live Site:** https://questtales.com
-**Version:** 0.9.0
+**Version:** 0.9.1
 **Last Update:** 2025-12-13
 **Uptime:** Stable
 **Known Bugs:** 0

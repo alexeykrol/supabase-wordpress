@@ -2,6 +2,32 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.9.1] - 2025-12-13
+
+### Added
+- **LearnDash Banner Management UI** - WordPress Admin interface for banner patch
+  - New "🎓 Banner" tab in WordPress Admin
+  - Checkbox to enable/disable enrollment banner removal
+  - Real-time patch status indicator with color-coded badges (Active, Not Active, Update Needed, Not Found)
+  - One-click apply/restore functionality via AJAX
+  - Automatic backup creation before each patch modification
+  - Warning notifications after LearnDash updates prompting patch reapplication
+  - Collapsible technical details section explaining patch mechanism
+  - Safe patch upgrade from old versions to latest
+
+### Changed
+- **LearnDash banner patch** - Now managed via WordPress Admin UI instead of CLI script
+  - Replaces standalone `patch-learndash-free-banner.php` script execution
+  - Integrated into plugin settings for better UX
+  - Patch status automatically detected and displayed
+  - Apply/restore operations accessible without command line access
+
+### Technical Details
+- New functions: `sb_get_learndash_path()`, `sb_get_learndash_patch_status()`, `sb_apply_learndash_banner_patch()`, `sb_restore_learndash_banner_original()`
+- AJAX handler: `sb_ajax_save_learndash_banner` for asynchronous patch operations
+- Status detection: Distinguishes between applied, not_applied, needs_reapply, and not_found states
+- Backward compatible: Works with both old patch format and detects LearnDash updates
+
 ## [0.9.0] - 2025-12-13
 
 ### Added

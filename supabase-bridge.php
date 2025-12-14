@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening. Includes webhook system for n8n/Make.com integration.
- * Version: 0.9.0
+ * Version: 0.9.1
  * Author: Alexey Krol
  * License: MIT
  * Requires at least: 5.0
@@ -1276,6 +1276,9 @@ function sb_render_setup_page() {
       <a href="?page=supabase-bridge-setup&tab=webhooks" class="nav-tab <?php echo $current_tab === 'webhooks' ? 'nav-tab-active' : ''; ?>">
         🪝 Webhooks
       </a>
+      <a href="?page=supabase-bridge-setup&tab=learndash-banner" class="nav-tab <?php echo $current_tab === 'learndash-banner' ? 'nav-tab-active' : ''; ?>">
+        🎓 Banner
+      </a>
     </h2>
 
     <?php if ($current_tab === 'general'): ?>
@@ -1537,6 +1540,12 @@ function sb_render_setup_page() {
       <div class="tab-content">
         <?php sb_render_webhooks_tab(); ?>
       </div><!-- End Tab 3: Webhooks -->
+
+    <?php elseif ($current_tab === 'learndash-banner'): ?>
+      <!-- TAB 4: LearnDash Banner -->
+      <div class="tab-content">
+        <?php sb_render_learndash_banner_tab(); ?>
+      </div><!-- End Tab 4: LearnDash Banner -->
 
     <?php endif; ?>
 
@@ -2980,4 +2989,365 @@ function sb_ajax_delete_course_pair() {
   update_option('sb_course_pairs', $pairs);
 
   wp_send_json_success(['message' => 'Course enrollment deleted successfully']);
+}
+
+// === AJAX: LearnDash Banner Management ===
+add_action('wp_ajax_sb_save_learndash_banner', 'sb_ajax_save_learndash_banner');
+function sb_ajax_save_learndash_banner() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_learndash_banner_ajax')) {
+    wp_send_json_error(['message' => 'Invalid nonce']);
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error(['message' => 'Permission denied']);
+    return;
+  }
+
+  // Get enabled status
+  $enabled = isset($_POST['enabled']) && $_POST['enabled'] === '1';
+
+  // Save option
+  update_option('sb_learndash_banner_hidden', $enabled);
+
+  // Apply or restore patch based on enabled status
+  if ($enabled) {
+    $result = sb_apply_learndash_banner_patch();
+  } else {
+    $result = sb_restore_learndash_banner_original();
+  }
+
+  if ($result['success']) {
+    wp_send_json_success(['message' => $result['message']]);
+  } else {
+    wp_send_json_error(['message' => $result['message']]);
+  }
+}
+
+// === Phase 6: LearnDash Banner Patch Management ===
+
+/**
+ * Get LearnDash plugin path
+ */
+function sb_get_learndash_path() {
+  $possible_paths = [
+    WP_CONTENT_DIR . '/plugins/sfwd-lms',                        // Standard WordPress
+    dirname(WP_CONTENT_DIR) . '/wp-content/plugins/sfwd-lms',   // Alternate structure
+  ];
+
+  foreach ($possible_paths as $path) {
+    if (is_dir($path)) {
+      return $path;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check LearnDash banner patch status
+ * Returns: ['status' => 'applied|not_applied|needs_reapply|not_found', 'message' => '...', 'file_path' => '...']
+ */
+function sb_get_learndash_patch_status() {
+  $learndash_path = sb_get_learndash_path();
+
+  if (!$learndash_path) {
+    return [
+      'status' => 'not_found',
+      'message' => 'LearnDash plugin not found',
+      'file_path' => null
+    ];
+  }
+
+  $target_file = $learndash_path . '/themes/ld30/templates/modules/infobar/course.php';
+
+  if (!file_exists($target_file)) {
+    return [
+      'status' => 'not_found',
+      'message' => 'Target file not found (LearnDash may be outdated)',
+      'file_path' => $target_file
+    ];
+  }
+
+  $content = file_get_contents($target_file);
+
+  // Check for latest patch version
+  if (strpos($content, 'Banner completely disabled') !== false) {
+    return [
+      'status' => 'applied',
+      'message' => 'Banner patch is active',
+      'file_path' => $target_file
+    ];
+  }
+
+  // Check for old patch version
+  if (strpos($content, 'Hide banner for free courses') !== false) {
+    return [
+      'status' => 'needs_reapply',
+      'message' => 'Old patch version detected - update recommended',
+      'file_path' => $target_file
+    ];
+  }
+
+  // Not patched
+  return [
+    'status' => 'not_applied',
+    'message' => 'Banner is visible (default LearnDash behavior)',
+    'file_path' => $target_file
+  ];
+}
+
+/**
+ * Apply LearnDash banner patch
+ */
+function sb_apply_learndash_banner_patch() {
+  $status = sb_get_learndash_patch_status();
+
+  if ($status['status'] === 'not_found') {
+    return ['success' => false, 'message' => $status['message']];
+  }
+
+  if ($status['status'] === 'applied') {
+    return ['success' => true, 'message' => 'Patch already applied'];
+  }
+
+  $target_file = $status['file_path'];
+  $content = file_get_contents($target_file);
+
+  // Patterns
+  $original_pattern = "<?php elseif ( 'open' !== \$course_pricing['type'] ) : ?>";
+  $old_patch = "<?php elseif ( ! in_array( \$course_pricing['type'], array( 'open', 'free' ), true ) ) : /* PATCHED: Hide banner for free courses */ ?>";
+  $new_patch = "<?php elseif ( false ) : /* PATCHED: Banner completely disabled - access controlled via MemberPress/Elementor */ ?>";
+
+  // Determine what to replace
+  $pattern_to_replace = null;
+  if (strpos($content, $old_patch) !== false) {
+    $pattern_to_replace = $old_patch;
+  } elseif (strpos($content, $original_pattern) !== false) {
+    $pattern_to_replace = $original_pattern;
+  } else {
+    return ['success' => false, 'message' => 'Could not find pattern to patch (file may be modified)'];
+  }
+
+  // Create backup
+  $backup_file = $target_file . '.backup.' . date('Y-m-d-His');
+  if (!copy($target_file, $backup_file)) {
+    error_log('Supabase Bridge: Could not create backup for LearnDash patch');
+  }
+
+  // Apply patch
+  $patched_content = str_replace($pattern_to_replace, $new_patch, $content);
+
+  if (file_put_contents($target_file, $patched_content)) {
+    return ['success' => true, 'message' => 'Banner patch applied successfully'];
+  } else {
+    return ['success' => false, 'message' => 'Failed to write patched file (check permissions)'];
+  }
+}
+
+/**
+ * Restore original LearnDash banner
+ */
+function sb_restore_learndash_banner_original() {
+  $status = sb_get_learndash_patch_status();
+
+  if ($status['status'] === 'not_found') {
+    return ['success' => false, 'message' => $status['message']];
+  }
+
+  if ($status['status'] === 'not_applied') {
+    return ['success' => true, 'message' => 'Banner already using default behavior'];
+  }
+
+  $target_file = $status['file_path'];
+  $content = file_get_contents($target_file);
+
+  // Patterns
+  $new_patch = "<?php elseif ( false ) : /* PATCHED: Banner completely disabled - access controlled via MemberPress/Elementor */ ?>";
+  $old_patch = "<?php elseif ( ! in_array( \$course_pricing['type'], array( 'open', 'free' ), true ) ) : /* PATCHED: Hide banner for free courses */ ?>";
+  $original_pattern = "<?php elseif ( 'open' !== \$course_pricing['type'] ) : ?>";
+
+  // Replace any patch back to original
+  $restored_content = $content;
+  $restored_content = str_replace($new_patch, $original_pattern, $restored_content);
+  $restored_content = str_replace($old_patch, $original_pattern, $restored_content);
+
+  if ($restored_content === $content) {
+    return ['success' => false, 'message' => 'No patch found to restore'];
+  }
+
+  // Create backup before restore
+  $backup_file = $target_file . '.backup.' . date('Y-m-d-His');
+  copy($target_file, $backup_file);
+
+  if (file_put_contents($target_file, $restored_content)) {
+    return ['success' => true, 'message' => 'Default banner behavior restored'];
+  } else {
+    return ['success' => false, 'message' => 'Failed to restore original (check permissions)'];
+  }
+}
+
+/**
+ * Render LearnDash Banner tab
+ */
+function sb_render_learndash_banner_tab() {
+  // Get current patch status
+  $patch_status = sb_get_learndash_patch_status();
+  $is_enabled = get_option('sb_learndash_banner_hidden', false);
+
+  // Status badge styling
+  $status_badges = [
+    'applied' => '<span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 4px; font-weight: 600;">✅ Active</span>',
+    'not_applied' => '<span style="background: #ef4444; color: white; padding: 4px 12px; border-radius: 4px; font-weight: 600;">❌ Not Active</span>',
+    'needs_reapply' => '<span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 4px; font-weight: 600;">⚠️ Update Needed</span>',
+    'not_found' => '<span style="background: #6b7280; color: white; padding: 4px 12px; border-radius: 4px; font-weight: 600;">⚠️ Not Found</span>',
+  ];
+
+  $current_badge = $status_badges[$patch_status['status']] ?? $status_badges['not_found'];
+  ?>
+
+  <div style="background: #fff; padding: 25px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">🎓 LearnDash Enrollment Banner Control</h2>
+
+    <!-- Current Status -->
+    <div style="background: #f9fafb; padding: 20px; border-left: 4px solid #2271b1; margin-bottom: 25px;">
+      <h3 style="margin: 0 0 15px 0; color: #1e293b;">📊 Current Status</h3>
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+        <strong>Patch Status:</strong>
+        <?php echo $current_badge; ?>
+      </div>
+      <p style="margin: 10px 0 0 0; color: #64748b; font-size: 14px;">
+        <?php echo esc_html($patch_status['message']); ?>
+      </p>
+      <?php if ($patch_status['file_path']): ?>
+        <p style="margin: 8px 0 0 0; color: #94a3b8; font-size: 12px; font-family: monospace;">
+          <?php echo esc_html($patch_status['file_path']); ?>
+        </p>
+      <?php endif; ?>
+    </div>
+
+    <!-- Settings Form -->
+    <form method="post" action="" id="sb-learndash-banner-form">
+      <?php wp_nonce_field('sb_learndash_banner_nonce'); ?>
+
+      <div style="margin-bottom: 25px;">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 15px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 6px; transition: all 0.2s;">
+          <input
+            type="checkbox"
+            name="sb_learndash_banner_hidden"
+            value="1"
+            <?php checked($is_enabled, true); ?>
+            style="width: 20px; height: 20px; cursor: pointer;"
+          >
+          <span style="font-size: 15px; font-weight: 500; color: #1e293b;">
+            Hide "NOT ENROLLED / Free / Take this Course" banner on all courses
+          </span>
+        </label>
+      </div>
+
+      <!-- Info Box -->
+      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin-bottom: 25px;">
+        <h4 style="margin: 0 0 10px 0; color: #1e40af; font-size: 14px;">ℹ️ How it works</h4>
+        <ul style="margin: 0; padding-left: 20px; color: #1e40af; font-size: 13px; line-height: 1.6;">
+          <li><strong>Checked:</strong> Banner will be completely hidden on ALL courses (free, paid, subscriptions)</li>
+          <li><strong>Unchecked:</strong> Default LearnDash behavior (banner shows on non-open courses)</li>
+          <li><strong>Access Control:</strong> Manage via MemberPress memberships and Elementor visibility conditions</li>
+          <li><strong>Updates:</strong> After LearnDash updates, check status and re-apply if needed</li>
+          <li><strong>Safe:</strong> Creates automatic backups before applying patch</li>
+        </ul>
+      </div>
+
+      <!-- Warning for LearnDash updates -->
+      <?php if ($patch_status['status'] === 'needs_reapply'): ?>
+        <div class="notice notice-warning inline" style="padding: 12px; margin-bottom: 20px;">
+          <p style="margin: 0;"><strong>⚠️ Action Required:</strong> LearnDash was updated. Click "Save Changes" to update the patch to the latest version.</p>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($patch_status['status'] === 'not_found'): ?>
+        <div class="notice notice-error inline" style="padding: 12px; margin-bottom: 20px;">
+          <p style="margin: 0;"><strong>❌ LearnDash Not Found:</strong> This feature requires LearnDash plugin to be installed and activated.</p>
+        </div>
+      <?php endif; ?>
+
+      <!-- Submit Button -->
+      <div style="padding-top: 15px; border-top: 1px solid #e5e7eb;">
+        <button
+          type="submit"
+          name="sb_save_learndash_banner"
+          class="button button-primary button-large"
+          style="padding: 8px 24px; font-size: 15px;"
+          <?php disabled($patch_status['status'], 'not_found'); ?>
+        >
+          💾 Save Changes
+        </button>
+        <span id="sb-learndash-banner-status" style="margin-left: 15px; font-style: italic; color: #64748b;"></span>
+      </div>
+    </form>
+
+    <!-- Technical Details (collapsible) -->
+    <details style="margin-top: 30px; padding: 15px; background: #fafafa; border-radius: 4px;">
+      <summary style="cursor: pointer; font-weight: 600; color: #475569; user-select: none;">🔧 Technical Details</summary>
+      <div style="margin-top: 15px; padding-left: 10px; color: #64748b; font-size: 13px; line-height: 1.8;">
+        <p><strong>What this patch does:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>Modifies: <code>themes/ld30/templates/modules/infobar/course.php</code></li>
+          <li>Changes enrollment banner condition from <code>'open' !== $type</code> to <code>false</code></li>
+          <li>Result: Banner never displays, regardless of course type</li>
+          <li>Backups: Automatic backup created before each modification</li>
+        </ul>
+        <p style="margin-top: 12px;"><strong>Access control alternatives:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>Use MemberPress memberships to control course access</li>
+          <li>Use Elementor visibility conditions for custom enrollment CTAs</li>
+          <li>Both methods provide better UX than default LearnDash banner</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+
+  <script>
+  jQuery(document).ready(function($) {
+    $('#sb-learndash-banner-form').on('submit', function(e) {
+      e.preventDefault();
+
+      const $form = $(this);
+      const $status = $('#sb-learndash-banner-status');
+      const $button = $form.find('button[type="submit"]');
+
+      $button.prop('disabled', true).text('⏳ Saving...');
+      $status.text('');
+
+      $.ajax({
+        url: ajaxurl,
+        type: 'POST',
+        data: {
+          action: 'sb_save_learndash_banner',
+          nonce: '<?php echo wp_create_nonce('sb_learndash_banner_ajax'); ?>',
+          enabled: $('input[name="sb_learndash_banner_hidden"]').is(':checked') ? '1' : '0'
+        },
+        success: function(response) {
+          if (response.success) {
+            $status.css('color', '#10b981').text('✅ ' + response.data.message);
+            // Reload page after 1 second to update status
+            setTimeout(function() {
+              location.reload();
+            }, 1000);
+          } else {
+            $status.css('color', '#ef4444').text('❌ ' + response.data.message);
+            $button.prop('disabled', false).text('💾 Save Changes');
+          }
+        },
+        error: function() {
+          $status.css('color', '#ef4444').text('❌ Network error');
+          $button.prop('disabled', false).text('💾 Save Changes');
+        }
+      });
+    });
+  });
+  </script>
+
+  <?php
 }
