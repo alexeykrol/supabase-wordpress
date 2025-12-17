@@ -321,10 +321,11 @@ Proceed with migration? (y/N)
 
 Use TodoWrite to track migration progress.
 
-### For v1.x → v2.2:
+### For v1.x → v2.1:
 
 ```markdown
 Create todos:
+- [ ] Create backup of Init/ folder
 - [ ] Create .claude/ directory structure
 - [ ] Migrate SNAPSHOT.md (Init/ → .claude/)
 - [ ] Migrate BACKLOG.md with restructuring
@@ -333,10 +334,10 @@ Create todos:
 - [ ] Create IDEAS.md (empty template)
 - [ ] Update CLAUDE.md (if needed)
 - [ ] Verify migration completed
-- [ ] Archive Init/ folder to .archive/
+- [ ] Archive Init/ folder
 ```
 
-### For v2.0 → v2.2:
+### For v2.0 → v2.1:
 
 ```markdown
 Create todos:
@@ -355,26 +356,16 @@ Create todos:
 
 ## Step 5: Migration Execution Details
 
-> **Token Economy Principle:**
-> Some files are read EVERY Cold Start session — keep them compact!
-> Historical/strategic content goes to on-demand files or CHANGELOG.md.
-
-| File | Read When | Target Size |
-|------|-----------|-------------|
-| `SNAPSHOT.md` | ALWAYS (Cold Start) | ~30-50 lines |
-| `BACKLOG.md` | ALWAYS (Cold Start) | ~50-100 lines |
-| `ARCHITECTURE.md` | ALWAYS (Cold Start) | ~100-200 lines |
-| `ROADMAP.md` | On demand | ~50-150 lines |
-| `IDEAS.md` | On demand | ~30-50 lines |
-| `CHANGELOG.md` | On demand | No limit |
-
 ### 5.1 Create Backup
 
 ```bash
-# For v2.0 only (backup BACKLOG before restructuring)
-cp .claude/BACKLOG.md ".claude/BACKLOG-backup-$(date +%Y%m%d-%H%M%S).md"
+# For v1.x
+BACKUP_DIR="Init-backup-$(date +%Y%m%d-%H%M%S)"
+cp -r Init/ "$BACKUP_DIR"
+echo "Backup created: $BACKUP_DIR"
 
-# Note: For v1.x, Init/ will be archived in Step 5.7 (not copied + archived)
+# For v2.0
+cp .claude/BACKLOG.md ".claude/BACKLOG-backup-$(date +%Y%m%d-%H%M%S).md"
 ```
 
 ### 5.2 Migrate SNAPSHOT.md (v1.x only)
@@ -443,60 +434,12 @@ Use Write tool to create empty template:
 
 ### 5.5 Restructure BACKLOG.md
 
-**Philosophy:** BACKLOG.md should be lean (~50-100 lines max), containing ONLY current sprint tasks.
-
-**Content to MOVE OUT of BACKLOG.md:**
-
-| Content Type | Move To |
-|--------------|---------|
-| Planned Features / Priority 1 | → `ROADMAP.md` |
-| Future versions (v2.x, v3.0) | → `ROADMAP.md` |
-| Resolved Issues (detailed) | → DELETE or `.archive/` |
-| Release History / Recent Updates | → `CHANGELOG.md` or DELETE |
-| Technical Debt (future) | → `ROADMAP.md` |
-
-**Keep in BACKLOG.md:**
-- Current sprint header
-- Active tasks `[ ]` and `[x]`
-- Bugs to fix NOW
-- Link to ROADMAP.md for future work
-
-**Restructuring Steps:**
-
+For v2.0 → v2.1:
 1. Read current BACKLOG.md
-2. Identify sections:
-   - Current sprint tasks (KEEP)
-   - Planned features (→ ROADMAP)
-   - Resolved issues (→ DELETE/ARCHIVE)
-   - Release history (→ DELETE if in CHANGELOG)
-3. Extract strategic content → ROADMAP.md
-4. Remove resolved/historical content
-5. Update header with links to ROADMAP/IDEAS
-6. Verify final size < 100 lines (ideally)
-
-**Example clean BACKLOG.md structure:**
-
-```markdown
-# BACKLOG — [Project Name]
-
-*Current Sprint: [date]*
-
-> 📋 Active tasks only. Strategic planning → [ROADMAP.md](./ROADMAP.md)
-
-## Current Sprint
-
-- [ ] Task 1
-- [ ] Task 2
-- [x] Completed task
-
-## Bugs
-
-- [ ] Bug to fix
-
-## Next Up
-
-- [ ] Ready for next sprint
-```
+2. Extract Priority 1 section
+3. Remove Priority 1 from BACKLOG
+4. Update header to reference ROADMAP/IDEAS
+5. Write updated BACKLOG.md
 
 ### 5.6 Update SNAPSHOT.md
 
@@ -561,8 +504,8 @@ After migration, install remaining Framework files:
 if [ -f ".claude/framework-pending.tar.gz" ]; then
     tar -xzf .claude/framework-pending.tar.gz -C /tmp/
 
-    # Copy ALL new commands (use -n to not overwrite existing)
-    cp -n /tmp/framework/.claude/commands/*.md .claude/commands/ 2>/dev/null || true
+    # Copy commands
+    cp /tmp/framework/.claude/commands/*.md .claude/commands/ 2>/dev/null || true
 
     # Copy dist (CLI tools)
     cp -r /tmp/framework/.claude/dist .claude/ 2>/dev/null || true
@@ -573,46 +516,12 @@ if [ -f ".claude/framework-pending.tar.gz" ]; then
     # Copy FRAMEWORK_GUIDE.md
     cp /tmp/framework/FRAMEWORK_GUIDE.md . 2>/dev/null || true
 
-    # Install npm dependencies for CLI tools
-    if [ -f ".claude/dist/claude-export/package.json" ]; then
-        echo "📦 Installing framework dependencies..."
-        if command -v npm &> /dev/null; then
-            (cd .claude/dist/claude-export && npm install --silent 2>&1 | grep -v "^npm WARN" || true) && \
-                echo "✅ Framework dependencies installed" || \
-                echo "⚠️  Failed to install dependencies (run manually: cd .claude/dist/claude-export && npm install)"
-        else
-            echo "⚠️  npm not found - install it, then run: cd .claude/dist/claude-export && npm install"
-        fi
-    fi
-
-    # Cleanup temp
+    # Cleanup
     rm .claude/framework-pending.tar.gz
     rm -rf /tmp/framework
 
     echo "✅ Installed remaining Framework files"
 fi
-```
-
-### 6.5.1 Remove Old v1.x Migration Commands
-
-Old migration commands from v1.x are not compatible with v2.2:
-
-```bash
-# Remove obsolete v1.x migration commands
-rm .claude/commands/migrate.md 2>/dev/null
-rm .claude/commands/migrate-finalize.md 2>/dev/null
-rm .claude/commands/migrate-resolve.md 2>/dev/null
-rm .claude/commands/migrate-rollback.md 2>/dev/null
-echo "✅ Removed obsolete v1.x migration commands"
-```
-
-### 6.5.2 Verify New Commands Installed
-
-```bash
-# Check essential new commands exist
-ls -la .claude/commands/fi.md
-ls -la .claude/commands/ui.md
-ls -la .claude/commands/watch.md
 ```
 
 ---
@@ -655,99 +564,31 @@ Show simple completion message:
 
 ## Step 8: Finalize Migration
 
-### 8.1 Save Migration Artifacts
-
-Get project name and save migration artifacts with unique names:
+Complete the migration by swapping CLAUDE.md:
 
 ```bash
-PROJECT_NAME=$(basename "$(pwd)")
+# Mark migration as completed in log
+echo '{
+  "status": "completed",
+  "mode": "upgrade",
+  "completed": "'$(date -Iseconds)'"
+}' > .claude/migration-log.json
 
-# Create reports directory
-mkdir -p reports
-
-# Save migration log with project name
-cp .claude/migration-log.json "reports/${PROJECT_NAME}-migration-log.json"
-echo "✅ Migration log saved: reports/${PROJECT_NAME}-migration-log.json"
-```
-
-**CRITICAL: Generate Migration Report NOW**
-
-Before proceeding to cleanup, you MUST create the migration report:
-
-1. Read `.claude/migration-log.json` to get migration details
-2. Create `reports/${PROJECT_NAME}-MIGRATION_REPORT.md` with:
-   - **Summary:** Migration type, versions, status, duration
-   - **Files Migrated/Created:** List all files with sizes
-   - **Changes Made:** Key restructuring, optimizations
-   - **Verification Results:** All checks passed
-   - **Errors/Warnings:** Any issues encountered (or "None")
-   - **Post-Migration Actions:** What user needs to do next
-   - **Rollback Procedure:** If needed
-   - **Success Criteria:** Checklist of what was accomplished
-
-3. **Verify report created:**
-   ```bash
-   ls -lh "reports/${PROJECT_NAME}-MIGRATION_REPORT.md"
-   ```
-
-4. **ONLY AFTER** confirming report exists, proceed to Step 8.2
-
-**DO NOT proceed to cleanup until migration report is created and verified!**
-
-### 8.2 Swap CLAUDE.md to Production
-
-```bash
 # Swap migration CLAUDE.md with production version
 if [ -f ".claude/CLAUDE.production.md" ]; then
     cp .claude/CLAUDE.production.md CLAUDE.md
     rm .claude/CLAUDE.production.md
     echo "✅ Swapped CLAUDE.md to production mode"
 fi
-```
 
-### 8.3 Remove Migration Commands
-
-Migration commands are not needed in host projects after migration:
-
-```bash
-rm .claude/commands/migrate-legacy.md 2>/dev/null
-rm .claude/commands/upgrade-framework.md 2>/dev/null
-echo "✅ Removed migration commands"
-```
-
-### 8.4 Cleanup Temporary Files
-
-```bash
-rm .claude/migration-log.json 2>/dev/null
+# Cleanup migration files
+rm .claude/migration-log.json
 rm .claude/migration-context.json 2>/dev/null
-rm .claude/framework-pending.tar.gz 2>/dev/null
+
 echo "✅ Migration cleanup complete"
 ```
 
-### 8.5 Commit Migration Changes
-
-Commit all migration changes so next Cold Start is clean:
-
-```bash
-git add -A
-git commit -m "$(cat <<'EOF'
-chore: Upgrade to Claude Code Starter Framework v2.2
-
-- Migrated metafiles to new .claude/ structure
-- Added ROADMAP.md, IDEAS.md
-- Updated SNAPSHOT.md, BACKLOG.md, ARCHITECTURE.md
-- Installed Framework commands and CLI tools
-- Archived old Init/ folder to .archive/
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
-echo "✅ Migration changes committed"
-```
-
-### 8.6 Show Final Message
+Show final message:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -756,20 +597,9 @@ echo "✅ Migration changes committed"
 
 Framework is now in production mode (v2.2).
 
-📁 Migration artifacts saved:
-  • reports/[PROJECT]-migration-log.json
-  • reports/[PROJECT]-MIGRATION_REPORT.md
+🚀 Next Step:
 
-⚠️ IMPORTANT: Restart terminal for new commands!
-
-  New slash commands (/fi, /ui, /watch) won't work
-  until you restart the terminal or Claude session.
-
-🚀 Next Steps:
-
-  1. Exit terminal (Ctrl+C or type "exit")
-  2. Start new Claude session: claude
-  3. Type "start" to begin working
+  Type "start" to begin working with the framework.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
