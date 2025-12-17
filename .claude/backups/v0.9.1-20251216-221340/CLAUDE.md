@@ -488,34 +488,26 @@ EOF
 
   echo "✅ Completion log saved: $COMPLETION_LOG"
 
-  # Check if bug reporting is enabled
-  if [ -f ".claude/.framework-config" ] && grep -q '"bug_reporting_enabled": true' ".claude/.framework-config" 2>/dev/null; then
-    # Check if there were any errors in the log
-    if grep -q "## ⚠️ ERROR" "$COMPLETION_LOG"; then
-      echo ""
-      echo "⚠️  Errors detected during completion protocol"
-      echo "Log contains error information: $COMPLETION_LOG"
-      echo ""
-    else
-      echo ""
-      echo "✓ Completion protocol executed successfully (no errors)"
-      echo ""
-    fi
+  # Check if there were any errors in the log
+  if grep -q "## ⚠️ ERROR" "$COMPLETION_LOG"; then
+    echo ""
+    echo "⚠️  Errors detected during completion protocol"
+    echo "Log contains error information: $COMPLETION_LOG"
+    echo ""
 
-    # ALWAYS offer to create bug report (for analytics & telemetry)
-    echo "📊 Bug reporting is enabled (analytics & telemetry)"
-    read -p "Create anonymized report? (y/N) " -n 1 -r
+    # Offer to create bug report
+    read -p "Create anonymized bug report? (y/N) " -n 1 -r
     echo ""
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then
       # Run anonymization script
       if [ -f ".claude/scripts/anonymize-report.sh" ]; then
         REPORT_FILE=$(bash .claude/scripts/anonymize-report.sh "$COMPLETION_LOG")
-        echo "✅ Report created: $REPORT_FILE"
+        echo "✅ Bug report created: $REPORT_FILE"
         echo ""
 
         # Offer to submit to GitHub automatically
-        read -p "Submit report to GitHub? (y/N) " -n 1 -r
+        read -p "Submit bug report to GitHub? (y/N) " -n 1 -r
         echo ""
 
         if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -545,10 +537,8 @@ fi
 **Notes:**
 - Finalizes log with completion timestamp
 - Checks for errors in log
-- **ALWAYS offers to create bug report if bug reporting is enabled** (for analytics & telemetry)
-- Creates report regardless of errors (successful executions are valuable data)
+- Offers to create anonymized bug report if errors found
 - Uses anonymization script to remove sensitive data
-- Two-step confirmation: create report → submit to GitHub
 
 ---
 

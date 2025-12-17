@@ -62,3 +62,16 @@ docs/
 
 # WordPress debugging
 wp-content/debug.log
+
+# Claude dialogs
+dialog/2025-12-13_session-99205c88.md
+dialog/2025-12-13_session-a09981d5.md
+dialog/2025-12-13_session-e2eb559d.md
+dialog/2025-12-13_session-ce0b697f.md
+dialog/2025-12-13_session-a1a20415.md
+dialog/2025-12-13_session-b62333f1.md
+dialog/2025-12-13_session-8beac00d.md
+dialog/2025-12-15_session-7a8a839b.md
+dialog/2025-12-15_session-a8b60f54.md
+dialog/2025-12-16_session-a7c052fe.md
+dialog/2025-12-16_session-58b47819.md

@@ -1,7 +1,7 @@
 # SNAPSHOT — Supabase Bridge
 
-*Framework: Claude Code Starter v2.2*
-*Last Updated: 2025-12-13*
+*Framework: Claude Code Starter v2.3.1*
+*Last Updated: 2025-12-16*
 
 ---
 
@@ -249,7 +249,7 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready ✨
 **Live Site:** https://questtales.com
-**Version:** 0.9.1
+**Version:** 2.3.1
 **Last Update:** 2025-12-13
 **Uptime:** Stable
 **Known Bugs:** 0
