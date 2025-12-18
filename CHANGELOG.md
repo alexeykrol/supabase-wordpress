@@ -2,6 +2,88 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.9.5] - 2025-12-18
+
+### Fixed
+- **Critical: REST API namespace** - Updated from legacy `supabase-auth` to `supabase-bridge/v1`
+  - Fixes 404 errors on callback endpoint in production
+  - Both REST route registration and auth-form.html fetch URL updated
+  - Required for Magic Link and OAuth authentication to work
+  - **BREAKING:** Supabase Redirect URLs must be updated to new endpoint
+
+### Migration Required
+If upgrading from v0.9.4 or earlier, update your Supabase Redirect URLs:
+- **Old:** `https://yoursite.com/wp-json/supabase-auth/callback`
+- **New:** `https://yoursite.com/wp-json/supabase-bridge/v1/callback`
+
+## [0.9.4] - 2025-12-17
+
+### Added
+- **Version Diagnostics Panel** - Plugin admin page now displays:
+  - Actual installed plugin version (from file header)
+  - Plugin filename and directory (for multi-version debugging)
+  - Enhanced logging availability check (detects version mismatches)
+  - Helps diagnose installation issues when old version gets cached
+
+### Technical Details
+- Uses WordPress `get_file_data()` to read version directly from plugin header
+- Checks for `sb_log()` function existence to verify enhanced logging availability
+- Critical for production debugging when multiple plugin versions might be installed
+
+## [0.9.3] - 2025-12-17
+
+### Fixed
+- **CSP Blocking Registration Forms** - Disabled Content-Security-Policy for non-logged-in users
+  - CSP was preventing Supabase Auth form from displaying for unauthenticated users
+  - Registration/login pages now work correctly in private browsing mode
+  - Kept other security headers (X-Frame-Options, X-Content-Type-Options, etc.)
+  - Can be re-enabled per-page if needed for specific security requirements
+
+### Changed
+- **Description** - Removed "CSP" from plugin description (feature now optional/disabled)
+
+## [0.9.2] - 2025-12-17
+
+### Added
+- **Production Debugging System** - Enhanced logging for remote debugging
+  - New `sb_log()` function with multiple log levels (DEBUG, INFO, WARNING, ERROR)
+  - Automatic sensitive data redaction (tokens, passwords, keys automatically masked)
+  - Context-aware logging with structured data (JSON format)
+  - Function entry/exit tracing for execution flow analysis
+  - Comprehensive logging in `sb_handle_callback()` function:
+    - Rate limiting checks
+    - CSRF validation
+    - JWT verification (JWKS cache hits/misses)
+    - User sync operations (find by UUID/email, creation)
+    - Authentication success/failure with IP tracking
+    - Full error stack traces
+  - Only active when `WP_DEBUG = true` (zero performance impact in production)
+  - Log file: `/wp-content/debug.log`
+- **Production Debugging Documentation**
+  - `PRODUCTION_DEBUGGING.md` - Complete guide for enabling debug logging and SSH access
+  - `PRODUCTION_DEBUGGING_QUICK_START.md` - 5-minute setup guide
+  - SSH read-only access setup instructions
+  - Supabase Dashboard access guide
+  - Security checklist for safe production debugging
+
+### Changed
+- **Error Logging** - Enhanced existing `error_log()` calls with structured `sb_log()` wrapper
+  - More context in logs (IP addresses, user IDs, error details)
+  - Better error categorization (rate limits, CSRF failures, JWT errors)
+  - Easier troubleshooting with timestamped, categorized entries
+
+### Security
+- **Automatic Data Sanitization** - `sb_sanitize_log_context()` function
+  - Removes sensitive data from logs (passwords, tokens, secrets, keys)
+  - Truncates long strings (>500 chars) to prevent log bloat
+  - Safe to share debug.log files - all credentials automatically redacted
+
+### Technical Details
+- New functions: `sb_log()`, `sb_sanitize_log_context()`, `sb_log_function_entry()`, `sb_log_function_exit()`
+- Log format: `[Timestamp] [Supabase Bridge] [LEVEL] Message | Context: {...}`
+- Logs written via PHP `error_log()` - compatible with all hosting environments
+- No external dependencies - pure PHP implementation
+
 ## [0.9.1] - 2025-12-13
 
 ### Added

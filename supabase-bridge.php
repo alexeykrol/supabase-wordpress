@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Supabase Bridge (Auth)
- * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with CSP, audit logging, and hardening. Includes webhook system for n8n/Make.com integration.
- * Version: 0.9.1
+ * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with audit logging and hardening. Includes webhook system for n8n/Make.com integration. Production debugging with enhanced logging.
+ * Version: 0.9.5
  * Author: Alexey Krol
  * License: MIT
  * Requires at least: 5.0
@@ -13,6 +13,102 @@
 if (!defined('ABSPATH')) exit;
 
 require __DIR__ . '/vendor/autoload.php'; // после composer шага
+
+// === Enhanced Logging System ===
+// Enables detailed production debugging with multiple log levels
+// Logs are written to wp-content/debug.log when WP_DEBUG_LOG is enabled
+
+/**
+ * Enhanced logging function with context and log levels
+ *
+ * @param string $message Log message
+ * @param string $level Log level (DEBUG, INFO, WARNING, ERROR)
+ * @param array $context Additional context data (will be sanitized)
+ */
+function sb_log($message, $level = 'INFO', $context = []) {
+    // Only log if WP_DEBUG or SB_DEBUG_MODE is enabled
+    if (!defined('WP_DEBUG') || !WP_DEBUG) {
+        return;
+    }
+
+    $timestamp = current_time('Y-m-d H:i:s');
+    $sanitized_context = sb_sanitize_log_context($context);
+
+    $log_entry = sprintf(
+        "[%s] [Supabase Bridge] [%s] %s",
+        $timestamp,
+        $level,
+        $message
+    );
+
+    if (!empty($sanitized_context)) {
+        $log_entry .= ' | Context: ' . json_encode($sanitized_context, JSON_UNESCAPED_UNICODE);
+    }
+
+    error_log($log_entry);
+}
+
+/**
+ * Sanitize context data for logging (remove sensitive information)
+ *
+ * @param array $context Raw context data
+ * @return array Sanitized context
+ */
+function sb_sanitize_log_context($context) {
+    if (empty($context) || !is_array($context)) {
+        return [];
+    }
+
+    $sensitive_keys = ['password', 'token', 'secret', 'key', 'authorization', 'cookie', 'jwt'];
+    $sanitized = [];
+
+    foreach ($context as $key => $value) {
+        // Check if key contains sensitive data
+        $is_sensitive = false;
+        foreach ($sensitive_keys as $sensitive_key) {
+            if (stripos($key, $sensitive_key) !== false) {
+                $is_sensitive = true;
+                break;
+            }
+        }
+
+        if ($is_sensitive) {
+            // Mask sensitive data
+            if (is_string($value) && strlen($value) > 10) {
+                $sanitized[$key] = substr($value, 0, 10) . '...[REDACTED]';
+            } else {
+                $sanitized[$key] = '[REDACTED]';
+            }
+        } else {
+            // Keep non-sensitive data
+            if (is_array($value)) {
+                $sanitized[$key] = sb_sanitize_log_context($value);
+            } elseif (is_string($value) && strlen($value) > 500) {
+                // Truncate very long strings
+                $sanitized[$key] = substr($value, 0, 500) . '...[TRUNCATED]';
+            } else {
+                $sanitized[$key] = $value;
+            }
+        }
+    }
+
+    return $sanitized;
+}
+
+/**
+ * Log function entry point (for tracing execution flow)
+ */
+function sb_log_function_entry($function_name, $params = []) {
+    sb_log("→ Entering function: {$function_name}", 'DEBUG', $params);
+}
+
+/**
+ * Log function exit point (for tracing execution flow)
+ */
+function sb_log_function_exit($function_name, $result = null) {
+    $context = $result !== null ? ['result' => $result] : [];
+    sb_log("← Exiting function: {$function_name}", 'DEBUG', $context);
+}
 
 // === Security Headers ===
 add_action('send_headers', 'sb_add_security_headers');
@@ -26,19 +122,21 @@ function sb_add_security_headers() {
     header('X-XSS-Protection: 1; mode=block');
     // Referrer policy for privacy
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    // Content Security Policy (strict for login, relaxed for logged-in users)
-    // Only apply strict CSP to non-admin, non-logged-in users (login/registration pages)
-    // This prevents conflicts with MemberPress/Alpine.js which require 'unsafe-eval'
-    if (!is_admin() && !is_user_logged_in()) {
-      $csp = "default-src 'self'; " .
-             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " .
-             "connect-src 'self' https://*.supabase.co; " .
-             "style-src 'self' 'unsafe-inline'; " .
-             "img-src 'self' data: https:; " .
-             "font-src 'self' data:; " .
-             "frame-ancestors 'self';";
-      header("Content-Security-Policy: " . $csp);
-    }
+
+    // Content Security Policy (DISABLED for compatibility with registration forms)
+    // CSP was blocking Supabase Auth form for non-logged-in users
+    // If needed for security, enable only on specific pages (not registration pages)
+    //
+    // if (!is_admin() && !is_user_logged_in()) {
+    //   $csp = "default-src 'self'; " .
+    //          "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " .
+    //          "connect-src 'self' https://*.supabase.co; " .
+    //          "style-src 'self' 'unsafe-inline'; " .
+    //          "img-src 'self' data: https:; " .
+    //          "font-src 'self' data:; " .
+    //          "frame-ancestors 'self';";
+    //   header("Content-Security-Policy: " . $csp);
+    // }
   }
 }
 
@@ -825,12 +923,12 @@ add_action('template_redirect', function() {
 
 // REST: приём токена, верификация, создание/логин WP-пользователя
 add_action('rest_api_init', function () {
-  register_rest_route('supabase-auth', '/callback', [
+  register_rest_route('supabase-bridge/v1', '/callback', [
     'methods'  => 'POST',
     'permission_callback' => '__return_true',
     'callback' => 'sb_handle_callback',
   ]);
-  register_rest_route('supabase-auth', '/logout', [
+  register_rest_route('supabase-bridge/v1', '/logout', [
     'methods'  => 'POST',
     'permission_callback' => function(){ return is_user_logged_in(); },
     'callback' => 'sb_handle_logout',
@@ -838,12 +936,17 @@ add_action('rest_api_init', function () {
 });
 
 function sb_handle_callback(\WP_REST_Request $req) {
+  sb_log_function_entry('sb_handle_callback', ['method' => $req->get_method()]);
+
   // Rate Limiting: Prevent brute force attacks
   $client_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
   $rate_key = 'sb_rate_' . md5($client_ip);
   $attempts = get_transient($rate_key) ?: 0;
 
+  sb_log("Rate limiting check", 'DEBUG', ['ip' => $client_ip, 'attempts' => $attempts]);
+
   if ($attempts >= 10) {
+    sb_log("Rate limit exceeded", 'WARNING', ['ip' => $client_ip, 'attempts' => $attempts]);
     return new \WP_Error('rate_limit', 'Too many requests. Please try again later.', ['status'=>429]);
   }
 
@@ -862,13 +965,26 @@ function sb_handle_callback(\WP_REST_Request $req) {
     $request_host = parse_url($referer, PHP_URL_HOST);
   }
 
+  sb_log("CSRF validation", 'DEBUG', [
+    'request_host' => $request_host,
+    'allowed_host' => $allowed_host,
+    'origin' => $origin,
+    'referer' => $referer ? substr($referer, 0, 50) . '...' : null
+  ]);
+
   // MUST have Origin or Referer, and it MUST exactly match our host
   if (!$request_host || $request_host !== $allowed_host) {
+    sb_log("CSRF check failed", 'ERROR', ['request_host' => $request_host, 'allowed_host' => $allowed_host]);
     return new \WP_Error('csrf', 'Invalid origin', ['status'=>403]);
   }
 
   $jwt = $req->get_param('access_token');
-  if (!$jwt) return new \WP_Error('no_jwt','Missing access_token',['status'=>400]);
+  if (!$jwt) {
+    sb_log("Missing access_token parameter", 'ERROR');
+    return new \WP_Error('no_jwt','Missing access_token',['status'=>400]);
+  }
+
+  sb_log("JWT received", 'DEBUG', ['jwt_length' => strlen($jwt)]);
 
   // КРИТИЧНО: Защита от дублирующих callback запросов с атомарной блокировкой MySQL
   // Один токен должен обрабатываться только один раз
@@ -880,9 +996,12 @@ function sb_handle_callback(\WP_REST_Request $req) {
   $lock_acquired = $wpdb->get_var($wpdb->prepare("SELECT GET_LOCK(%s, 0)", $token_lock_key));
 
   if ($lock_acquired != 1) {
+    sb_log("Duplicate callback blocked (MySQL lock)", 'WARNING', ['lock_key' => md5($token_lock_key)]);
     error_log('Supabase Bridge: Token already being processed (duplicate request blocked via MySQL lock)');
     return new \WP_Error('duplicate','Authentication already in progress',['status'=>409]);
   }
+
+  sb_log("MySQL lock acquired for callback processing", 'DEBUG');
 
   // Блокировка автоматически освободится при закрытии соединения MySQL
   // Но для надежности освободим явно в конце функции через register_shutdown_function
@@ -892,6 +1011,7 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
   $projectRef = sb_cfg('SUPABASE_PROJECT_REF', '');
   if (!$projectRef) {
+    sb_log("SUPABASE_PROJECT_REF not configured", 'ERROR');
     error_log('Supabase Bridge: SUPABASE_PROJECT_REF not configured');
     return new \WP_Error('cfg','Authentication service not configured',['status'=>500]);
   }
@@ -899,12 +1019,15 @@ function sb_handle_callback(\WP_REST_Request $req) {
   $issuer = "https://{$projectRef}.supabase.co/auth/v1";
   $jwks  = "{$issuer}/.well-known/jwks.json";
 
+  sb_log("Starting JWT verification", 'DEBUG', ['issuer' => $issuer]);
+
   try {
     // 1) Забираем JWKS (with caching for performance)
     $cache_key = 'sb_jwks_' . md5($jwks);
     $keys = get_transient($cache_key);
 
     if ($keys === false) {
+      sb_log("JWKS cache miss - fetching from Supabase", 'DEBUG', ['jwks_url' => $jwks]);
       // Cache miss - fetch from Supabase
       $resp = wp_remote_get($jwks, [
         'timeout' => 5,
@@ -931,12 +1054,21 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
       // Cache for 1 hour (3600 seconds)
       set_transient($cache_key, $keys, 3600);
+      sb_log("JWKS cached successfully", 'DEBUG', ['cache_ttl' => 3600]);
+    } else {
+      sb_log("JWKS cache hit", 'DEBUG');
     }
 
     // 2) Проверяем JWT (RS256) и клеймы
     $publicKeys = \Firebase\JWT\JWK::parseKeySet($keys);
     $decoded = \Firebase\JWT\JWT::decode($jwt, $publicKeys);
     $claims = (array)$decoded;
+
+    sb_log("JWT decoded successfully", 'INFO', [
+      'sub' => $claims['sub'] ?? 'unknown',
+      'email' => $claims['email'] ?? 'unknown',
+      'provider' => $claims['app_metadata']->provider ?? 'unknown'
+    ]);
 
     // Validate issuer
     if (($claims['iss'] ?? '') !== $issuer) {
@@ -984,8 +1116,14 @@ function sb_handle_callback(\WP_REST_Request $req) {
     $email = sanitize_email($claims['email']);
     $supabase_user_id = sanitize_text_field($claims['sub']);
 
+    sb_log("Starting WordPress user sync", 'INFO', [
+      'email' => $email,
+      'supabase_user_id' => $supabase_user_id
+    ]);
+
     // Additional email validation
     if (!is_email($email)) {
+      sb_log("Invalid email format", 'ERROR', ['email' => $email]);
       error_log('Supabase Bridge: Invalid email format - ' . $email);
       throw new Exception('Invalid email address');
     }
@@ -1001,18 +1139,31 @@ function sb_handle_callback(\WP_REST_Request $req) {
     if (!empty($existing_users)) {
       // Пользователь с таким Supabase ID уже существует
       $user = $existing_users[0];
+      sb_log("User found by supabase_user_id", 'INFO', [
+        'wp_user_id' => $user->ID,
+        'email' => $email
+      ]);
       error_log('Supabase Bridge: User found by supabase_user_id - ' . $email);
     } else {
       // Проверяем по email
       $user = get_user_by('email', $email);
+      if ($user) {
+        sb_log("User found by email", 'INFO', [
+          'wp_user_id' => $user->ID,
+          'email' => $email
+        ]);
+      }
     }
 
     if (!$user) {
+      sb_log("User not found - creating new WordPress user", 'INFO', ['email' => $email]);
+
       // Distributed lock для предотвращения race condition
       $lock_key = 'sb_create_lock_' . md5($supabase_user_id);
 
       // Проверяем есть ли уже lock (другой процесс создает пользователя)
       if (get_transient($lock_key)) {
+        sb_log("Distributed lock detected - waiting for user creation", 'DEBUG', ['lock_key' => md5($lock_key)]);
         // Ждем 2 секунды и пробуем найти пользователя снова
         sleep(2);
 
@@ -1070,13 +1221,21 @@ function sb_handle_callback(\WP_REST_Request $req) {
           }
         } else {
           // User created successfully
+          sb_log("WordPress user created successfully", 'INFO', [
+            'wp_user_id' => $uid,
+            'email' => $email,
+            'supabase_user_id' => $supabase_user_id
+          ]);
+
           // Store Supabase user ID
           update_user_meta($uid, 'supabase_user_id', $supabase_user_id);
+          sb_log("User metadata updated", 'DEBUG', ['supabase_user_id' => $supabase_user_id]);
 
           // Set default role (subscriber)
           $user = get_user_by('id', $uid);
           if ($user) {
             $user->set_role('subscriber');
+            sb_log("User role set to subscriber", 'DEBUG', ['wp_user_id' => $uid]);
           }
 
           // Удаляем lock
@@ -1123,6 +1282,12 @@ function sb_handle_callback(\WP_REST_Request $req) {
     wp_set_current_user($user->ID);
     wp_set_auth_cookie($user->ID, true, is_ssl());
 
+    sb_log("User logged in successfully", 'INFO', [
+      'wp_user_id' => $user->ID,
+      'email' => $email,
+      'ip' => $client_ip
+    ]);
+
     // Clear rate limit on successful authentication
     delete_transient($rate_key);
 
@@ -1134,14 +1299,24 @@ function sb_handle_callback(\WP_REST_Request $req) {
       $client_ip
     ));
 
+    sb_log_function_exit('sb_handle_callback', ['success' => true, 'user_id' => $user->ID]);
+
     return ['ok'=>true, 'user_id'=>$user->ID];
   } catch (\Throwable $e) {
+    sb_log("Authentication failed", 'ERROR', [
+      'error' => $e->getMessage(),
+      'ip' => $client_ip,
+      'trace' => $e->getTraceAsString()
+    ]);
+
     // Audit log (failure)
     error_log(sprintf(
       'Supabase Bridge: Authentication failed - Error: %s, IP: %s',
       $e->getMessage(),
       $client_ip
     ));
+
+    sb_log_function_exit('sb_handle_callback', ['success' => false, 'error' => $e->getMessage()]);
 
     return new \WP_Error('auth_failed', $e->getMessage(), ['status'=>401]);
   }
@@ -1258,6 +1433,39 @@ function sb_render_setup_page() {
   ?>
   <div class="wrap">
     <h1>🚀 Supabase Bridge</h1>
+
+    <!-- Plugin Version & Diagnostics -->
+    <div style="background: #f0f6fc; border-left: 4px solid #0969da; padding: 12px 15px; margin: 15px 0; border-radius: 4px;">
+      <strong>📦 Plugin Version:</strong>
+      <code style="font-size: 14px; font-weight: 600; color: #0969da; background: white; padding: 4px 8px; border-radius: 3px;">
+        <?php
+        // Get plugin version from header
+        $plugin_data = get_file_data(__FILE__, ['Version' => 'Version'], 'plugin');
+        echo esc_html($plugin_data['Version'] ?? 'Unknown');
+        ?>
+      </code>
+
+      <span style="margin-left: 15px; color: #666;">
+        📄 Plugin File: <code style="font-size: 11px;"><?php echo esc_html(basename(__FILE__)); ?></code>
+      </span>
+
+      <span style="margin-left: 15px; color: #666;">
+        📁 Plugin Dir: <code style="font-size: 11px;"><?php echo esc_html(basename(plugin_dir_path(__FILE__))); ?></code>
+      </span>
+
+      <?php
+      // Check if enhanced logging is available (v0.9.2+)
+      $has_enhanced_logging = function_exists('sb_log');
+      if ($has_enhanced_logging): ?>
+        <span style="margin-left: 15px;">
+          <span style="color: #0a8a0a; font-weight: 600;">✅ Enhanced Logging Available</span>
+        </span>
+      <?php else: ?>
+        <span style="margin-left: 15px;">
+          <span style="color: #d32f2f; font-weight: 600;">⚠️ Enhanced Logging NOT Available (version mismatch!)</span>
+        </span>
+      <?php endif; ?>
+    </div>
 
     <!-- Tabs Navigation -->
     <h2 class="nav-tab-wrapper">

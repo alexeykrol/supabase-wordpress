@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="0.9.1"
+VERSION="0.9.5"
 PLUGIN_NAME="supabase-bridge"
 BUILD_DIR="build"
 RELEASE_NAME="${PLUGIN_NAME}-v${VERSION}"
@@ -23,15 +23,21 @@ cp supabase-bridge.php ${BUILD_DIR}/${PLUGIN_NAME}/
 cp auth-form.html ${BUILD_DIR}/${PLUGIN_NAME}/
 cp LICENSE ${BUILD_DIR}/${PLUGIN_NAME}/
 cp README.md ${BUILD_DIR}/${PLUGIN_NAME}/
+cp CHANGELOG.md ${BUILD_DIR}/${PLUGIN_NAME}/
 
 # Copy SQL files
 cp supabase-tables.sql ${BUILD_DIR}/${PLUGIN_NAME}/
 cp SECURITY_RLS_POLICIES_FINAL.sql ${BUILD_DIR}/${PLUGIN_NAME}/
 
-# Copy documentation (production guides only)
+# Copy documentation (production guides)
 cp QUICK_SETUP_CHECKLIST.md ${BUILD_DIR}/${PLUGIN_NAME}/
 cp PRODUCTION_SETUP.md ${BUILD_DIR}/${PLUGIN_NAME}/
 cp SECURITY_ROLLBACK_SUMMARY.md ${BUILD_DIR}/${PLUGIN_NAME}/
+
+# Copy debugging documentation (v0.9.2)
+cp PRODUCTION_DEBUGGING.md ${BUILD_DIR}/${PLUGIN_NAME}/
+cp PRODUCTION_DEBUGGING_QUICK_START.md ${BUILD_DIR}/${PLUGIN_NAME}/
+cp CACHE_TROUBLESHOOTING.md ${BUILD_DIR}/${PLUGIN_NAME}/
 
 # Copy vendor directory (already has production dependencies)
 echo "📚 Copying PHP dependencies (vendor/)..."

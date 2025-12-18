@@ -1,7 +1,7 @@
 # SNAPSHOT — Supabase Bridge
 
 *Framework: Claude Code Starter v2.3.1*
-*Last Updated: 2025-12-16*
+*Last Updated: 2025-12-18*
 
 ---
 
@@ -29,10 +29,11 @@
 **Phase 12: MemberPress Integration (v0.9.0)** [статус: ✅]
 **Phase 13: LearnDash Integration (v0.9.0)** [статус: ✅]
 **Phase 14: LearnDash Banner Management UI (v0.9.1)** [статус: ✅]
+**Phase 15: Production Debugging System (v0.9.2)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete + Banner Management UI (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete + Banner Management UI + Production Debugging (Production Ready)
 
-**Текущая фаза:** v0.9.1 LearnDash Banner Management UI Complete (Production Ready)
+**Текущая фаза:** v0.9.5 Production Testing & Debugging (alexeykrol.com deployment)
 
 ---
 
@@ -216,19 +217,35 @@ supabase-bridge/
 6. ✅ Warning notifications after LearnDash updates
 7. ✅ Backward compatible with old patch versions
 
+### Phase 15: Production Debugging System (v0.9.2) - Completed 2025-12-17
+1. ✅ Enhanced logging system with multiple log levels (DEBUG, INFO, WARNING, ERROR)
+2. ✅ Automatic sensitive data redaction (tokens, passwords, keys)
+3. ✅ Context-aware logging with structured JSON data
+4. ✅ Function entry/exit tracing for execution flow
+5. ✅ Comprehensive logging in authentication callback
+6. ✅ Production debugging documentation (setup guides, security checklist)
+7. ✅ SSH read-only access instructions
+8. ✅ Zero performance impact when WP_DEBUG is disabled
+
 ---
 
-## 🔜 Следующий этап: Phase 15
+## 🔄 Текущая работа: Phase 16
 
-**v0.10.0 - Role Mapping**
+**v0.9.6 - Browser-Specific Hash Detection Issue**
 
 ### Задачи:
-1. Read role from JWT app_metadata
-2. Map Supabase roles → WordPress roles
-3. Update role on each login
-4. Configurable via filter hooks
+1. ✅ Isolated problem: Chrome/Safari not detecting hash on `/test-no-elem/` (form page)
+2. ✅ Confirmed browsers work correctly: All browsers can read URL hash
+3. ✅ Created test page `/test-no-elem-2/` - simplified JavaScript works in all browsers
+4. ⏳ Find root cause in `auth-form.html` that blocks Chrome/Safari
+5. ⏳ Implement permanent fix
+6. ⏳ Revert temporary test changes (GitHub issue #14)
 
-**Зависимости:** v0.9.0 complete (✅)
+**Temporary Changes (MUST REVERT):**
+- `auth-form.html` lines 979, 1110: `emailRedirectTo` hardcoded to `/test-no-elem-2/`
+- Tracked in: https://github.com/alexeykrol/supabase-wordpress/issues/14
+
+**Зависимости:** v0.9.5 testing complete
 
 ---
 
@@ -247,12 +264,13 @@ supabase-bridge/
 
 ## 🎉 Production Status
 
-**Status:** ✅ Production Ready ✨
-**Live Site:** https://questtales.com
-**Version:** 2.3.1
-**Last Update:** 2025-12-13
-**Uptime:** Stable
-**Known Bugs:** 0
+**Status:** ⚠️ Testing on alexeykrol.com
+**Live Sites:**
+- https://questtales.com (v0.9.5 - stable)
+- https://alexeykrol.com (v0.9.5 - debugging browser-specific issue)
+**Version:** 0.9.5
+**Last Update:** 2025-12-18
+**Known Issues:** 1 (Chrome/Safari hash detection on specific page - in progress)
 
 ---
 

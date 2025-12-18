@@ -899,7 +899,7 @@
 
         try {
           // Синхронизация с WordPress
-          const wpResponse = await fetch(window.location.origin + '/wp-json/supabase-auth/callback', {
+          const wpResponse = await fetch(window.location.origin + '/wp-json/supabase-bridge/v1/callback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -976,7 +976,7 @@
         const { error } = await supabaseClient.auth.signInWithOtp({
           email: email,
           options: {
-            emailRedirectTo: window.location.origin + window.location.pathname
+            emailRedirectTo: 'https://alexeykrol.com/test-no-elem-2/'
           }
         });
 
@@ -1107,7 +1107,7 @@
         const { error } = await supabaseClient.auth.signInWithOtp({
           email: email,
           options: {
-            emailRedirectTo: window.location.origin + window.location.pathname
+            emailRedirectTo: 'https://alexeykrol.com/test-no-elem-2/'
           }
         });
 
