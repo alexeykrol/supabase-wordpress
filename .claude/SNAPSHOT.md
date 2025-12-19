@@ -227,25 +227,41 @@ supabase-bridge/
 7. ✅ SSH read-only access instructions
 8. ✅ Zero performance impact when WP_DEBUG is disabled
 
+### Phase 16: Two-Page Architecture Refactoring (v0.9.6) - Completed 2025-12-18
+1. ✅ Analyzed Chrome/Safari hash detection issue - found duplicate callback code
+2. ✅ Implemented two-page authentication architecture
+3. ✅ Created dedicated callback page `/test-no-elem-2/` with clean handler
+4. ✅ Added `redirect_to` parameter support for login redirects
+5. ✅ Removed ~112 lines of duplicate callback code from `auth-form.html`
+6. ✅ Separated concerns: form display (page 1) vs authentication processing (page 2)
+7. ✅ Tested in Chrome, Safari, Firefox - works in all browsers
+
 ---
 
-## 🔄 Текущая работа: Phase 16
+## 🔄 Текущая работа: Phase 17
 
-**v0.9.6 - Browser-Specific Hash Detection Issue**
+**v0.9.6 - Two-Page Authentication Architecture**
 
-### Задачи:
-1. ✅ Isolated problem: Chrome/Safari not detecting hash on `/test-no-elem/` (form page)
-2. ✅ Confirmed browsers work correctly: All browsers can read URL hash
-3. ✅ Created test page `/test-no-elem-2/` - simplified JavaScript works in all browsers
-4. ⏳ Find root cause in `auth-form.html` that blocks Chrome/Safari
-5. ⏳ Implement permanent fix
-6. ⏳ Revert temporary test changes (GitHub issue #14)
+### Завершено в Phase 16:
+1. ✅ Analyzed browser hash detection issue - found root cause
+2. ✅ Implemented two-page architecture: form (`/test-no-elem/`) + callback (`/test-no-elem-2/`)
+3. ✅ Created callback handler with `redirect_to` parameter support
+4. ✅ Removed duplicate callback code from `auth-form.html` (~112 lines)
+5. ✅ Tested login flow in Chrome, Safari - works in all browsers
+6. ✅ Separation of concerns: form display vs authentication processing
 
-**Temporary Changes (MUST REVERT):**
-- `auth-form.html` lines 979, 1110: `emailRedirectTo` hardcoded to `/test-no-elem-2/`
-- Tracked in: https://github.com/alexeykrol/supabase-wordpress/issues/14
+### Phase 17 Задачи:
+1. ⏳ Configure form to pass `redirect_to` parameter to callback
+2. ⏳ Update OAuth providers (Google/Facebook) redirect URLs
+3. ⏳ Test full login flow with `redirect_to` parameter
+4. ⏳ Test registration flow with Registration Pairs
+5. ⏳ Update WordPress REST API for proper redirect URL response
 
-**Зависимости:** v0.9.5 testing complete
+**Architecture:**
+- **Page 1:** `/test-no-elem/` - Form with shortcode `[supabase_auth_form]` (display only)
+- **Page 2:** `/test-no-elem-2/` - Callback handler (authentication processing + redirects)
+
+**Зависимости:** Phase 16 complete
 
 ---
 

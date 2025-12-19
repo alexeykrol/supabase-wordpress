@@ -12,6 +12,9 @@ wp-config-questtales.php
 .env.local
 .env.*.local
 
+# Production Credentials
+.production-credentials
+
 # Composer
 /vendor/
 composer.lock
@@ -64,6 +67,22 @@ docs/
 wp-content/debug.log
 
 # Claude dialogs
+dialog/2025-12-17_session-ab48b97e.md
+dialog/2025-12-17_session-c3a2b0d0.md
+dialog/2025-12-17_session-f53d7816.md
+dialog/2025-12-17_session-50e88c7e.md
+dialog/2025-12-17_session-123edca4.md
+dialog/2025-12-17_session-2c27445c.md
+dialog/2025-12-17_session-09207b05.md
+dialog/2025-12-17_session-ea0801f7.md
+dialog/2025-12-17_session-217fd2b7.md
+dialog/2025-12-17_session-1cedfa37.md
+dialog/2025-12-17_session-a523d311.md
+dialog/2025-12-17_session-15fb3a51.md
+dialog/2025-12-17_session-a1f0b9e7.md
+dialog/2025-12-17_session-6497dd4f.md
+dialog/2025-12-17_session-c2aaf046.md
+dialog/2025-12-18_session-67baea8c.md
 dialog/2025-12-17_session-e1a2443c.md
 dialog/2025-12-17_session-6c5acb74.md
 dialog/2025-12-17_session-b4f9886f.md

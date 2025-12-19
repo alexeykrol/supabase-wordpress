@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication Processing...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .status {
+      font-size: 18px;
+      color: #374151;
+      margin: 24px 0;
+      line-height: 1.6;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 24px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .success {
+      color: #16a34a;
+      font-weight: 600;
+    }
+
+    .error {
+      color: #dc2626;
+      font-weight: 600;
+      background: #fef2f2;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+
+    .debug {
+      background: #f3f4f6;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-size: 14px;
+      text-align: left;
+      font-family: 'Courier New', monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .debug-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #111827;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner" id="spinner"></div>
+    <div class="status" id="status">Processing authentication...</div>
+    <div class="debug" id="debug" style="display: none;">
+      <div class="debug-title">Debug Information:</div>
+      <div id="debug-content"></div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // Configuration
+      const DEBUG_MODE = true; // Set to false in production
+      const THANK_YOU_PAGE = '/registr/'; // Default thank you page
+      const DEFAULT_REDIRECT = '/'; // Fallback redirect
+      const NEW_USER_THRESHOLD = 60000; // 60 seconds
+
+      // DOM elements
+      const spinner = document.getElementById('spinner');
+      const status = document.getElementById('status');
+      const debugPanel = document.getElementById('debug');
+      const debugContent = document.getElementById('debug-content');
+
+      // Debug logging
+      function debug(message, data = null) {
+        console.log(message, data || '');
+        if (DEBUG_MODE) {
+          debugPanel.style.display = 'block';
+          const line = document.createElement('div');
+          line.textContent = message + (data ? ' ' + JSON.stringify(data, null, 2) : '');
+          debugContent.appendChild(line);
+        }
+      }
+
+      // Update status message
+      function updateStatus(message, isError = false) {
+        status.textContent = message;
+        if (isError) {
+          status.className = 'status error';
+          spinner.style.display = 'none';
+        }
+      }
+
+      // Extract tokens from URL hash
+      function extractTokensFromHash() {
+        debug('Current URL:', window.location.href);
+        debug('Hash:', window.location.hash);
+
+        const hash = window.location.hash;
+        if (!hash || !hash.includes('access_token=')) {
+          throw new Error('No authentication token found in URL');
+        }
+
+        // Parse hash fragment (remove # and parse as URLSearchParams)
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const tokenType = params.get('token_type');
+
+        if (!accessToken) {
+          throw new Error('Access token missing from URL');
+        }
+
+        debug('Tokens extracted successfully');
+        debug('Token type:', tokenType);
+        debug('Access token (first 20 chars):', accessToken.substring(0, 20) + '...');
+
+        return {
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: tokenType
+        };
+      }
+
+      // Check if user is new (based on token creation time)
+      // Note: We can't determine this from token alone, WordPress will tell us
+      function getRedirectUrl(isNewUser) {
+        if (isNewUser) {
+          debug('User is new → redirecting to thank you page:', THANK_YOU_PAGE);
+          return THANK_YOU_PAGE;
+        } else {
+          debug('User is existing → redirecting to default:', DEFAULT_REDIRECT);
+          return DEFAULT_REDIRECT;
+        }
+      }
+
+      // Send tokens to WordPress REST API
+      async function authenticateWithWordPress(tokens) {
+        updateStatus('Authenticating with WordPress...');
+        debug('Calling WordPress REST API...');
+
+        const endpoint = window.location.origin + '/wp-json/supabase-bridge/v1/callback';
+        debug('Endpoint:', endpoint);
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              access_token: tokens.access_token,
+              registration_url: '/test-no-elem-2/' // Track registration source
+            }),
+            credentials: 'include' // CRITICAL: Required for cookies
+          });
+
+          debug('Response status:', response.status);
+
+          const data = await response.json();
+          debug('Response data:', data);
+
+          if (!response.ok) {
+            // Handle duplicate callback (409)
+            if (response.status === 409) {
+              debug('Duplicate callback detected - another request is processing this token');
+              updateStatus('Authentication already in progress...');
+              // Wait a bit then redirect anyway
+              setTimeout(() => {
+                window.location.href = DEFAULT_REDIRECT;
+              }, 2000);
+              return;
+            }
+
+            throw new Error(data.message || 'WordPress authentication failed');
+          }
+
+          return data;
+        } catch (error) {
+          debug('WordPress API error:', error.message);
+          throw error;
+        }
+      }
+
+      // Main authentication flow
+      async function processAuthentication() {
+        try {
+          // Step 1: Extract tokens from URL
+          updateStatus('Reading authentication token...');
+          const tokens = extractTokensFromHash();
+
+          // Step 2: Authenticate with WordPress
+          updateStatus('Signing in...');
+          const wpResponse = await authenticateWithWordPress(tokens);
+
+          // Step 3: Determine redirect URL
+          // WordPress tells us if user is new via response
+          const isNewUser = wpResponse.is_new_user || false;
+          const redirectUrl = getRedirectUrl(isNewUser);
+
+          // Step 4: Show success and redirect
+          updateStatus('✓ Authentication successful! Redirecting...', false);
+          status.className = 'status success';
+          spinner.style.display = 'none';
+
+          debug('Redirecting to:', redirectUrl);
+
+          // Clean URL (remove hash) and redirect
+          setTimeout(() => {
+            window.location.href = redirectUrl;
+          }, 1500);
+
+        } catch (error) {
+          console.error('Authentication error:', error);
+          updateStatus('Authentication failed: ' + error.message, true);
+          debug('Error details:', error.toString());
+
+          // Show retry link
+          const retryLink = document.createElement('div');
+          retryLink.style.marginTop = '16px';
+          retryLink.innerHTML = '<a href="/" style="color: #3b82f6; text-decoration: underline;">Return to home page</a>';
+          document.querySelector('.container').appendChild(retryLink);
+        }
+      }
+
+      // Start authentication when page loads
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', processAuthentication);
+      } else {
+        processAuthentication();
+      }
+    })();
+  </script>
+</body>
+</html>

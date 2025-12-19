@@ -661,7 +661,6 @@
     // ========== ИНИЦИАЛИЗАЦИЯ SUPABASE ==========
 
     let supabaseClient;
-    let authSubscription; // Ссылка на подписку для предотвращения дублирования
     let isInitialized = false; // Флаг для предотвращения множественной инициализации
 
     function initSupabase() {
@@ -681,14 +680,6 @@
           window.SUPABASE_CFG.url,
           window.SUPABASE_CFG.anon
         );
-
-        // Отписываемся от предыдущей подписки если она существует (защита от дублирования)
-        if (authSubscription) {
-          authSubscription.data?.subscription?.unsubscribe();
-        }
-
-        // Слушаем изменения авторизации
-        authSubscription = supabaseClient.auth.onAuthStateChange(handleAuthChange);
 
         isInitialized = true; // Помечаем как инициализированный
         console.log('✅ Supabase Auth initialized');
@@ -839,120 +830,6 @@
       return diff < AUTH_CONFIG.newUserThreshold;
     }
 
-    // ========== ОБРАБОТКА АВТОРИЗАЦИИ ==========
-
-    let isRedirecting = false; // Флаг чтобы избежать множественных редиректов
-    const processingTokens = new Set(); // In-memory Set для защиты от race condition
-
-    // Проверяем был ли триггер от пользователя (сохранён в sessionStorage)
-    let userTriggeredAuth = sessionStorage.getItem('sb_auth_triggered') === 'true';
-
-    // Проверяем пришёл ли пользователь по Magic Link (есть токен в URL hash)
-    const hasMagicLinkToken = window.location.hash.includes('access_token=');
-
-    async function handleAuthChange(event, session) {
-      // КРИТИЧНО #0: Проверяем isRedirecting ПЕРВЫМ ДЕЛОМ (до любых других проверок)
-      // Это самая ранняя защита от race condition
-      if (isRedirecting) {
-        console.log('⚠️ Already redirecting, skipping duplicate event');
-        return;
-      }
-
-      console.log('Auth event:', event, 'userTriggered:', userTriggeredAuth, 'hasMagicLink:', hasMagicLinkToken);
-
-      // Определяем нужно ли делать редирект
-      // Да, если: пользователь нажал кнопку ИЛИ пришёл по Magic Link
-      const shouldRedirect = userTriggeredAuth || hasMagicLinkToken;
-
-      // Редиректим ТОЛЬКО если:
-      // 1. Событие = SIGNED_IN
-      // 2. Есть сессия
-      // 3. (Пользователь нажал кнопку ИЛИ пришёл по Magic Link)
-      if (event === 'SIGNED_IN' && session && shouldRedirect) {
-        const tokenKey = session.access_token.substring(0, 20);
-
-        // КРИТИЧНО #1: In-memory проверка (защита от race condition внутри одной страницы)
-        if (processingTokens.has(tokenKey)) {
-          console.log('⚠️ Token already processing (in-memory lock), skipping');
-          return;
-        }
-
-        // КРИТИЧНО #2: Устанавливаем флаги СРАЗУ И СИНХРОННО
-        processingTokens.add(tokenKey);
-        isRedirecting = true; // ← Перенесли СЮДА - раньше!
-
-        // КРИТИЧНО #3: localStorage проверка (защита между табами/окнами)
-        const processedTokenKey = 'sb_processed_' + tokenKey;
-        if (localStorage.getItem(processedTokenKey)) {
-          console.log('⚠️ Token already processed (localStorage), skipping');
-          processingTokens.delete(tokenKey); // Очищаем in-memory lock
-          isRedirecting = false; // Сбрасываем флаг
-          return;
-        }
-
-        // КРИТИЧНО #4: Помечаем в localStorage КАК МОЖНО РАНЬШЕ (до fetch!)
-        // Это предотвращает дублирование даже если два экземпляра страницы запущены одновременно
-        localStorage.setItem(processedTokenKey, Date.now());
-
-        const user = session.user;
-        const accessToken = session.access_token;
-
-        try {
-          // Синхронизация с WordPress
-          const wpResponse = await fetch(window.location.origin + '/wp-json/supabase-bridge/v1/callback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              access_token: accessToken,
-              registration_url: ORIGIN_PAGE  // Phase 6: Explicit registration source for accurate tracking
-            }),
-            credentials: 'include'  // CRITICAL: Required for cookies to be saved
-          });
-
-          const wpData = await wpResponse.json();
-
-          if (!wpResponse.ok) {
-            // HTTP 409 = Duplicate callback (другой запрос уже обрабатывает этот токен)
-            if (wpResponse.status === 409) {
-              console.log('⏳ Duplicate callback detected, another request is processing this token');
-              // Тихо выходим - второй параллельный запрос завершит аутентификацию и сделает редирект
-              processingTokens.delete(tokenKey);
-              return; // Не показываем ошибку, просто ждём завершения другого запроса
-            }
-
-            throw new Error(wpData.message || 'WordPress authentication failed');
-          }
-
-          // ✅ Помечаем токен как обработанный ТОЛЬКО после успешного ответа WordPress
-          localStorage.setItem(processedTokenKey, 'true');
-          // Автоочистка через 5 минут
-          setTimeout(() => localStorage.removeItem(processedTokenKey), 300000);
-
-          // Определяем куда редиректить
-          const redirectUrl = isNewUser(user)
-            ? getThankYouPage()
-            : getReturnUrl();
-
-          console.log('Redirecting to:', redirectUrl, '(new user:', isNewUser(user), ')');
-
-          // Очищаем флаг перед редиректом
-          sessionStorage.removeItem('sb_auth_triggered');
-
-          // Редирект
-          window.location.href = redirectUrl;
-
-        } catch (error) {
-          console.error('Auth error:', error);
-          showError(error.message || 'Authentication failed');
-
-          // Очищаем флаги обработки при ошибке (позволяет пользователю попробовать снова)
-          processingTokens.delete(tokenKey); // Очищаем in-memory lock
-          localStorage.removeItem(processedTokenKey); // Очищаем localStorage
-          isRedirecting = false;
-        }
-      }
-    }
-
     // ========== EMAIL MAGIC LINK ==========
 
     emailForm.addEventListener('submit', async (e) => {
@@ -966,9 +843,6 @@
         return;
       }
 
-      // Устанавливаем флаг что пользователь отправил email
-      userTriggeredAuth = true;
-      sessionStorage.setItem('sb_auth_triggered', 'true');
       console.log('🎯 User submitted email for magic link');
 
       try {
@@ -1001,9 +875,6 @@
         return;
       }
 
-      // Устанавливаем флаг что пользователь сам нажал кнопку
-      userTriggeredAuth = true;
-      sessionStorage.setItem('sb_auth_triggered', 'true');
       console.log('🎯 User clicked Google OAuth button');
 
       try {
@@ -1030,9 +901,6 @@
         return;
       }
 
-      // Устанавливаем флаг что пользователь сам нажал кнопку
-      userTriggeredAuth = true;
-      sessionStorage.setItem('sb_auth_triggered', 'true');
       console.log('🎯 User clicked Facebook OAuth button');
 
       try {
@@ -1083,8 +951,6 @@
         });
 
         if (error) throw error;
-
-        // handleAuthChange сработает автоматически
 
       } catch (error) {
         console.error('Verification error:', error);
