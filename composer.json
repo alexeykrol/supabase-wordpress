@@ -12,5 +12,19 @@
   "require": {
     "php": ">=8.0",
     "firebase/php-jwt": "^6.10"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.5"
+  },
+  "scripts": {
+    "test": "bash tests/run-all.sh",
+    "test:unit": "phpunit tests/unit",
+    "test:smoke": "bash tests/smoke/health-check.sh",
+    "test:coverage": "phpunit --coverage-html tests/reports/coverage"
+  },
+  "autoload": {
+    "files": [
+      "tests/helpers/test-functions.php"
+    ]
   }
 }

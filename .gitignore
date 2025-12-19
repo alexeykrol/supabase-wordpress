@@ -42,6 +42,12 @@ npm-debug.log*
 error_log
 debug.log
 
+# Test Reports
+tests/reports/
+*.junit.xml
+coverage/
+.phpunit.result.cache
+
 # Temporary files
 *.tmp
 *.temp
