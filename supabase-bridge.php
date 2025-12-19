@@ -571,6 +571,28 @@ function sb_delete_pair_from_supabase($pair_id) {
 
 // === Phase 6: Registration Logging to Supabase ===
 
+// Find Thank You page URL for a given registration URL (from Registration Pairs)
+function sb_get_thankyou_url_for_registration($registration_url) {
+  // Validate registration_url
+  $validated_reg_url = sb_validate_url_path($registration_url);
+  if (!$validated_reg_url) {
+    return null;
+  }
+
+  // Find matching pair by registration_url
+  $pairs = get_option('sb_registration_pairs', []);
+
+  foreach ($pairs as $pair) {
+    if ($pair['registration_page_url'] === $validated_reg_url) {
+      // Return absolute URL for thank you page
+      return home_url($pair['thankyou_page_url']);
+    }
+  }
+
+  // No matching pair found
+  return null;
+}
+
 // Log user registration to Supabase (non-blocking analytics)
 function sb_log_registration_to_supabase($user_email, $supabase_user_id, $registration_url) {
   try {
@@ -1199,6 +1221,24 @@ function sb_handle_callback(\WP_REST_Request $req) {
       }
     }
 
+    // Track if this is a new user registration (for redirect logic)
+    $is_new_user = false;
+
+    // Read registration_url from POST body (for Registration Pairs redirect)
+    // Priority 1: Explicit registration_url from POST body (v0.8.5+)
+    $registration_url = $req->get_param('registration_url');
+
+    // Priority 2: Fallback to Referer for backward compatibility
+    if (empty($registration_url) && !empty($referer)) {
+      $registration_url = parse_url($referer, PHP_URL_PATH);
+    }
+
+    // Validate registration_url
+    $validated_registration_url = null;
+    if (!empty($registration_url)) {
+      $validated_registration_url = sb_validate_url_path($registration_url);
+    }
+
     if (!$user) {
       sb_log("User not found - creating new WordPress user", 'INFO', ['email' => $email]);
 
@@ -1265,6 +1305,8 @@ function sb_handle_callback(\WP_REST_Request $req) {
           }
         } else {
           // User created successfully
+          $is_new_user = true;  // Mark as new user for redirect logic
+
           sb_log("WordPress user created successfully", 'INFO', [
             'wp_user_id' => $uid,
             'email' => $email,
@@ -1288,30 +1330,16 @@ function sb_handle_callback(\WP_REST_Request $req) {
           error_log('Supabase Bridge: User created successfully - User ID: ' . $uid);
 
           // === Phase 6: Log registration to Supabase (non-blocking) ===
-          // Priority 1: Explicit registration_url from POST body (v0.8.5+)
-          $registration_url = $req->get_param('registration_url');
+          // Use validated_registration_url from earlier in the function
+          if ($validated_registration_url) {
+            sb_log_registration_to_supabase($email, $supabase_user_id, $validated_registration_url);
+            // Note: We don't check return value - logging is non-critical
 
-          // Priority 2: Fallback to Referer for backward compatibility
-          if (empty($registration_url) && !empty($referer)) {
-            $registration_url = parse_url($referer, PHP_URL_PATH);
-          }
+            // === Phase 4: Auto-assign MemberPress membership (v0.9.0) ===
+            sb_assign_membership_on_registration($uid, $validated_registration_url);
 
-          // Validate and log if we have a registration URL
-          if (!empty($registration_url)) {
-            // SECURITY: Validate user-controlled input from POST body
-            $validated_url = sb_validate_url_path($registration_url);
-            if ($validated_url) {
-              sb_log_registration_to_supabase($email, $supabase_user_id, $validated_url);
-              // Note: We don't check return value - logging is non-critical
-
-              // === Phase 4: Auto-assign MemberPress membership (v0.9.0) ===
-              sb_assign_membership_on_registration($uid, $validated_url);
-
-              // === Phase 5: Auto-enroll LearnDash course (v0.9.0) ===
-              sb_enroll_course_on_registration($uid, $validated_url);
-            } else {
-              error_log('Supabase Bridge: Invalid registration_url rejected: ' . $registration_url);
-            }
+            // === Phase 5: Auto-enroll LearnDash course (v0.9.0) ===
+            sb_enroll_course_on_registration($uid, $validated_registration_url);
           }
         }
       }
@@ -1343,9 +1371,27 @@ function sb_handle_callback(\WP_REST_Request $req) {
       $client_ip
     ));
 
-    sb_log_function_exit('sb_handle_callback', ['success' => true, 'user_id' => $user->ID]);
+    // Determine redirect URL for new users (Registration Pairs)
+    $redirect_url = null;
+    if ($is_new_user && $validated_registration_url) {
+      $redirect_url = sb_get_thankyou_url_for_registration($validated_registration_url);
+    }
 
-    return ['ok'=>true, 'user_id'=>$user->ID];
+    // Build response
+    $response = [
+      'ok' => true,
+      'user_id' => $user->ID,
+      'is_new_user' => $is_new_user
+    ];
+
+    // Add redirect_url if found
+    if ($redirect_url) {
+      $response['redirect_url'] = $redirect_url;
+    }
+
+    sb_log_function_exit('sb_handle_callback', ['success' => true, 'user_id' => $user->ID, 'is_new_user' => $is_new_user, 'redirect_url' => $redirect_url]);
+
+    return $response;
   } catch (\Throwable $e) {
     sb_log("Authentication failed", 'ERROR', [
       'error' => $e->getMessage(),

@@ -585,6 +585,12 @@
         console.log('🔗 Login return URL detected:', returnUrl);
         localStorage.setItem('login_return_url', returnUrl);
 
+        // ========== SAVE REGISTRATION PAGE URL FOR REGISTRATION PAIRS ==========
+        // Сохраняем URL текущей страницы (формы регистрации) для определения Thank You page
+        const registrationPageUrl = window.location.pathname;
+        console.log('📝 Registration page URL:', registrationPageUrl);
+        localStorage.setItem('registration_page_url', registrationPageUrl);
+
         // ========== КОНФИГУРАЦИЯ ==========
 
         const AUTH_CONFIG = {

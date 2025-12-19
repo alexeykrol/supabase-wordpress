@@ -201,7 +201,7 @@
         },
         body: JSON.stringify({
           access_token: tokens.access_token,
-          registration_url: '/test-no-elem-2/' // Track registration source
+          registration_url: localStorage.getItem('registration_page_url') || window.location.pathname
         }),
         credentials: 'include' // CRITICAL: Include cookies
       });
@@ -301,7 +301,8 @@
 
       // Clean localStorage (no longer needed after login)
       localStorage.removeItem('login_return_url');
-      debug('Cleaned login_return_url from localStorage');
+      localStorage.removeItem('registration_page_url');
+      debug('Cleaned localStorage (login_return_url, registration_page_url)');
 
       // Clean URL hash and redirect
       setTimeout(() => {
