@@ -99,14 +99,33 @@ fi
 
 echo "" | tee -a "$REPORT_FILE"
 
+# ═══ STEP 4: SECURITY SCAN ═══
+{
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📋 STEP 4: SECURITY SCAN"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+} | tee -a "$REPORT_FILE"
+
+if bash "$PROJECT_ROOT/tests/security-scan.sh" >> "$REPORT_FILE" 2>&1; then
+    echo -e "${GREEN}✅ SECURITY SCAN: PASSED${NC}" | tee -a "$REPORT_FILE"
+    SECURITY_STATUS="PASS"
+else
+    echo -e "${RED}🚨 SECURITY SCAN: FAILED (credentials found)${NC}" | tee -a "$REPORT_FILE"
+    SECURITY_STATUS="FAIL"
+fi
+
+echo "" | tee -a "$REPORT_FILE"
+
 # ═══ FINAL SUMMARY ═══
 {
     echo "════════════════════════════════════════════════════════"
     echo "📊 FINAL SUMMARY"
     echo "════════════════════════════════════════════════════════"
     echo ""
-    echo "Smoke Tests:  $SMOKE_STATUS"
-    echo "Unit Tests:   $UNIT_STATUS"
+    echo "Smoke Tests:     $SMOKE_STATUS"
+    echo "Unit Tests:      $UNIT_STATUS"
+    echo "Security Scan:   $SECURITY_STATUS"
     echo ""
     echo "Report saved: $REPORT_FILE"
     echo "Finished: $(date)"
@@ -114,13 +133,19 @@ echo "" | tee -a "$REPORT_FILE"
 } | tee -a "$REPORT_FILE"
 
 # Determine exit code
-if [ "$SMOKE_STATUS" = "FAIL" ] || [ "$UNIT_STATUS" = "FAIL" ]; then
+if [ "$SMOKE_STATUS" = "FAIL" ] || [ "$UNIT_STATUS" = "FAIL" ] || [ "$SECURITY_STATUS" = "FAIL" ]; then
     echo ""
     echo -e "${RED}❌ TESTS FAILED - See report above${NC}"
     echo ""
     echo "Next steps:"
     echo "1. Review detailed report: cat $REPORT_FILE"
-    echo "2. Share with Claude: 'Claude, analyze test report'"
+
+    if [ "$SECURITY_STATUS" = "FAIL" ]; then
+        echo "2. 🚨 CRITICAL: Security scan found exposed credentials in dialog/"
+        echo "   Review: tests/reports/security-scan-*.txt"
+        echo "   Action: Remove sensitive data from dialog files before committing"
+    fi
+
     echo ""
     exit 1
 else
