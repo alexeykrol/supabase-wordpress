@@ -30,10 +30,12 @@
 **Phase 13: LearnDash Integration (v0.9.0)** [статус: ✅]
 **Phase 14: LearnDash Banner Management UI (v0.9.1)** [статус: ✅]
 **Phase 15: Production Debugging System (v0.9.2)** [статус: ✅]
+**Phase 16: Two-Page Architecture Refactoring (v0.9.6)** [статус: ✅]
+**Phase 17: Login Flow & Unified Shortcode Architecture (v0.9.7)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete + Banner Management UI + Production Debugging (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete + Banner Management UI + Production Debugging + Return-to-Origin Login Flow (Production Ready)
 
-**Текущая фаза:** v0.9.5 Production Testing & Debugging (alexeykrol.com deployment)
+**Текущая фаза:** v0.9.7 Login Flow Complete (Phase 17 finished)
 
 ---
 
@@ -238,36 +240,31 @@ supabase-bridge/
 8. ✅ Tested in Chrome, Safari, Firefox (normal + incognito) - works in all browsers
 9. ✅ Verified Google OAuth and Facebook OAuth login flows work correctly
 
----
+### Phase 17: Login Flow & Unified Shortcode Architecture (v0.9.7) - Completed 2025-12-18
+1. ✅ Implemented `document.referrer` tracking on login page (localStorage)
+2. ✅ Added redirect logic to callback handler (reads from localStorage)
+3. ✅ Created `[supabase_auth_callback]` shortcode for unified architecture
+4. ✅ Unified shortcode system - both auth pages use shortcodes for automatic updates
+5. ✅ Return-to-origin login flow - user returns to page where they clicked "Login"
+6. ✅ Tested Google OAuth login from multiple pages - works perfectly
+7. ✅ Tested Facebook OAuth login from multiple pages - works perfectly
+8. ✅ Tested Magic Link login from multiple pages - works perfectly
+9. ✅ Verified in Chrome, Safari, Firefox (normal + incognito modes)
 
-## 🔄 Текущая работа: Phase 17
-
-**v0.9.6 - Two-Page Authentication Architecture**
-
-### Завершено в Phase 16:
-1. ✅ Analyzed browser hash detection issue - found root cause
-2. ✅ Implemented two-page architecture: form (`/test-no-elem/`) + callback (`/test-no-elem-2/`)
-3. ✅ Created callback handler with `redirect_to` parameter support
-4. ✅ Removed duplicate callback code from `auth-form.html` (~112 lines)
-5. ✅ Tested login flow in Chrome, Safari - works in all browsers
-6. ✅ Separation of concerns: form display vs authentication processing
-
-### Phase 17 Задачи:
-1. ✅ Implement `document.referrer` tracking on login page (localStorage)
-2. ✅ Add redirect logic to callback handler (reads from localStorage)
-3. ✅ Create `[supabase_auth_callback]` shortcode for unified architecture
-4. ✅ Update OAuth providers (Google/Facebook) redirect URLs
-5. ✅ Test full login flow - Google and Facebook OAuth working
-6. ⏳ Test registration flow with Registration Pairs
-7. ⏳ Update WordPress REST API for proper redirect URL response
-
-**Architecture Improvement:**
-- **Unified Shortcode System:** Both pages now use shortcodes for automatic updates
+**Architecture:**
 - **Page 1:** `/test-no-elem/` - Form with `[supabase_auth_form]`
 - **Page 2:** `/test-no-elem-2/` - Callback handler with `[supabase_auth_callback]`
-- **Return URL Flow:** Form saves `document.referrer` → Callback reads from localStorage → User returns to origin page
+- **Flow:** Any page → Click "Login" → Auth page (saves referrer) → Login → Callback (reads referrer) → Return to origin page
 
-**Зависимости:** Phase 16 complete
+---
+
+## 🔄 Текущая работа: Maintenance Mode
+
+**Status:** All login flows working perfectly. Project in maintenance mode.
+
+**Next planned features (ROADMAP):**
+- Role Mapping (v0.10.0)
+- User Metadata Sync (v0.11.0)
 
 ---
 

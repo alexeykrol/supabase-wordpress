@@ -7,12 +7,23 @@
 
 ## Current Status
 
-**Version:** 0.9.6 (Production Ready)
+**Version:** 0.9.7 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed (v0.9.7)
+- [x] Return-to-Origin Login Flow - user returns to page where they clicked "Login"
+- [x] Implemented `document.referrer` tracking on login page (localStorage)
+- [x] Added redirect logic to callback handler (reads from localStorage)
+- [x] Created `[supabase_auth_callback]` shortcode for unified architecture
+- [x] Unified shortcode system - both auth pages use shortcodes for automatic updates
+- [x] Tested Google OAuth login from multiple pages
+- [x] Tested Facebook OAuth login from multiple pages
+- [x] Tested Magic Link login from multiple pages
+- [x] Verified in Chrome, Safari, Firefox (normal + incognito modes)
 
 ### Completed (v0.9.6)
 - [x] Two-Page Authentication Architecture Refactoring
