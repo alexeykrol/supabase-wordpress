@@ -7,12 +7,21 @@
 
 ## Current Status
 
-**Version:** 0.9.7 (Production Ready)
+**Version:** 0.9.8 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed (v0.9.8)
+- [x] Comprehensive security scanning system (bash-based credential detection)
+- [x] Automated dialog file cleanup script with [REDACTED] markers
+- [x] Integration testing for Registration Pairs, MemberPress, LearnDash
+- [x] Unified test runner with smoke tests, unit tests, security scanning
+- [x] LearnDash banner patch OPcache improvements
+- [x] Git history cleanup with BFG Repo-Cleaner (removed all credentials)
+- [x] .gitignore improvements (wildcard rules for dialog files)
 
 ### Completed (v0.9.7)
 - [x] Return-to-Origin Login Flow - user returns to page where they clicked "Login"

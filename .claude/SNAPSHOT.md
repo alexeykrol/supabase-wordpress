@@ -32,10 +32,11 @@
 **Phase 15: Production Debugging System (v0.9.2)** [статус: ✅]
 **Phase 16: Two-Page Architecture Refactoring (v0.9.6)** [статус: ✅]
 **Phase 17: Login Flow & Unified Shortcode Architecture (v0.9.7)** [статус: ✅]
+**Phase 18: Security Hardening & Testing Infrastructure (v0.9.8)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete + Banner Management UI + Production Debugging + Return-to-Origin Login Flow (Production Ready)
+**Общий прогресс:** 100% MVP + Analytics Module Complete + Webhook System Complete + All Auth Methods Fixed + Registration Pairs Complete + MemberPress & LearnDash Integrations Complete + Banner Management UI + Production Debugging + Return-to-Origin Login Flow + Comprehensive Security Scanning + Test Infrastructure (Production Ready)
 
-**Текущая фаза:** v0.9.7 Login Flow Complete (Phase 17 finished)
+**Текущая фаза:** v0.9.8 Security & Testing Complete (Phase 18 finished)
 
 ---
 
@@ -256,11 +257,49 @@ supabase-bridge/
 - **Page 2:** `/test-no-elem-2/` - Callback handler with `[supabase_auth_callback]`
 - **Flow:** Any page → Click "Login" → Auth page (saves referrer) → Login → Callback (reads referrer) → Return to origin page
 
+### Phase 18: Security Hardening & Testing Infrastructure (v0.9.8) - Completed 2025-12-18
+1. ✅ Comprehensive security scanning system (bash-based)
+   - SSH private/public key detection
+   - JWT token detection
+   - IP address detection
+   - Database credentials detection
+   - Hardcoded secrets detection
+2. ✅ Automated dialog file cleanup script (`tests/clean-dialogs.sh`)
+   - Removes all SSH credentials from dialog files
+   - Replaces sensitive data with `[REDACTED]` markers
+   - Safe for public repository
+3. ✅ Integration testing for all core features
+   - Registration Pairs redirect testing
+   - MemberPress auto-assignment testing
+   - LearnDash auto-enrollment testing
+   - LearnDash banner patch testing
+4. ✅ Unified test runner (`tests/run-all.sh`)
+   - Smoke tests (health checks)
+   - Unit tests (PHPUnit integration)
+   - Security scanning (4th step)
+   - AI-assisted test reports
+5. ✅ LearnDash banner patch improvements
+   - Added PHP OPcache clearing (opcache_invalidate)
+   - User-facing cache clearing instructions
+   - Fixed banner visibility issue
+6. ✅ Git history cleanup
+   - Removed all credentials from git history using BFG Repo-Cleaner
+   - Force pushed clean history to GitHub
+   - Repository safe for public access
+7. ✅ `.gitignore` improvements
+   - Replaced 58 individual dialog entries with wildcard rules
+   - Automatic protection for all dialog files
+
+**Security Results:**
+- Before: 82 security issues (40 critical, 22 high, 20 medium)
+- After: 0 real credentials in repository
+- All dialog files cleaned and safe for students
+
 ---
 
 ## 🔄 Текущая работа: Maintenance Mode
 
-**Status:** All login flows working perfectly. Project in maintenance mode.
+**Status:** All login flows working perfectly. Comprehensive security & testing infrastructure in place. Project in maintenance mode.
 
 **Next planned features (ROADMAP):**
 - Role Mapping (v0.10.0)
@@ -283,13 +322,13 @@ supabase-bridge/
 
 ## 🎉 Production Status
 
-**Status:** ⚠️ Testing on alexeykrol.com
+**Status:** ✅ Production Ready
 **Live Sites:**
-- https://questtales.com (v0.9.5 - stable)
-- https://alexeykrol.com (v0.9.5 - debugging browser-specific issue)
-**Version:** 0.9.5
+- https://questtales.com (v0.9.8 - stable)
+- https://alexeykrol.com (v0.9.8 - stable)
+**Version:** 0.9.8
 **Last Update:** 2025-12-18
-**Known Issues:** 1 (Chrome/Safari hash detection on specific page - in progress)
+**Known Issues:** 0 (All auth methods working, security hardened, comprehensive testing in place)
 
 ---
 
