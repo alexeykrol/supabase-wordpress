@@ -241,7 +241,13 @@
   function getRedirectUrl(wpResponse) {
     // Read redirect_to parameter from URL query string
     const urlParams = new URLSearchParams(window.location.search);
-    const redirectTo = urlParams.get('redirect_to');
+    let redirectTo = urlParams.get('redirect_to');
+
+    // Fallback: Read from localStorage (saved on login page)
+    if (!redirectTo) {
+      redirectTo = localStorage.getItem('login_return_url');
+      debug('No URL parameter, using localStorage', redirectTo || 'not found');
+    }
 
     debug('URL parameters', window.location.search);
     debug('redirect_to parameter', redirectTo || 'not set');
@@ -292,6 +298,10 @@
       // Step 4: Success! Redirect user
       updateStatus('✓ Welcome! Redirecting...', 'success');
       debug('Redirecting to', redirectUrl);
+
+      // Clean localStorage (no longer needed after login)
+      localStorage.removeItem('login_return_url');
+      debug('Cleaned login_return_url from localStorage');
 
       // Clean URL hash and redirect
       setTimeout(() => {

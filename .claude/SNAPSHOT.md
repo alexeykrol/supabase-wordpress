@@ -253,15 +253,19 @@ supabase-bridge/
 6. ✅ Separation of concerns: form display vs authentication processing
 
 ### Phase 17 Задачи:
-1. ⏳ Configure form to pass `redirect_to` parameter to callback
-2. ✅ Update OAuth providers (Google/Facebook) redirect URLs
-3. ✅ Test full login flow - Google and Facebook OAuth working
-4. ⏳ Test registration flow with Registration Pairs
-5. ⏳ Update WordPress REST API for proper redirect URL response
+1. ✅ Implement `document.referrer` tracking on login page (localStorage)
+2. ✅ Add redirect logic to callback handler (reads from localStorage)
+3. ✅ Create `[supabase_auth_callback]` shortcode for unified architecture
+4. ✅ Update OAuth providers (Google/Facebook) redirect URLs
+5. ✅ Test full login flow - Google and Facebook OAuth working
+6. ⏳ Test registration flow with Registration Pairs
+7. ⏳ Update WordPress REST API for proper redirect URL response
 
-**Architecture:**
-- **Page 1:** `/test-no-elem/` - Form with shortcode `[supabase_auth_form]` (display only)
-- **Page 2:** `/test-no-elem-2/` - Callback handler (authentication processing + redirects)
+**Architecture Improvement:**
+- **Unified Shortcode System:** Both pages now use shortcodes for automatic updates
+- **Page 1:** `/test-no-elem/` - Form with `[supabase_auth_form]`
+- **Page 2:** `/test-no-elem-2/` - Callback handler with `[supabase_auth_callback]`
+- **Return URL Flow:** Form saves `document.referrer` → Callback reads from localStorage → User returns to origin page
 
 **Зависимости:** Phase 16 complete
 

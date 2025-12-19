@@ -867,8 +867,52 @@ add_filter('the_content', function($content) {
 // === Добавляем shortcode в whitelist ===
 add_filter('no_texturize_shortcodes', function($shortcodes) {
   $shortcodes[] = 'supabase_auth_form';
+  $shortcodes[] = 'supabase_auth_callback';
   return $shortcodes;
 });
+
+// ========== CALLBACK HANDLER SHORTCODE ==========
+
+// Глобальная переменная для хранения контента callback handler
+global $sb_auth_callback_content;
+$sb_auth_callback_content = null;
+
+// === Shortcode [supabase_auth_callback] ===
+add_shortcode('supabase_auth_callback', function() {
+  global $sb_auth_callback_content;
+
+  $callback_path = plugin_dir_path(__FILE__) . 'test-no-elem-2-wordpress-paste.html';
+
+  if (!file_exists($callback_path)) {
+    return '<div style="padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">⚠️ Callback handler file not found. Please reinstall the Supabase Bridge plugin.</div>';
+  }
+
+  // Сохраняем контент в глобальную переменную
+  $sb_auth_callback_content = file_get_contents($callback_path);
+
+  // Возвращаем уникальный placeholder
+  return '<div id="sb-auth-callback-placeholder-' . uniqid() . '"></div>';
+});
+
+// === Заменяем placeholder на реальный контент ПОСЛЕ всех WordPress фильтров ===
+add_filter('the_content', function($content) {
+  global $sb_auth_callback_content;
+
+  // Если есть сохраненный контент callback handler
+  if ($sb_auth_callback_content && strpos($content, 'sb-auth-callback-placeholder-') !== false) {
+    // Заменяем placeholder на реальный контент (ПОСЛЕ всех фильтров WordPress)
+    $content = preg_replace(
+      '/<div id="sb-auth-callback-placeholder-[^"]+"><\/div>/',
+      $sb_auth_callback_content,
+      $content
+    );
+
+    // Очищаем переменную
+    $sb_auth_callback_content = null;
+  }
+
+  return $content;
+}, 9999); // Максимальный приоритет - выполняется последним
 
 // Подключим supabase-js и прокинем public-конфиг (чтоб не хардкодить в HTML)
 add_action('wp_enqueue_scripts', function () {

@@ -579,6 +579,12 @@
 
     function initAuthForm() {
       try {
+        // ========== SAVE RETURN URL FOR LOGIN FLOW ==========
+        // Сохраняем страницу, откуда пришел пользователь (для возврата после логина)
+        const returnUrl = document.referrer || window.location.origin + '/';
+        console.log('🔗 Login return URL detected:', returnUrl);
+        localStorage.setItem('login_return_url', returnUrl);
+
         // ========== КОНФИГУРАЦИЯ ==========
 
         const AUTH_CONFIG = {

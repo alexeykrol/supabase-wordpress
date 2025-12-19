@@ -73,7 +73,7 @@
 
 ```
 supabase-bridge/
-├── supabase-bridge.php              # Main plugin file (v0.7.0)
+├── supabase-bridge.php              # Main plugin file (v0.9.6)
 │   ├── REST API endpoints (callback, logout)
 │   ├── JWT verification logic (JWKS)
 │   ├── WordPress user sync (with distributed lock v0.4.1)
@@ -81,18 +81,27 @@ supabase-bridge/
 │   ├── Settings page (v0.4.0 - encrypted credentials, thank you page selector)
 │   ├── Registration Pairs UI (v0.7.0 - CRUD for pairs)
 │   ├── Input validation functions (v0.7.0 - sb_validate_*)
-│   └── Supabase sync functions (v0.7.0 - sb_sync_*, sb_log_*)
+│   ├── Supabase sync functions (v0.7.0 - sb_sync_*, sb_log_*)
+│   ├── Shortcode: [supabase_auth_form] (v0.4.0)
+│   └── Shortcode: [supabase_auth_callback] (v0.9.6)
 │
 ├── composer.json                    # PHP dependencies
 ├── composer.lock                    # Locked versions
 ├── vendor/                          # Composer autoload
 │   └── firebase/php-jwt/            # JWT library
 │
-├── auth-form.html                   # Auth form with [supabase_auth_form] shortcode (v0.4.0)
+├── auth-form.html                   # Auth form (v0.9.6 - with referrer tracking)
 │   ├── Google OAuth button
 │   ├── Facebook OAuth button
 │   ├── Magic Link (6-digit code)
-│   └── Dynamic pair injection (v0.7.0)
+│   ├── Dynamic pair injection (v0.7.0)
+│   └── Referrer tracking via localStorage (v0.9.6)
+│
+├── test-no-elem-2-wordpress-paste.html  # Callback handler (v0.9.6)
+│   ├── OAuth hash processing
+│   ├── WordPress authentication
+│   ├── Redirect logic (URL param → localStorage → default)
+│   └── Used via [supabase_auth_callback] shortcode
 │
 ├── supabase-tables.sql              # Supabase database schema (v0.7.0)
 │   ├── wp_registration_pairs table
