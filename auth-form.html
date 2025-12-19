@@ -881,7 +881,7 @@
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin + window.location.pathname
+            redirectTo: window.location.origin + '/test-no-elem-2/'
           }
         });
 
@@ -907,7 +907,7 @@
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'facebook',
           options: {
-            redirectTo: window.location.origin + window.location.pathname,
+            redirectTo: window.location.origin + '/test-no-elem-2/',
             scopes: 'email public_profile'
           }
         });

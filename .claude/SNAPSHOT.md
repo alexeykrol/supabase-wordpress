@@ -234,7 +234,9 @@ supabase-bridge/
 4. ✅ Added `redirect_to` parameter support for login redirects
 5. ✅ Removed ~112 lines of duplicate callback code from `auth-form.html`
 6. ✅ Separated concerns: form display (page 1) vs authentication processing (page 2)
-7. ✅ Tested in Chrome, Safari, Firefox - works in all browsers
+7. ✅ Fixed OAuth redirect URLs to point to callback page (`/test-no-elem-2/`)
+8. ✅ Tested in Chrome, Safari, Firefox (normal + incognito) - works in all browsers
+9. ✅ Verified Google OAuth and Facebook OAuth login flows work correctly
 
 ---
 
@@ -252,8 +254,8 @@ supabase-bridge/
 
 ### Phase 17 Задачи:
 1. ⏳ Configure form to pass `redirect_to` parameter to callback
-2. ⏳ Update OAuth providers (Google/Facebook) redirect URLs
-3. ⏳ Test full login flow with `redirect_to` parameter
+2. ✅ Update OAuth providers (Google/Facebook) redirect URLs
+3. ✅ Test full login flow - Google and Facebook OAuth working
 4. ⏳ Test registration flow with Registration Pairs
 5. ⏳ Update WordPress REST API for proper redirect URL response
 

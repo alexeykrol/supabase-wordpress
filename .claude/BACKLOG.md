@@ -7,12 +7,24 @@
 
 ## Current Status
 
-**Version:** 0.9.1 (Production Ready)
+**Version:** 0.9.6 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed (v0.9.6)
+- [x] Two-Page Authentication Architecture Refactoring
+- [x] Analyzed Chrome/Safari hash detection issue - found duplicate callback code
+- [x] Implemented two-page architecture: form page + callback handler
+- [x] Created dedicated callback page `/test-no-elem-2/` with clean handler
+- [x] Added `redirect_to` parameter support for login redirects
+- [x] Removed ~112 lines of duplicate callback code from `auth-form.html`
+- [x] Separated concerns: form display vs authentication processing
+- [x] Fixed OAuth redirect URLs to point to callback page
+- [x] Tested in Chrome, Safari, Firefox (normal + incognito modes)
+- [x] Verified Google OAuth and Facebook OAuth login flows work correctly
 
 ### Completed (v0.9.1)
 - [x] LearnDash Banner Management UI - WordPress Admin tab for banner patch control
