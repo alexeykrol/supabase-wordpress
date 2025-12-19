@@ -3439,6 +3439,13 @@ function sb_apply_learndash_banner_patch() {
   $patched_content = str_replace($pattern_to_replace, $new_patch, $content);
 
   if (file_put_contents($target_file, $patched_content)) {
+    // Clear OPcache for this file to ensure immediate effect
+    if (function_exists('opcache_invalidate')) {
+      opcache_invalidate($target_file, true);
+    } elseif (function_exists('opcache_reset')) {
+      opcache_reset();
+    }
+
     return ['success' => true, 'message' => 'Banner patch applied successfully'];
   } else {
     return ['success' => false, 'message' => 'Failed to write patched file (check permissions)'];
@@ -3481,6 +3488,13 @@ function sb_restore_learndash_banner_original() {
   copy($target_file, $backup_file);
 
   if (file_put_contents($target_file, $restored_content)) {
+    // Clear OPcache for this file to ensure immediate effect
+    if (function_exists('opcache_invalidate')) {
+      opcache_invalidate($target_file, true);
+    } elseif (function_exists('opcache_reset')) {
+      opcache_reset();
+    }
+
     return ['success' => true, 'message' => 'Default banner behavior restored'];
   } else {
     return ['success' => false, 'message' => 'Failed to restore original (check permissions)'];
@@ -3555,6 +3569,22 @@ function sb_render_learndash_banner_tab() {
           <li><strong>Updates:</strong> After LearnDash updates, check status and re-apply if needed</li>
           <li><strong>Safe:</strong> Creates automatic backups before applying patch</li>
         </ul>
+      </div>
+
+      <!-- IMPORTANT: Cache Clearing Notice -->
+      <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 25px;">
+        <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">⚠️ ВАЖНО: Очистка кеша после изменений</h4>
+        <p style="margin: 0 0 10px 0; color: #78350f; font-size: 13px; line-height: 1.6;">
+          После включения/отключения патча <strong>обязательно очистите кеш</strong>, чтобы изменения вступили в силу:
+        </p>
+        <ol style="margin: 0; padding-left: 20px; color: #78350f; font-size: 13px; line-height: 1.6;">
+          <li><strong>LiteSpeed Cache:</strong> WordPress Admin → LiteSpeed Cache → Purge → Purge All</li>
+          <li><strong>Браузер:</strong> Ctrl+Shift+R (Windows) или Cmd+Shift+R (Mac) для hard refresh</li>
+          <li><strong>Проверка:</strong> Откройте страницу курса в режиме инкогнито для проверки</li>
+        </ol>
+        <p style="margin: 10px 0 0 0; color: #92400e; font-size: 12px; font-style: italic;">
+          💡 PHP OPcache очищается автоматически, но LiteSpeed/браузерный кеш нужно очистить вручную.
+        </p>
       </div>
 
       <!-- Warning for LearnDash updates -->
