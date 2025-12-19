@@ -72,62 +72,7 @@ docs/
 # WordPress debugging
 wp-content/debug.log
 
-# Claude dialogs
-dialog/2025-12-17_session-ab48b97e.md
-dialog/2025-12-17_session-c3a2b0d0.md
-dialog/2025-12-17_session-f53d7816.md
-dialog/2025-12-17_session-50e88c7e.md
-dialog/2025-12-17_session-123edca4.md
-dialog/2025-12-17_session-2c27445c.md
-dialog/2025-12-17_session-09207b05.md
-dialog/2025-12-17_session-ea0801f7.md
-dialog/2025-12-17_session-217fd2b7.md
-dialog/2025-12-17_session-1cedfa37.md
-dialog/2025-12-17_session-a523d311.md
-dialog/2025-12-17_session-15fb3a51.md
-dialog/2025-12-17_session-a1f0b9e7.md
-dialog/2025-12-17_session-6497dd4f.md
-dialog/2025-12-17_session-c2aaf046.md
-dialog/2025-12-18_session-67baea8c.md
-dialog/2025-12-17_session-e1a2443c.md
-dialog/2025-12-17_session-6c5acb74.md
-dialog/2025-12-17_session-b4f9886f.md
-dialog/2025-12-17_session-a4861a3c.md
-dialog/2025-12-17_session-2c87aae0.md
-dialog/2025-12-17_session-434725f8.md
-dialog/2025-12-17_session-debe4a72.md
-dialog/2025-12-17_session-0d0c8378.md
-dialog/2025-12-17_session-c2936cd5.md
-dialog/2025-12-17_session-239c893e.md
-dialog/2025-12-17_session-c6db80ab.md
-dialog/2025-12-17_session-2a75aa3b.md
-dialog/2025-12-17_session-59110ced.md
-dialog/2025-12-17_session-1b8f339b.md
-dialog/2025-12-17_session-83a0f8c2.md
-dialog/2025-12-16_session-bc938ffc.md
-dialog/2025-12-16_session-c322805b.md
-dialog/2025-12-16_session-a600451b.md
-dialog/2025-12-16_session-97cfeaa2.md
-dialog/2025-12-16_session-504e36ed.md
-dialog/2025-12-16_session-f9b29ae7.md
-dialog/2025-12-16_session-631c65f0.md
-dialog/2025-12-16_session-bc4280d7.md
-dialog/2025-12-16_session-1b958271.md
-dialog/2025-12-16_session-867bb7ad.md
-dialog/2025-12-16_session-390a9ff5.md
-dialog/2025-12-16_session-4442cb61.md
-dialog/2025-12-16_session-e1948718.md
-dialog/2025-12-16_session-182f4d14.md
-dialog/2025-12-16_session-46a10c58.md
-dialog/2025-12-16_session-b9a2c58b.md
-dialog/2025-12-16_session-56862b0c.md
-dialog/2025-12-16_session-8df90969.md
-dialog/2025-12-16_session-3f1936be.md
-dialog/2025-12-16_session-1186e58c.md
-dialog/2025-12-16_session-732ca938.md
-dialog/2025-12-16_session-9ed1220b.md
-dialog/2025-12-16_session-4eb132d2.md
-dialog/2025-12-16_session-26a9ec24.md
-dialog/2025-12-16_session-c95f780f.md
-dialog/2025-12-16_session-f4530ba5.md
-dialog/2025-12-16_session-6064ea12.md
+# Claude dialogs - contain conversation history with potential secrets
+# Using wildcard to protect ALL dialog files automatically
+dialog/
+dialog/*.md
