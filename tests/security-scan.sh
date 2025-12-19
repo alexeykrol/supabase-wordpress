@@ -54,7 +54,7 @@ echo ""
 
 # 1. SSH Private Keys
 echo "🔍 Checking for SSH private keys..."
-if grep -rn "PRIVATE KEY\|BEGIN.*KEY.*PRIVATE\|BEGIN OPENSSH\|BEGIN RSA\|BEGIN DSA\|BEGIN EC" dialog/ --include="*.md" > /tmp/ssh-private.txt 2>/dev/null; then
+if grep -rn "PRIVATE KEY\|BEGIN.*KEY.*PRIVATE\|BEGIN OPENSSH\|BEGIN RSA\|BEGIN DSA\|BEGIN EC" dialog/ --include="*.md" | grep -v "\[REDACTED\]" > /tmp/ssh-private.txt 2>/dev/null; then
   while IFS=: read -r file line content; do
     report_finding "CRITICAL" "SSH Private Key" "$file" "$line" "$content"
   done < /tmp/ssh-private.txt
@@ -66,7 +66,7 @@ echo ""
 
 # 2. SSH Public Keys
 echo "🔍 Checking for SSH public keys..."
-if grep -rn "ssh-ed25519\|ssh-rsa\|ssh-dss\|ecdsa-sha2" dialog/ --include="*.md" > /tmp/ssh-public.txt 2>/dev/null; then
+if grep -rn "ssh-ed25519\|ssh-rsa\|ssh-dss\|ecdsa-sha2" dialog/ --include="*.md" | grep -v "\[REDACTED\]" > /tmp/ssh-public.txt 2>/dev/null; then
   while IFS=: read -r file line content; do
     report_finding "HIGH" "SSH Public Key" "$file" "$line" "$content"
   done < /tmp/ssh-public.txt
@@ -102,7 +102,7 @@ echo ""
 
 # 5. Passwords and Tokens
 echo "🔍 Checking for passwords and tokens..."
-if grep -rin "password.*:\|pass.*=\|pwd.*=\|token.*:\|bearer.*:\|authorization.*:" dialog/ --include="*.md" > /tmp/passwords.txt 2>/dev/null; then
+if grep -rin "password.*:\|pass.*=\|pwd.*=\|token.*:\|bearer.*:\|authorization.*:" dialog/ --include="*.md" | grep -v "\[REDACTED\]" > /tmp/passwords.txt 2>/dev/null; then
   while IFS=: read -r file line content; do
     report_finding "CRITICAL" "Password/Token" "$file" "$line" "$content"
   done < /tmp/passwords.txt
