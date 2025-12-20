@@ -442,7 +442,7 @@ npm run dialog:export --no-html
 **Purpose:** Scan for exposed credentials before committing.
 
 ```bash
-bash tests/security-scan.sh
+bash security/security-scan.sh
 ```
 
 **What it scans:**
@@ -450,7 +450,7 @@ bash tests/security-scan.sh
 - Source code — hardcoded secrets in PHP/JS/TS files
 
 **Output:**
-- Creates report in `tests/reports/security-scan-YYYY-MM-DD-HH-MM-SS.txt`
+- Creates report in `security/reports/security-scan-YYYY-MM-DD-HH-MM-SS.txt`
 - **CRITICAL/HIGH issues:** Script exits with error (exit 1) → blocks commit
 - **No issues or MEDIUM only:** Script exits success (exit 0) → can proceed
 

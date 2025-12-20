@@ -108,3 +108,8 @@ test-*.html
 *-test.html
 debug-*.html
 *-debug.html
+
+# Testing and security - not needed in public repo
+tests/
+security/
+webhook-system/
