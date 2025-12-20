@@ -69,48 +69,67 @@
 
 ## 🎉 What's New in v0.9.9
 
-### Safari Privacy Protection & UX Polish
-- **Safari Enhanced Privacy Protection support** - safeStorage wrapper with in-memory fallback
-- **Complete Russian localization** for all UI elements and messages
+### Safari Privacy Protection & Complete Russian Localization
+
+Released: 2025-12-19 | Status: ✅ Production Ready
+
+#### 🔒 Safari Privacy Protection
+- **safeStorage wrapper** with automatic localStorage/in-memory fallback
+- **Works in Safari Privacy mode** - seamless authentication on iOS/macOS
+- **Zero configuration** - automatically detects and adapts to browser privacy settings
+- **Tested across all browsers** - Chrome, Safari, Firefox (normal + private modes)
+
+#### 🌍 Complete Russian Localization
+- **All UI elements** translated to Russian
+- **Error messages** and notifications in Russian
+- **Email instructions** and troubleshooting guides in Russian
+- **Native UX** for Russian-speaking users
+
+#### ✨ UX Polish & Improvements
 - **Eliminated screen flickering** - smooth single-screen authentication flow
-- **3-step troubleshooting guide** in footer (check email → spam folders → resend)
-- **Instant loading screen** for callback page - animated dots instead of countdown
-- **Repository security cleanup** - removed debug files, proper folder structure
+- **Instant loading screen** with animated dots (no countdown delays)
+- **3-step troubleshooting guide** in email verification screen:
+  1. Check email address for typos
+  2. Check Spam/Promotions folders
+  3. Resend verification email
+- **Smart link behavior** - "wrong email" returns to form, "resend" sends to same email
+- **Clean repository** - removed 51 debug files (-20,315 lines of code)
 
-### Previous Release: v0.9.1
+### Previous Releases
 
-#### LearnDash Banner Management UI
-- **New "🎓 Banner" tab** in WordPress Admin for one-click banner control
-- **Checkbox to enable/disable** enrollment banner removal without CLI
-- **Real-time status indicator** with color-coded badges (Active, Not Active, Update Needed, Not Found)
-- **Automatic backups** before each modification for safety
-- **Warning notifications** after LearnDash updates prompting patch reapplication
-- **Backward compatible** with old patch versions - auto-upgrades to latest
+#### v0.9.1 - LearnDash Banner Management UI (2025-12-13)
+- **New "🎓 Banner" tab** in WordPress Admin
+- **One-click banner control** - enable/disable enrollment banner removal
+- **Real-time status indicator** (Active, Not Active, Update Needed, Not Found)
+- **Automatic backups** before modifications
 - **AJAX-powered** - instant apply/restore without page reload
+- **Backward compatible** with old patch versions
 
-### Previous Release: v0.9.0
+#### v0.9.0 - MemberPress & LearnDash Integration (2025-12-13)
+- **MemberPress Integration:**
+  - Auto-assign FREE memberships on registration
+  - New "🎫 Memberships" tab in WordPress Admin
+  - Automatic membership activation from specific landing pages
+- **LearnDash Integration:**
+  - Auto-enroll users in courses on registration
+  - New "📚 Courses" tab in WordPress Admin
+  - Native `ld_update_course_access()` integration
+  - Optional banner removal patch (idempotent, upgrade-safe)
 
-#### MemberPress Integration
-- Auto-assign FREE memberships on registration
-- New "🎫 Memberships" tab in WordPress Admin
-- Automatic membership activation when users register from specific landing pages
-- Fully tested with MemberPress 1.x
+#### v0.8.5 - Registration Pairs Critical Fixes (2025-12-13)
+- **Accurate tracking** - Registration URL in POST body (not HTTP Referer)
+- **Edit functionality** - Modify existing pairs with modal pre-population
+- **Safari-compatible delete** - Custom confirmation dialog
+- **Full CRUD** - Complete Create, Read, Update, Delete operations
 
-#### LearnDash Integration
-- Auto-enroll users in courses on registration
-- New "📚 Courses" tab in WordPress Admin
-- Seamless course access when users register from designated pages
-- Includes LearnDash banner removal patch script
-- Fully tested with LearnDash 4.x
-
-#### Architecture Improvements
-- Removed redundant Supabase synchronization for Registration Pairs
-- Settings now stored ONLY in WordPress `wp_options`
-- Cleaner separation: WordPress handles settings, Supabase logs events
+#### v0.7.0 - Page-Specific Redirects & Enterprise Security (2025-10-26)
+- **Registration Pairs** - Map landing pages → thank you pages for analytics
+- **4-layer security** - WordPress validation → RLS → WAF → Security plugins
+- **Multi-site support** - Site-specific data filtering with RLS policies
 
 ---
 
-## ✨ Features
+## ✨ Core Features
 
 ### Authentication Methods (Production Tested ✅)
 - 🔵 **Google OAuth** - One-click login with Google account
@@ -271,29 +290,45 @@ WordPress Registration → Database Trigger → Edge Function → n8n/Make.com
 
 ## 🗺️ Roadmap
 
-### Current Status: v0.8.5 ✅
+### Current Status: v0.9.9 ✅ Production Ready
 
-**Plugin is production-ready** with all core features implemented:
+**Complete Feature Set** - All planned MVP features implemented:
+
+#### Authentication & Security
 - ✅ Multi-provider authentication (Google, Facebook, Magic Link)
-- ✅ Enterprise-grade security (4-layer defense)
-- ✅ Analytics & tracking (Registration Pairs - fully tested)
-- ✅ Webhook integration (n8n/Make.com)
-- ✅ Complete CRUD for Registration Pairs
-- ✅ Seamless duplicate callback handling
-- ✅ WordPress settings UI (3 tabs)
-- ✅ Production documentation
+- ✅ Safari Privacy Protection (works on iOS/macOS Privacy mode)
+- ✅ Enterprise-grade security (4-layer defense architecture)
+- ✅ Russian localization (complete UI translation)
 
-### Future Enhancements
+#### Analytics & Integrations
+- ✅ Registration Pairs (landing page → thank you page tracking)
+- ✅ Webhook integration (n8n/Make.com with automatic retries)
+- ✅ MemberPress integration (auto-assign FREE memberships)
+- ✅ LearnDash integration (auto-enroll in courses)
+- ✅ LearnDash banner management UI (one-click enable/disable)
 
-**v0.9.0+ - Potential Features** (community-driven)
+#### WordPress Integration
+- ✅ WordPress settings UI (5 tabs: General, Pairs, Webhooks, Memberships, Courses, Banner)
+- ✅ Shortcode system (`[supabase_auth_form]` + `[supabase_auth_callback]`)
+- ✅ Two-page architecture (form page + callback page)
+- ✅ Smart redirects (return to origin page after login)
 
-Based on feedback, we may add:
+#### Security & Testing
+- ✅ Comprehensive security scanning (dialog files + source code)
+- ✅ Integration testing suite (all core features)
+- ✅ Clean repository (no credentials, production code only)
+
+### Future Enhancements (v0.10.0+)
+
+**Community-Driven Features** - Based on user feedback:
+
 - **Role Mapping** - Map Supabase roles → WordPress roles (admin, editor, subscriber)
 - **Enhanced Metadata Sync** - Sync avatar, first name, last name from OAuth providers
 - **Email/Password Authentication** - Native Supabase email/password login
-- **Outbox Pattern for Webhooks** - Zero event loss guarantee for webhook delivery ([#11](https://github.com/alexeykrol/supabase-wordpress/issues/11))
+- **Outbox Pattern for Webhooks** - Zero event loss guarantee ([#11](https://github.com/alexeykrol/supabase-wordpress/issues/11))
+- **Multi-language Support** - Add more languages beyond Russian
 
-**Full Roadmap & Changelog:** See [Init/BACKLOG.md](Init/BACKLOG.md)
+**Full Development History:** See [.claude/BACKLOG.md](.claude/BACKLOG.md)
 
 **Want a feature?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues) or ⭐ star the repo!
 
