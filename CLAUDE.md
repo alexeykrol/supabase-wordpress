@@ -428,6 +428,62 @@ npm run build
 
 ### 2. Update Metafiles
 
+**⚠️ CRITICAL MINDSET SHIFT:**
+
+README.md is NOT just a version number update. It is the PUBLIC FACE of the project.
+
+**The Problem:**
+- Sessions last 1-3 hours
+- You read README once at the beginning
+- By completion time, you forgot what's actually IN the README
+- You mechanically update version numbers but leave STALE CONTENT
+
+**The Solution:**
+Before updating README, you MUST:
+
+1. **Re-read the ENTIRE README.md** (not just version numbers!)
+2. **Re-read .claude/SNAPSHOT.md** (all completed phases)
+3. **Compare them** - what phases are in SNAPSHOT but missing from README?
+4. **Think creatively** - does README reflect the CURRENT state of the project?
+
+```bash
+# MANDATORY: Re-read both files before updating README
+cat README.md | head -200        # Read first 200 lines
+cat .claude/SNAPSHOT.md          # Read ALL completed phases
+```
+
+**Creative README Update Process:**
+
+1. **"What's New" section:**
+   - Does it describe the LATEST version (from SNAPSHOT.md)?
+   - Are old versions (v0.8.x, v0.7.x, etc.) still taking up space?
+   - Should they be condensed into "Previous Releases" subsection?
+
+2. **Features section:**
+   - Does it list ALL current features from all completed phases?
+   - Are there NEW features from recent phases missing?
+   - Are there old "coming soon" features that are already implemented?
+
+3. **Roadmap section:**
+   - Does "Current Status" show the actual current version?
+   - Are "Future Features" still future, or already implemented?
+   - Remove implemented features from roadmap!
+
+4. **Installation instructions:**
+   - Do download links point to current version?
+   - Are there references to old versions in examples?
+
+5. **Documentation links:**
+   - Do all documentation files actually exist?
+   - Are paths correct (e.g., webhook-system/ vs tests/)?
+
+**Questions to Ask Yourself:**
+
+- "If a new user reads this README, will they understand what the plugin does TODAY?"
+- "Does README mention features from phases 12-19?" (check SNAPSHOT.md!)
+- "Are there OLD version numbers scattered throughout?"
+- "Would I be excited to use this plugin based on this README?"
+
 **⚠️ MANDATORY CHECKLIST** - Check EVERY file, even if you think no changes needed:
 
 #### ✅ ALWAYS Update (every completion):
