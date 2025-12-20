@@ -79,3 +79,14 @@ dialog/*.md
 
 # Claude framework logs
 .claude/logs/
+
+# SSH keys and production credentials - NEVER commit these!
+claude_ssh_key
+claude_ssh_key.pub
+.production-credentials
+*.pem
+*.key
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
