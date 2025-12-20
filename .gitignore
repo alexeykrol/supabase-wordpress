@@ -81,8 +81,7 @@ dialog/*.md
 .claude/logs/
 
 # SSH keys and production credentials - NEVER commit these!
-claude_ssh_key
-claude_ssh_key.pub
+claude_ssh_key*
 .production-credentials
 *.pem
 *.key
@@ -90,3 +89,22 @@ claude_ssh_key.pub
 *_dsa
 *_ecdsa
 *_ed25519
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+
+# Debug and development files - keep repo clean
+PRODUCTION_DEBUGGING*.md
+PRODUCTION_SETUP*.md
+QUICK_SETUP*.md
+CACHE_TROUBLESHOOTING*.md
+SECURITY_ROLLBACK*.md
+AGENT_SKILLS*.md
+CALLBACK_URL*.md
+FEATURES*.md
+FRAMEWORK_GUIDE*.md
+test-*.html
+*-test.html
+debug-*.html
+*-debug.html
