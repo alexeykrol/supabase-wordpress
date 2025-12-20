@@ -10,7 +10,7 @@
 
 > WordPress plugin for Supabase Auth integration. Supports Google OAuth, Facebook OAuth, Magic Link authentication + Page-Specific Thank You Page Redirects + Enterprise-level Security.
 
-**🎉 Production Ready** | **✅ Tested on [questtales.com](https://questtales.com)** | **🔐 Enterprise-Grade Security**
+**🎉 Production Ready** | **✅ Tested on [alexeykrol.com](https://alexeykrol.com)** | **🔐 Enterprise-Grade Security**
 
 >
 > **🎓 Created to support students of the AI Agents course for beginners:**
@@ -24,12 +24,12 @@
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
-   - [supabase-bridge-v0.9.1.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.1/supabase-bridge-v0.9.1.zip)
+   - [supabase-bridge-v0.9.9.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.9/supabase-bridge-v0.9.9.zip)
    - Or build from source: `./build-release.sh` (requires git clone)
 
 2. **Install plugin**:
    - WordPress Admin → Plugins → Add New → Upload Plugin
-   - Choose `supabase-bridge-v0.9.1.zip`
+   - Choose `supabase-bridge-v0.9.9.zip`
    - Click "Install Now" → "Activate Plugin"
 
 3. **Setup Supabase database**:
@@ -67,9 +67,19 @@
 
 ---
 
-## 🎉 What's New in v0.9.1
+## 🎉 What's New in v0.9.9
 
-### LearnDash Banner Management UI
+### Safari Privacy Protection & UX Polish
+- **Safari Enhanced Privacy Protection support** - safeStorage wrapper with in-memory fallback
+- **Complete Russian localization** for all UI elements and messages
+- **Eliminated screen flickering** - smooth single-screen authentication flow
+- **3-step troubleshooting guide** in footer (check email → spam folders → resend)
+- **Instant loading screen** for callback page - animated dots instead of countdown
+- **Repository security cleanup** - removed debug files, proper folder structure
+
+### Previous Release: v0.9.1
+
+#### LearnDash Banner Management UI
 - **New "🎓 Banner" tab** in WordPress Admin for one-click banner control
 - **Checkbox to enable/disable** enrollment banner removal without CLI
 - **Real-time status indicator** with color-coded badges (Active, Not Active, Update Needed, Not Found)

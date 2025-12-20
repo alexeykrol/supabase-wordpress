@@ -296,6 +296,23 @@ supabase-bridge/
 - After: 0 real credentials in repository
 - All dialog files cleaned and safe for students
 
+### Phase 19: Safari Privacy Protection & UX Polish (v0.9.9) - Completed 2025-12-19
+1. ✅ Safari Privacy Protection (safeStorage wrapper with in-memory fallback)
+2. ✅ Russian localization for all UI elements
+3. ✅ UX improvements - eliminated flickering screens
+4. ✅ 3-step troubleshooting instructions in footer
+5. ✅ Instant loading screen for callback page
+6. ✅ Animated dots instead of countdown timer
+7. ✅ Security incident response - SSH keys removed from git history
+8. ✅ Repository cleanup - removed 51 debug files (-20,315 lines)
+9. ✅ Reorganized structure (security/, supabase/ folders)
+
+**Results:**
+- Safari Privacy mode fully supported
+- All UI in Russian
+- Clean, minimal repository (production code only)
+- No security issues in git history
+
 ---
 
 ## 🔄 Текущая работа: Maintenance Mode
@@ -325,11 +342,10 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready
 **Live Sites:**
-- https://questtales.com (v0.9.8 - stable)
-- https://alexeykrol.com (v0.9.8 - stable)
-**Version:** 0.9.8
-**Last Update:** 2025-12-18
-**Known Issues:** 0 (All auth methods working, security hardened, comprehensive testing in place)
+- https://alexeykrol.com (v0.9.9 - stable, Russian UI, Safari compatible)
+**Version:** 0.9.9
+**Last Update:** 2025-12-19
+**Known Issues:** 0 (All auth methods working, Safari Privacy supported, Russian localization, repository clean)
 
 ---
 
