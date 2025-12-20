@@ -398,17 +398,97 @@ fi
 
 ---
 
+### 0.5. Re-read Completion Protocol
+
+**Purpose:** Refresh memory of completion steps after long session.
+
+**⚠️ CRITICAL:** Sessions can last hours. After working for 1-3 hours, you WILL forget the completion steps from the beginning of the session. This step is MANDATORY.
+
+```bash
+# Re-read this file to refresh completion steps
+cat CLAUDE.md | grep -A 200 "## Completion Protocol"
+```
+
+**What to review:**
+- All steps in Completion Protocol (0-6.5)
+- Mandatory files checklist in Step 2
+- Security scan requirements in Step 3.5
+- Version bumping rules in Step 2.1
+
+**After re-reading:**
+- Proceed with Step 1 (Build)
+- Follow ALL steps without skipping
+
+---
+
 ### 1. Build (if code changed)
 ```bash
 npm run build
 ```
 
 ### 2. Update Metafiles
-- `.claude/BACKLOG.md` — mark completed tasks `[x]`
-- `.claude/SNAPSHOT.md` — update version and status
-- `CHANGELOG.md` — add entry (if release)
-- `README.md` + `README_RU.md` — update if major features added
-- `.claude/ARCHITECTURE.md` — update if code structure changed
+
+**⚠️ MANDATORY CHECKLIST** - Check EVERY file, even if you think no changes needed:
+
+#### ✅ ALWAYS Update (every completion):
+
+1. **`.claude/SNAPSHOT.md`**
+   - Update "Version" field if releasing
+   - Update "Last Update" date
+   - Mark current phase/sprint as completed
+   - Update "Status" and "Known Issues"
+   - If releasing: Add new phase section with completed tasks
+
+2. **`.claude/BACKLOG.md`**
+   - Mark completed tasks with `[x]`
+   - Move completed items to appropriate section
+   - Add new discovered tasks if any
+
+#### ✅ ALWAYS Check (update if changed):
+
+3. **`README.md`** (check ALL occurrences of version/URLs):
+   - Line 3: Version badge `![Version](https://img.shields.io/badge/version-X.Y.Z-blue.svg)`
+   - Line ~13: Production URL in "Tested on [URL]"
+   - Line ~27: Download link version `supabase-bridge-vX.Y.Z.zip`
+   - Line ~32: Installation filename `supabase-bridge-vX.Y.Z.zip`
+   - Line ~70: "What's New" section - add new version if releasing
+   - Line ~304: "Production Status" - update URL if changed
+   - Line ~433: "Live Demo" - update URL if changed
+   - **Use grep to find ALL occurrences**: `grep -n "0\.9\." README.md`
+   - **Use grep to find ALL URLs**: `grep -n "questtales\|alexeykrol\|http" README.md`
+
+4. **`README_RU.md`** (if exists):
+   - Same checks as README.md
+   - All version numbers
+   - All URLs
+
+#### ✅ Update if Applicable:
+
+5. **`CHANGELOG.md`**
+   - Add entry if creating release
+   - Format: `## [X.Y.Z] - YYYY-MM-DD`
+
+6. **`.claude/ARCHITECTURE.md`**
+   - Update if code structure changed
+   - Update if new files/folders added
+
+#### 🔍 Final Verification:
+
+After updating all files, run these checks:
+
+```bash
+# Check for old version numbers (replace X.Y.Z with old version)
+grep -rn "0\.9\.1" README.md CHANGELOG.md .claude/SNAPSHOT.md
+
+# Check for old production URLs
+grep -rn "questtales" README.md README_RU.md
+
+# Check for consistency
+grep "Version:" .claude/SNAPSHOT.md
+grep "version-" README.md
+```
+
+**If any mismatches found → FIX IMMEDIATELY before committing.**
 
 ### 2.1 Version Bumping (if creating release)
 
