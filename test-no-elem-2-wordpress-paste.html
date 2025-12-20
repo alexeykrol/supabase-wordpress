@@ -11,8 +11,75 @@
   ═══════════════════════════════════════════════════════════════
 -->
 
+<!-- INSTANT LOADING SCREEN (показывается СРАЗУ, убирает белый экран) -->
+<style>
+  #instant-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  #instant-loader.hidden {
+    display: none;
+  }
+
+  .instant-dots {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+  }
+
+  .instant-dot {
+    width: 12px;
+    height: 12px;
+    background: #667eea;
+    border-radius: 50%;
+    animation: instant-bounce 1.4s infinite ease-in-out both;
+  }
+
+  .instant-dot:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+
+  .instant-dot:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+
+  @keyframes instant-bounce {
+    0%, 80%, 100% {
+      transform: scale(0);
+    }
+    40% {
+      transform: scale(1);
+    }
+  }
+</style>
+
+<div id="instant-loader">
+  <div style="text-align: center;">
+    <h2 style="color: #16a34a; font-size: 24px; margin: 0; font-weight: 600;">✓ Добро пожаловать!</h2>
+    <p style="color: #666; font-size: 16px; margin: 15px 0 0 0;">Загрузка...</p>
+    <div class="instant-dots">
+      <div class="instant-dot"></div>
+      <div class="instant-dot"></div>
+      <div class="instant-dot"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ОСНОВНОЙ КОНТЕНТ (скрыт, используем только instant loader) -->
 <style>
   .auth-callback-container {
+    display: none; /* Скрыт - используем только instant loader */
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     max-width: 480px;
     margin: 60px auto;
@@ -83,16 +150,68 @@
 
 <div class="auth-callback-container">
   <div class="auth-spinner" id="authSpinner"></div>
-  <div class="auth-status" id="authStatus">Processing authentication...</div>
+  <div class="auth-status" id="authStatus">✓ Добро пожаловать! Перенаправление, подождите немножко... (5)</div>
   <div class="auth-debug" id="authDebug"></div>
   <div class="auth-retry" id="authRetry" style="display: none;">
-    <a href="/">Return to home page</a>
+    <a href="/">Вернуться на главную</a>
   </div>
 </div>
 
 <script>
 (function() {
   'use strict';
+
+  // ═══════════════════════════════════════════════════════════
+  // Safe localStorage wrapper (Safari Privacy Protection)
+  // ═══════════════════════════════════════════════════════════
+
+  const safeStorage = (function() {
+    let memoryStorage = {}; // Fallback для Safari Privacy mode
+    let storageAvailable = false;
+
+    // Проверка доступности localStorage
+    try {
+      const testKey = '__storage_test__';
+      localStorage.setItem(testKey, 'test');
+      localStorage.removeItem(testKey);
+      storageAvailable = true;
+    } catch (e) {
+      console.warn('⚠️  localStorage заблокирован Safari Privacy Protection, используем in-memory fallback');
+      storageAvailable = false;
+    }
+
+    return {
+      getItem: function(key) {
+        try {
+          return storageAvailable ? localStorage.getItem(key) : memoryStorage[key] || null;
+        } catch (e) {
+          return memoryStorage[key] || null;
+        }
+      },
+      setItem: function(key, value) {
+        try {
+          if (storageAvailable) {
+            localStorage.setItem(key, value);
+          } else {
+            memoryStorage[key] = value;
+          }
+        } catch (e) {
+          memoryStorage[key] = value;
+        }
+      },
+      removeItem: function(key) {
+        try {
+          if (storageAvailable) {
+            localStorage.removeItem(key);
+          } else {
+            delete memoryStorage[key];
+          }
+        } catch (e) {
+          delete memoryStorage[key];
+        }
+      }
+    };
+  })();
 
   // ═══════════════════════════════════════════════════════════
   // Configuration
@@ -159,7 +278,7 @@
 
     // Check if we have a hash with access_token
     if (!hash || !hash.includes('access_token=')) {
-      throw new Error('No authentication token found in URL. Please click the magic link in your email.');
+      throw new Error('Токен аутентификации не найден в URL. Пожалуйста, нажмите на волшебную ссылку в письме.');
     }
 
     // Parse hash (remove # and parse as URLSearchParams)
@@ -169,7 +288,7 @@
     const tokenType = params.get('token_type');
 
     if (!accessToken) {
-      throw new Error('Access token is missing from URL');
+      throw new Error('Токен доступа отсутствует в URL');
     }
 
     debug('Tokens extracted successfully');
@@ -187,7 +306,6 @@
   // ═══════════════════════════════════════════════════════════
 
   async function authenticateWithWordPress(tokens) {
-    updateStatus('Signing in to your account...');
     debug('Calling WordPress REST API');
 
     const endpoint = window.location.origin + '/wp-json/supabase-bridge/v1/callback';
@@ -201,7 +319,7 @@
         },
         body: JSON.stringify({
           access_token: tokens.access_token,
-          registration_url: localStorage.getItem('registration_page_url') || window.location.pathname
+          registration_url: safeStorage.getItem('registration_page_url') || window.location.pathname
         }),
         credentials: 'include' // CRITICAL: Include cookies
       });
@@ -214,7 +332,7 @@
       // Handle duplicate callback (another tab/window already processing)
       if (response.status === 409) {
         debug('Duplicate callback detected');
-        updateStatus('Authentication in progress in another window...');
+        updateStatus('Аутентификация уже выполняется в другом окне...');
         setTimeout(() => {
           window.location.href = CONFIG.DEFAULT_REDIRECT;
         }, 2000);
@@ -223,7 +341,7 @@
 
       // Handle error responses
       if (!response.ok) {
-        throw new Error(data.message || `Authentication failed (HTTP ${response.status})`);
+        throw new Error(data.message || `Ошибка аутентификации (HTTP ${response.status})`);
       }
 
       return data;
@@ -245,7 +363,7 @@
 
     // Fallback: Read from localStorage (saved on login page)
     if (!redirectTo) {
-      redirectTo = localStorage.getItem('login_return_url');
+      redirectTo = safeStorage.getItem('login_return_url');
       debug('No URL parameter, using localStorage', redirectTo || 'not found');
     }
 
@@ -278,17 +396,39 @@
   async function processAuthentication() {
     debug('Starting authentication process');
 
+    // Update instant loader content instead of hiding it (avoid flickering)
+    const instantLoader = document.getElementById('instant-loader');
+    const instantLoaderContent = instantLoader ? instantLoader.querySelector('div') : null;
+
+    if (instantLoaderContent) {
+      // Replace loading dots with simple message
+      instantLoaderContent.innerHTML = `
+        <h2 style="color: #16a34a; font-size: 24px; margin: 0; font-weight: 600;">✓ Добро пожаловать!</h2>
+        <p style="color: #666; font-size: 16px; margin: 15px 0 0 0;" id="instant-status">Подождите немножко.</p>
+      `;
+    }
+
+    // Animated dots (shows progress without specific timing)
+    let dotCount = 1;
+    const dotsTimer = setInterval(() => {
+      dotCount = (dotCount % 5) + 1; // 1-5 dots cycle
+      const dots = '.'.repeat(dotCount);
+      const instantStatus = document.getElementById('instant-status');
+      if (instantStatus) {
+        instantStatus.textContent = `Подождите немножко${dots}`;
+      }
+    }, 400);
+
     try {
       // Step 1: Extract tokens from URL hash
-      updateStatus('Reading authentication token...');
       const tokens = extractTokensFromHash();
 
       // Step 2: Authenticate with WordPress
-      updateStatus('Authenticating...');
       const wpResponse = await authenticateWithWordPress(tokens);
 
       // Handle duplicate callback (null response)
       if (wpResponse === null) {
+        clearInterval(countdownTimer);
         return;
       }
 
@@ -296,23 +436,25 @@
       const redirectUrl = getRedirectUrl(wpResponse);
 
       // Step 4: Success! Redirect user
-      updateStatus('✓ Welcome! Redirecting...', 'success');
       debug('Redirecting to', redirectUrl);
 
       // Clean localStorage (no longer needed after login)
-      localStorage.removeItem('login_return_url');
-      localStorage.removeItem('registration_page_url');
+      safeStorage.removeItem('login_return_url');
+      safeStorage.removeItem('registration_page_url');
       debug('Cleaned localStorage (login_return_url, registration_page_url)');
 
       // Clean URL hash and redirect
+      clearInterval(countdownTimer);
+
       setTimeout(() => {
         window.location.href = redirectUrl;
-      }, 1000);
+      }, 500);
 
     } catch (error) {
       console.error('[Auth Callback] Error:', error);
       debug('Authentication failed', error.toString());
-      updateStatus('⚠ Authentication failed: ' + error.message, 'error');
+      clearInterval(countdownTimer);
+      updateStatus('⚠ Ошибка аутентификации: ' + error.message, 'error');
     }
   }
 

@@ -453,7 +453,7 @@
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
           </svg>
-          Continue with Google
+          Продолжить через Google
         </button>
 
         <!-- Facebook -->
@@ -461,12 +461,12 @@
           <svg class="sb-oauth-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#1877F2"/>
           </svg>
-          Continue with Facebook
+          Продолжить через Facebook
         </button>
       </div>
 
       <!-- Разделитель -->
-      <div class="sb-divider">or</div>
+      <div class="sb-divider">или</div>
 
       <!-- Email форма -->
       <form id="sb-email-form">
@@ -475,14 +475,17 @@
             type="email"
             id="sb-email-input"
             class="sb-email-input"
-            placeholder="Enter your email"
+            placeholder="Введите ваш email"
             required
             autocomplete="email"
           >
         </div>
         <button type="submit" class="sb-btn sb-btn-primary">
-          Continue with email
+          Продолжить с email
         </button>
+        <p style="text-align: center; font-size: 13px; color: #6b7280; margin-top: 12px; line-height: 1.5;">
+          Вам будет отправлено письмо со ссылкой для входа, и вам нужно найти это письмо и нажать ссылку. Без подтверждения вы не сможете ни войти, ни зарегистрироваться.
+        </p>
       </form>
     </div>
 
@@ -496,22 +499,22 @@
       </div>
 
       <!-- Текст -->
-      <h3 class="sb-check-title">Check your email</h3>
+      <h3 class="sb-check-title">Проверьте почту</h3>
       <p class="sb-check-text">
-        To continue, click the link sent to<br>
+        Для продолжения перейдите по ссылке, отправленной на<br>
         <span class="sb-user-email" id="sb-display-email">your@email.com</span>
       </p>
       <p class="sb-check-instruction">
-        Click the magic link in the email to sign in
+        Нажмите на волшебную ссылку в письме для входа
       </p>
 
-      <!-- Код (опционально) -->
-      <div class="sb-code-toggle">
-        <a class="sb-link" id="sb-show-code">Have a verification code instead?</a>
+      <!-- Код (опционально) - СКРЫТ, мы не используем verification code -->
+      <div class="sb-code-toggle" style="display: none;">
+        <a class="sb-link" id="sb-show-code">Есть код подтверждения?</a>
       </div>
 
       <div class="sb-code-section" id="sb-code-section">
-        <label class="sb-code-label" for="sb-code-input">Enter verification code</label>
+        <label class="sb-code-label" for="sb-code-input">Введите код подтверждения</label>
         <input
           type="text"
           id="sb-code-input"
@@ -522,13 +525,23 @@
           inputmode="numeric"
         >
         <button class="sb-btn sb-btn-primary sb-verify-btn" id="sb-verify-btn">
-          Verify Email Address
+          Подтвердить email
         </button>
       </div>
 
       <!-- Footer -->
       <div class="sb-footer">
-        Not seeing the email in your inbox? <a class="sb-link" id="sb-resend">Try sending again</a>
+        <div style="margin-bottom: 16px;">
+          <strong>Не видите письмо во входящих?</strong>
+        </div>
+        <div style="text-align: left; font-size: 14px; line-height: 1.8;">
+          <strong>1.</strong> Сначала проверьте правильность введенного email: <span id="sb-footer-email" style="font-weight: 600;"></span><br>
+          Если адрес указан с ошибкой, <a class="sb-link" id="sb-back-to-form">введите правильный адрес</a><br><br>
+
+          <strong>2.</strong> Если адрес указан верно, проверьте папки <strong>Спам</strong>, <strong>Промо</strong>, <strong>Обновления</strong>, 99% письма там.<br><br>
+
+          <strong>3.</strong> Если письма нет, <a class="sb-link" id="sb-resend">Отправить повторно</a>
+        </div>
       </div>
     </div>
   </div>
@@ -546,14 +559,81 @@
   (function() {
     'use strict';
 
+    // ========== SAFE LOCALSTORAGE WRAPPER (Safari Privacy Protection) ==========
+    // Safari с Enhanced Privacy Protection блокирует localStorage
+    // Этот wrapper обеспечивает fallback на in-memory хранилище
+    const safeStorage = (function() {
+      let memoryStorage = {}; // Fallback для Safari Privacy mode
+      let storageAvailable = false;
+
+      // Проверка доступности localStorage
+      try {
+        const testKey = '__storage_test__';
+        localStorage.setItem(testKey, 'test');
+        localStorage.removeItem(testKey);
+        storageAvailable = true;
+        console.log('✅ localStorage доступен');
+      } catch (e) {
+        console.warn('⚠️  localStorage заблокирован Safari Privacy Protection, используем in-memory fallback');
+        storageAvailable = false;
+      }
+
+      return {
+        getItem: function(key) {
+          try {
+            return storageAvailable ? localStorage.getItem(key) : memoryStorage[key] || null;
+          } catch (e) {
+            return memoryStorage[key] || null;
+          }
+        },
+        setItem: function(key, value) {
+          try {
+            if (storageAvailable) {
+              localStorage.setItem(key, value);
+            } else {
+              memoryStorage[key] = value;
+            }
+          } catch (e) {
+            memoryStorage[key] = value;
+          }
+        },
+        removeItem: function(key) {
+          try {
+            if (storageAvailable) {
+              localStorage.removeItem(key);
+            } else {
+              delete memoryStorage[key];
+            }
+          } catch (e) {
+            delete memoryStorage[key];
+          }
+        },
+        key: function(index) {
+          try {
+            return storageAvailable ? localStorage.key(index) : Object.keys(memoryStorage)[index] || null;
+          } catch (e) {
+            return Object.keys(memoryStorage)[index] || null;
+          }
+        },
+        get length() {
+          try {
+            return storageAvailable ? localStorage.length : Object.keys(memoryStorage).length;
+          } catch (e) {
+            return Object.keys(memoryStorage).length;
+          }
+        }
+      };
+    })();
+    // ========== END SAFE LOCALSTORAGE WRAPPER ==========
+
     // ========== CLEANUP: Clear Supabase session BEFORE form loads ==========
     // This ensures fresh login state every time user visits login page
     (function cleanupSupabaseSession() {
       try {
         // Clear all Supabase localStorage keys
         const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
+        for (let i = 0; i < safeStorage.length; i++) {
+          const key = safeStorage.key(i);
           if (key && (key.startsWith('sb-') || key.startsWith('sb_processed_'))) {
             keysToRemove.push(key);
           }
@@ -561,7 +641,7 @@
 
         if (keysToRemove.length > 0) {
           console.log('🧹 Cleaning up Supabase localStorage before login:', keysToRemove.length, 'keys');
-          keysToRemove.forEach(key => localStorage.removeItem(key));
+          keysToRemove.forEach(key => safeStorage.removeItem(key));
           console.log('✅ Supabase localStorage cleared - ready for fresh login');
         }
       } catch (e) {
@@ -583,13 +663,13 @@
         // Сохраняем страницу, откуда пришел пользователь (для возврата после логина)
         const returnUrl = document.referrer || window.location.origin + '/';
         console.log('🔗 Login return URL detected:', returnUrl);
-        localStorage.setItem('login_return_url', returnUrl);
+        safeStorage.setItem('login_return_url', returnUrl);
 
         // ========== SAVE REGISTRATION PAGE URL FOR REGISTRATION PAIRS ==========
         // Сохраняем URL текущей страницы (формы регистрации) для определения Thank You page
         const registrationPageUrl = window.location.pathname;
         console.log('📝 Registration page URL:', registrationPageUrl);
-        localStorage.setItem('registration_page_url', registrationPageUrl);
+        safeStorage.setItem('registration_page_url', registrationPageUrl);
 
         // ========== КОНФИГУРАЦИЯ ==========
 
@@ -651,6 +731,7 @@
     const codeSection = document.getElementById('sb-code-section');
     const codeInput = document.getElementById('sb-code-input');
     const verifyBtn = document.getElementById('sb-verify-btn');
+    const backToFormBtn = document.getElementById('sb-back-to-form');
     const resendBtn = document.getElementById('sb-resend');
     const errorMsg = document.getElementById('sb-error-msg');
     const successMsg = document.getElementById('sb-success-msg');
@@ -698,7 +779,7 @@
         return true;
       } catch (error) {
         console.error('Supabase init error:', error);
-        showError('Failed to initialize Supabase');
+        showError('Не удалось инициализировать Supabase');
         return false;
       }
     }
@@ -715,11 +796,11 @@
           if (initSupabase()) {
             callback();
           } else {
-            showError('Supabase initialization failed. Check console.');
+            showError('Ошибка инициализации Supabase. Проверьте консоль.');
           }
         } else if (attempts >= maxAttempts) {
           // Превышено количество попыток
-          showError('Supabase not configured. Check wp-config.php or plugin activation.');
+          showError('Supabase не настроен. Проверьте wp-config.php или активацию плагина.');
           console.error('❌ SUPABASE_CFG not found after', maxAttempts, 'attempts');
           console.log('💡 Make sure supabase-bridge plugin is activated and wp-config.php is configured');
         } else {
@@ -851,7 +932,7 @@
       if (!email) return;
 
       if (!supabaseClient) {
-        showError('Supabase not initialized yet. Please wait...');
+        showError('Supabase ещё не инициализирован. Подождите...');
         return;
       }
 
@@ -862,20 +943,26 @@
         const { error } = await supabaseClient.auth.signInWithOtp({
           email: email,
           options: {
-            emailRedirectTo: 'https://alexeykrol.com/test-no-elem-2/'
+            emailRedirectTo: '{{CALLBACK_URL}}'
           }
         });
 
         if (error) throw error;
 
-        // Переключить на экран 2
+        // Переключить на экран 2 (сразу показываем финальный экран без мигания)
         displayEmail.textContent = email;
+
+        // Показать email в footer для проверки
+        const footerEmail = document.getElementById('sb-footer-email');
+        if (footerEmail) {
+          footerEmail.textContent = email;
+        }
+
         switchScreen(2);
-        showSuccess('Magic link sent! Check your email.');
 
       } catch (error) {
         console.error('Magic link error:', error);
-        showError(error.message || 'Failed to send magic link');
+        showError(error.message || 'Не удалось отправить волшебную ссылку');
       }
     });
 
@@ -883,7 +970,7 @@
 
     googleBtn.addEventListener('click', async () => {
       if (!supabaseClient) {
-        showError('Supabase not initialized yet. Please wait...');
+        showError('Supabase ещё не инициализирован. Подождите...');
         return;
       }
 
@@ -893,7 +980,7 @@
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin + '/test-no-elem-2/'
+            redirectTo: '{{CALLBACK_URL}}'
           }
         });
 
@@ -901,7 +988,7 @@
 
       } catch (error) {
         console.error('OAuth error:', error);
-        showError(error.message || 'OAuth authentication failed');
+        showError(error.message || 'Ошибка OAuth аутентификации');
       }
     });
 
@@ -909,7 +996,7 @@
 
     facebookBtn.addEventListener('click', async () => {
       if (!supabaseClient) {
-        showError('Supabase not initialized yet. Please wait...');
+        showError('Supabase ещё не инициализирован. Подождите...');
         return;
       }
 
@@ -919,7 +1006,7 @@
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'facebook',
           options: {
-            redirectTo: window.location.origin + '/test-no-elem-2/',
+            redirectTo: '{{CALLBACK_URL}}',
             scopes: 'email public_profile'
           }
         });
@@ -928,7 +1015,7 @@
 
       } catch (error) {
         console.error('OAuth error:', error);
-        showError(error.message || 'OAuth authentication failed');
+        showError(error.message || 'Ошибка OAuth аутентификации');
       }
     });
 
@@ -946,12 +1033,12 @@
       const code = codeInput.value.trim();
 
       if (code.length !== 6) {
-        showError('Please enter a 6-digit code');
+        showError('Введите 6-значный код');
         return;
       }
 
       if (!supabaseClient) {
-        showError('Supabase not initialized yet. Please wait...');
+        showError('Supabase ещё не инициализирован. Подождите...');
         return;
       }
 
@@ -966,38 +1053,53 @@
 
       } catch (error) {
         console.error('Verification error:', error);
-        showError(error.message || 'Invalid verification code');
+        showError(error.message || 'Неверный код подтверждения');
       }
     });
 
-    // ========== RESEND ==========
+    // ========== BACK TO FORM (неверный адрес) ==========
 
-    resendBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = displayEmail.textContent;
+    // Пункт 1: Вернуться на форму для ввода правильного адреса
+    if (backToFormBtn) {
+      backToFormBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchScreen(1); // Вернуться на экран 1 (форма ввода)
+        emailInput.value = ''; // Очистить поле
+        emailInput.focus(); // Фокус на поле ввода
+      });
+    }
 
-      if (!supabaseClient) {
-        showError('Supabase not initialized yet. Please wait...');
-        return;
-      }
+    // ========== RESEND (отправить повторно на тот же адрес) ==========
 
-      try {
-        const { error } = await supabaseClient.auth.signInWithOtp({
-          email: email,
-          options: {
-            emailRedirectTo: 'https://alexeykrol.com/test-no-elem-2/'
-          }
-        });
+    // Пункт 3: Отправить повторно на тот же адрес
+    if (resendBtn) {
+      resendBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = displayEmail.textContent;
 
-        if (error) throw error;
+        if (!supabaseClient) {
+          showError('Supabase ещё не инициализирован. Подождите...');
+          return;
+        }
 
-        showSuccess('Email sent again!');
+        try {
+          const { error } = await supabaseClient.auth.signInWithOtp({
+            email: email,
+            options: {
+              emailRedirectTo: '{{CALLBACK_URL}}'
+            }
+          });
 
-      } catch (error) {
-        console.error('Resend error:', error);
-        showError(error.message || 'Failed to resend email');
-      }
-    });
+          if (error) throw error;
+
+          showSuccess('Письмо отправлено повторно!');
+
+        } catch (error) {
+          console.error('Resend error:', error);
+          showError(error.message || 'Не удалось отправить письмо повторно');
+        }
+      });
+    }
 
     // ========== УТИЛИТЫ UI ==========
 

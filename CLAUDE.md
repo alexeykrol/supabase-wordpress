@@ -437,6 +437,35 @@ npm run dialog:export --no-html
 - Student UI (html-viewer) is NOT updated here (current session still active)
 - Student UI will be updated on next Cold Start (Step 0.5)
 
+### 3.5 Security Scan
+
+**Purpose:** Scan for exposed credentials before committing.
+
+```bash
+bash tests/security-scan.sh
+```
+
+**What it scans:**
+- `dialog/` — SSH keys, IP addresses, passwords, tokens, database credentials
+- Source code — hardcoded secrets in PHP/JS/TS files
+
+**Output:**
+- Creates report in `tests/reports/security-scan-YYYY-MM-DD-HH-MM-SS.txt`
+- **CRITICAL/HIGH issues:** Script exits with error (exit 1) → blocks commit
+- **No issues or MEDIUM only:** Script exits success (exit 0) → can proceed
+
+**If scan fails:**
+1. Review the report file
+2. Clean found credentials in dialog files (replace with `[REDACTED]`)
+3. Remove hardcoded secrets from source code
+4. Re-run scan until it passes
+5. Only then proceed to commit
+
+**Important:**
+- This step is MANDATORY before any git commit
+- Never skip this step or commit without a clean scan
+- If scan finds issues, the commit MUST be blocked until they're fixed
+
 ### 4. Git Commit
 ```bash
 git add -A && git status
@@ -573,6 +602,10 @@ claude-code-starter/
 ├── README.md / README_RU.md
 └── init-project.sh         # Installer (for distribution)
 ```
+
+## Production Server
+
+For production server connection credentials, see `.production-credentials` file.
 
 ## npm Scripts
 

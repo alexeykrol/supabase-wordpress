@@ -76,3 +76,6 @@ wp-content/debug.log
 # Using wildcard to protect ALL dialog files automatically
 dialog/
 dialog/*.md
+
+# Claude framework logs
+.claude/logs/

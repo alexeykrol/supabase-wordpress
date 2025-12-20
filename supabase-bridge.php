@@ -14,6 +14,11 @@ if (!defined('ABSPATH')) exit;
 
 require __DIR__ . '/vendor/autoload.php'; // после composer шага
 
+// === Configuration Constants ===
+// Callback page path - used for OAuth redirects and Magic Link
+// IMPORTANT: This must match the WordPress page where [supabase_auth_callback] shortcode is placed
+define('SB_CALLBACK_PATH', '/test-no-elem-2/');
+
 // === Enhanced Logging System ===
 // Enables detailed production debugging with multiple log levels
 // Logs are written to wp-content/debug.log when WP_DEBUG_LOG is enabled
@@ -861,6 +866,10 @@ add_shortcode('supabase_auth_form', function() {
 
   // Сохраняем контент в глобальную переменную
   $sb_auth_form_content = file_get_contents($auth_form_path);
+
+  // Inject callback path constant into HTML
+  $callback_url = home_url(SB_CALLBACK_PATH);
+  $sb_auth_form_content = str_replace('{{CALLBACK_URL}}', $callback_url, $sb_auth_form_content);
 
   // Возвращаем уникальный placeholder
   return '<div id="sb-auth-form-placeholder-' . uniqid() . '"></div>';
@@ -1791,16 +1800,88 @@ function sb_render_setup_page() {
         📋 Copy
       </button>
     </div>
-    <p><em>💡 Save your login page URL - you'll need it for Step 3</em></p>
+    <p><em>💡 Save your login page URL - you'll need it for Step 4</em></p>
 
     <hr style="margin: 40px 0;">
 
-    <h2>Step 3: Add login page URL to Supabase</h2>
-    <p>Go to <a href="https://app.supabase.com" target="_blank">app.supabase.com</a> → your project<?php if (sb_cfg('SUPABASE_PROJECT_REF')): ?> (<code><?php echo esc_html(sb_cfg('SUPABASE_PROJECT_REF')); ?></code>)<?php endif; ?> → <strong>Authentication → URL Configuration</strong> → add your login page URL to <strong>Redirect URLs</strong> → Save.</p>
+    <h2>Step 3: Add callback shortcode to callback page</h2>
+    <p><strong>CRITICAL:</strong> Create a <strong>separate page</strong> for authentication callback handler. This is where OAuth and Magic Links will redirect after authentication.</p>
+
+    <div style="margin: 20px 0; padding: 20px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 6px;">
+      <h3 style="margin-top: 0;">⚠️ Current Callback URL</h3>
+      <p style="margin: 10px 0;">
+        <strong>Path:</strong> <code style="font-size: 14px; background: #f8f9fa; padding: 4px 8px; border-radius: 3px;"><?php echo esc_html(SB_CALLBACK_PATH); ?></code>
+      </p>
+      <p style="margin: 10px 0;">
+        <strong>Full URL:</strong>
+        <code style="font-size: 14px; background: #f8f9fa; padding: 4px 8px; border-radius: 3px;"><?php echo esc_html(home_url(SB_CALLBACK_PATH)); ?></code>
+        <button
+          onclick="navigator.clipboard.writeText('<?php echo esc_js(home_url(SB_CALLBACK_PATH)); ?>').then(() => { const btn = event.target; btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy URL', 2000); })"
+          style="padding: 4px 8px; background: #ffc107; color: #000; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 12px;"
+        >
+          📋 Copy URL
+        </button>
+      </p>
+      <p style="margin: 15px 0 10px 0;"><strong>Instructions:</strong></p>
+      <ol style="margin-left: 20px;">
+        <li>Create a WordPress page with URL: <code><?php echo esc_html(SB_CALLBACK_PATH); ?></code></li>
+        <li>Add <strong>Shortcode block</strong> and insert this shortcode:</li>
+      </ol>
+      <div style="margin: 15px 0; padding: 15px; background: #f0f6fc; border-left: 4px solid #0969da; border-radius: 6px;">
+        <code style="font-size: 16px; font-weight: 600; color: #0969da;">[supabase_auth_callback]</code>
+        <button
+          onclick="navigator.clipboard.writeText('[supabase_auth_callback]').then(() => { const btn = event.target; btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy', 2000); })"
+          style="padding: 6px 12px; background: #0969da; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 15px; font-size: 13px;"
+        >
+          📋 Copy
+        </button>
+      </div>
+      <ol start="3" style="margin-left: 20px;">
+        <li>Publish the page</li>
+        <li>Verify the page URL matches <code><?php echo esc_html(SB_CALLBACK_PATH); ?></code></li>
+      </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-left: 4px solid #0969da; border-radius: 6px;">
+      <strong>💡 Why a separate callback page?</strong>
+      <p style="margin: 8px 0 0 0;">
+        OAuth providers (Google, Facebook) and Magic Links redirect to this page after authentication.
+        It handles the token, creates WordPress session, and redirects the user back to where they came from.
+      </p>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #fff3cd; border-left: 4px solid #ff6b6b; border-radius: 6px;">
+      <strong>⚠️ To change callback URL:</strong>
+      <p style="margin: 8px 0 0 0;">
+        Edit <code>SB_CALLBACK_PATH</code> constant in <code>supabase-bridge.php</code> (line ~20).
+        Then create a new WordPress page matching the new path.
+      </p>
+    </div>
 
     <hr style="margin: 40px 0;">
 
-    <h2>Step 4: Test</h2>
+    <h2>Step 4: Add URLs to Supabase</h2>
+    <p>Go to <a href="https://app.supabase.com" target="_blank">app.supabase.com</a> → your project<?php if (sb_cfg('SUPABASE_PROJECT_REF')): ?> (<code><?php echo esc_html(sb_cfg('SUPABASE_PROJECT_REF')); ?></code>)<?php endif; ?> → <strong>Authentication → URL Configuration</strong></p>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f0f6fc; border-left: 4px solid #0969da; border-radius: 6px;">
+      <p style="margin: 0 0 10px 0;"><strong>Add these URLs to "Redirect URLs" field:</strong></p>
+      <ol style="margin-left: 20px;">
+        <li>Your login page URL (e.g., <code>https://yoursite.com/login/</code>)</li>
+        <li><strong>Your callback URL:</strong> <code><?php echo esc_html(home_url(SB_CALLBACK_PATH)); ?></code>
+          <button
+            onclick="navigator.clipboard.writeText('<?php echo esc_js(home_url(SB_CALLBACK_PATH)); ?>').then(() => { const btn = event.target; btn.textContent = '✅ Copied!'; setTimeout(() => btn.textContent = '📋 Copy', 2000); })"
+            style="padding: 4px 8px; background: #0969da; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; font-size: 12px;"
+          >
+            📋 Copy
+          </button>
+        </li>
+      </ol>
+      <p style="margin: 10px 0 0 0;"><em>💡 Callback URL is critical - OAuth and Magic Links won't work without it!</em></p>
+    </div>
+
+    <hr style="margin: 40px 0;">
+
+    <h2>Step 5: Test</h2>
     <p>Open your login page (incognito mode). Try <strong>Google OAuth</strong>, <strong>Facebook OAuth</strong>, and <strong>Magic Link</strong>. Check <strong>WordPress → Users</strong> for new user.</p>
 
     <hr style="margin: 40px 0;">
