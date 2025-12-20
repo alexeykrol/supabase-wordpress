@@ -301,7 +301,7 @@ Based on feedback, we may add:
 
 ## 📝 Support & Issues
 
-**Production Status:** ✅ Plugin is stable and tested on [questtales.com](https://questtales.com)
+**Production Status:** ✅ Plugin is stable and tested on [alexeykrol.com](https://alexeykrol.com)
 
 **Need Help?**
 - 📖 **Documentation:** See [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md) for quick start
@@ -430,7 +430,7 @@ Copyright (c) 2025 Alexey Krol
 
 - **GitHub Repository:** https://github.com/alexeykrol/supabase-wordpress
 - **Issues & Roadmap:** https://github.com/alexeykrol/supabase-wordpress/issues
-- **Live Demo:** https://questtales.com
+- **Live Demo:** https://alexeykrol.com
 - **Supabase Docs:** https://supabase.com/docs/guides/auth
 
 ---
