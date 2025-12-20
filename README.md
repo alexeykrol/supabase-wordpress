@@ -137,6 +137,7 @@ Released: 2025-12-19 | Status: ✅ Production Ready
 - ✉️ **Magic Link (Passwordless)** - Email + 6-digit code (no password needed!)
 
 ### Security Features 🔐
+- ✅ **Safari Privacy Protection** - Works in Safari Privacy mode (iOS/macOS) with automatic localStorage fallback
 - ✅ **JWT Verification** - Server-side RS256 signature validation via JWKS
 - ✅ **CSRF Protection** - Origin/Referer validation on all endpoints
 - ✅ **Rate Limiting** - 10 requests per 60 seconds per IP
@@ -160,14 +161,22 @@ Released: 2025-12-19 | Status: ✅ Production Ready
 - ✅ **WordPress Admin UI** - Test webhooks and monitor logs in real-time
 - ✅ **Database Triggers** - Immediate delivery via PostgreSQL triggers (no cron!)
 
+### LMS & Membership Integrations
+- ✅ **MemberPress Integration** - Auto-assign FREE memberships on registration (v0.9.0)
+- ✅ **LearnDash Integration** - Auto-enroll users in courses on registration (v0.9.0)
+- ✅ **LearnDash Banner Management** - One-click enrollment banner removal with UI (v0.9.1)
+- ✅ **Landing Page Mapping** - Different memberships/courses per registration source
+
 ### WordPress Integration
 - ✅ **Automatic User Sync** - Creates WordPress users on first login
 - ✅ **Session Management** - WordPress authentication cookies
 - ✅ **Supabase User ID Storage** - Links WP user to Supabase `auth.uid()`
-- ✅ **Smart Redirects** - Different redirects for new vs existing users
+- ✅ **Smart Redirects** - Return to origin page after login (v0.9.7)
+- ✅ **Two-Page Architecture** - Separate form and callback pages for clean flow (v0.9.6)
+- ✅ **Russian Localization** - Complete UI translation (v0.9.9)
 - ✅ **Role Assignment** - Default subscriber role (configurable)
-- ✅ **Shortcode Support** - `[supabase_auth_form]` works in Elementor, Gutenberg, etc.
-- ✅ **Settings UI** - WordPress Admin → Settings → Supabase Bridge (3 tabs)
+- ✅ **Shortcode Support** - `[supabase_auth_form]` + `[supabase_auth_callback]`
+- ✅ **Settings UI** - WordPress Admin → Supabase Bridge (6 tabs: General, Pairs, Webhooks, Memberships, Courses, Banner)
 
 ### Developer Experience
 - ✅ **Ready-to-use Form** - `auth-form.html` with all 3 auth methods
