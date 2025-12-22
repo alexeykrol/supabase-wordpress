@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.9.9-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.10-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0--6.8-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -24,12 +24,12 @@
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
-   - [supabase-bridge-v0.9.9.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.9/supabase-bridge-v0.9.9.zip)
+   - [supabase-bridge-v0.9.10.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.10/supabase-bridge-v0.9.10.zip)
    - Or build from source: `./build-release.sh` (requires git clone)
 
 2. **Install plugin**:
    - WordPress Admin → Plugins → Add New → Upload Plugin
-   - Choose `supabase-bridge-v0.9.9.zip`
+   - Choose `supabase-bridge-v0.9.10.zip`
    - Click "Install Now" → "Activate Plugin"
 
 3. **Setup Supabase database**:
@@ -64,6 +64,30 @@
 - Quick setup (5 min): [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)
 - Production deployment: [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)
 - Security architecture: [SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)
+
+---
+
+## 🎉 What's New in v0.9.10
+
+### PKCE Flow Support & OAuth Stability
+
+Released: 2025-12-21 | Status: ✅ Production Ready
+
+#### 🔐 Multi-Flow OAuth Support
+- **PKCE flow support** - handles OAuth tokens in query string (modern browsers)
+- **Implicit flow support** - backward compatible with hash fragment tokens
+- **Browser-agnostic** - works seamlessly across Chrome, Safari, Firefox
+- **Auto-detection** - automatically detects and processes both OAuth flow types
+
+#### 🐛 Critical Bug Fixes
+- **Fixed dotsTimer bug** - resolved ReferenceError in callback handler
+- **Tested across browsers** - verified OAuth login in all major browsers
+- **Production stability** - no breaking changes for existing users
+
+#### 🤖 Framework Improvements
+- **Agent-based completion** - `/fi` command uses dedicated agent for reliable protocol execution
+- **Security scan enforcement** - automated credential detection before commits
+- **Context-independent execution** - bypasses session summarization issues
 
 ---
 
@@ -299,12 +323,13 @@ WordPress Registration → Database Trigger → Edge Function → n8n/Make.com
 
 ## 🗺️ Roadmap
 
-### Current Status: v0.9.9 ✅ Production Ready
+### Current Status: v0.9.10 ✅ Production Ready
 
-**Complete Feature Set** - All planned MVP features implemented:
+**Complete Feature Set** - All planned MVP features implemented + OAuth stability improvements:
 
 #### Authentication & Security
 - ✅ Multi-provider authentication (Google, Facebook, Magic Link)
+- ✅ Multi-flow OAuth support (PKCE + Implicit flows)
 - ✅ Safari Privacy Protection (works on iOS/macOS Privacy mode)
 - ✅ Enterprise-grade security (4-layer defense architecture)
 - ✅ Russian localization (complete UI translation)
