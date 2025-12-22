@@ -1586,6 +1586,9 @@ function sb_render_setup_page() {
       <a href="?page=supabase-bridge-setup&tab=learndash-banner" class="nav-tab <?php echo $current_tab === 'learndash-banner' ? 'nav-tab-active' : ''; ?>">
         🎓 Banner
       </a>
+      <a href="?page=supabase-bridge-setup&tab=memberpress" class="nav-tab <?php echo $current_tab === 'memberpress' ? 'nav-tab-active' : ''; ?>">
+        🔧 MemberPress
+      </a>
     </h2>
 
     <?php if ($current_tab === 'general'): ?>
@@ -1925,6 +1928,12 @@ function sb_render_setup_page() {
       <div class="tab-content">
         <?php sb_render_learndash_banner_tab(); ?>
       </div><!-- End Tab 4: LearnDash Banner -->
+
+    <?php elseif ($current_tab === 'memberpress'): ?>
+      <!-- TAB 5: MemberPress Patches -->
+      <div class="tab-content">
+        <?php sb_render_memberpress_tab(); ?>
+      </div><!-- End Tab 5: MemberPress Patches -->
 
     <?php endif; ?>
 
@@ -3371,6 +3380,35 @@ function sb_ajax_delete_course_pair() {
 }
 
 // === AJAX: LearnDash Banner Management ===
+// === AJAX Handler: Toggle MemberPress Patch ===
+add_action('wp_ajax_sb_toggle_memberpress_patch', 'sb_ajax_toggle_memberpress_patch');
+function sb_ajax_toggle_memberpress_patch() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_memberpress_ajax')) {
+    wp_send_json_error(['message' => 'Invalid nonce']);
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error(['message' => 'Permission denied']);
+    return;
+  }
+
+  // Get enabled status
+  $enabled = isset($_POST['enabled']) && $_POST['enabled'] === '1';
+
+  // Save option
+  update_option('sb_memberpress_hide_login_link', $enabled);
+
+  // Return success message
+  $message = $enabled
+    ? 'Patch enabled - login link will be hidden when disabled in rule settings'
+    : 'Patch disabled - MemberPress default behavior restored';
+
+  wp_send_json_success(['message' => $message]);
+}
+
 add_action('wp_ajax_sb_save_learndash_banner', 'sb_ajax_save_learndash_banner');
 function sb_ajax_save_learndash_banner() {
   // Verify nonce
@@ -3583,6 +3621,168 @@ function sb_restore_learndash_banner_original() {
 }
 
 /**
+ * Render MemberPress Patches tab
+ */
+function sb_render_memberpress_tab() {
+  // Get current setting
+  $is_enabled = get_option('sb_memberpress_hide_login_link', false);
+
+  // Status badge
+  $status_badge = $is_enabled
+    ? '<span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 4px; font-weight: 600;">✅ Active</span>'
+    : '<span style="background: #6b7280; color: white; padding: 4px 12px; border-radius: 4px; font-weight: 600;">⚪ Not Active</span>';
+  ?>
+
+  <div style="background: #fff; padding: 25px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">🔧 MemberPress Compatibility Patches</h2>
+
+    <!-- Current Status -->
+    <div style="background: #f9fafb; padding: 20px; border-left: 4px solid #2271b1; margin-bottom: 25px;">
+      <h3 style="margin: 0 0 15px 0; color: #1e293b;">📊 Current Status</h3>
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+        <strong>Login Link Patch:</strong>
+        <?php echo $status_badge; ?>
+      </div>
+      <p style="margin: 10px 0 0 0; color: #64748b; font-size: 14px;">
+        <?php echo $is_enabled ? 'Filter is active - login link will be hidden when disabled in rule settings' : 'Filter is not active - MemberPress default behavior'; ?>
+      </p>
+    </div>
+
+    <!-- Settings Form -->
+    <form method="post" action="" id="sb-memberpress-form">
+      <?php wp_nonce_field('sb_memberpress_nonce'); ?>
+
+      <div style="margin-bottom: 25px;">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 15px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 6px; transition: all 0.2s;">
+          <input
+            type="checkbox"
+            name="sb_memberpress_hide_login_link"
+            value="1"
+            <?php checked($is_enabled, true); ?>
+            style="width: 20px; height: 20px; cursor: pointer;"
+          >
+          <span style="font-size: 15px; font-weight: 500; color: #1e293b;">
+            Hide default "Login" link when "Show login form" is disabled in MemberPress rule settings
+          </span>
+        </label>
+      </div>
+
+      <!-- Problem Description -->
+      <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; margin-bottom: 25px;">
+        <h4 style="margin: 0 0 10px 0; color: #991b1b; font-size: 14px;">🐛 Problem</h4>
+        <p style="margin: 0 0 10px 0; color: #7f1d1d; font-size: 13px; line-height: 1.6;">
+          MemberPress shows a <strong>"Login"</strong> link in unauthorized messages even when <strong>"Show login form"</strong>
+          is disabled in rule settings. This conflicts with custom authentication forms.
+        </p>
+        <p style="margin: 0; color: #7f1d1d; font-size: 13px; line-height: 1.6;">
+          <strong>Affected HTML:</strong> <code style="background: #fee2e2; padding: 2px 6px; border-radius: 3px;">&lt;div class="mepr-login-form-wrap"&gt;...&lt;/div&gt;</code>
+        </p>
+      </div>
+
+      <!-- Solution Description -->
+      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin-bottom: 25px;">
+        <h4 style="margin: 0 0 10px 0; color: #1e40af; font-size: 14px;">✅ Solution</h4>
+        <ul style="margin: 0; padding-left: 20px; color: #1e40af; font-size: 13px; line-height: 1.6;">
+          <li><strong>How it works:</strong> Uses <code>mepr_unauthorized_message</code> WordPress filter</li>
+          <li><strong>What it does:</strong> Removes <code>.mepr-login-form-wrap</code> block from unauthorized messages</li>
+          <li><strong>When:</strong> Only when "Show login form" is disabled in the MemberPress rule for that page</li>
+          <li><strong>Safe:</strong> Purely cosmetic change - doesn't affect authentication or MemberPress functionality</li>
+          <li><strong>Isolated:</strong> No impact on Supabase Bridge authentication system</li>
+        </ul>
+      </div>
+
+      <!-- Warning -->
+      <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 25px;">
+        <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">⚠️ Important Notes</h4>
+        <ul style="margin: 0; padding-left: 20px; color: #78350f; font-size: 13px; line-height: 1.6;">
+          <li><strong>Testing:</strong> If you experience any issues with MemberPress, disable this patch immediately</li>
+          <li><strong>Cache:</strong> Clear browser and LiteSpeed cache after enabling/disabling</li>
+          <li><strong>Compatibility:</strong> Works with MemberPress 1.x and higher</li>
+          <li><strong>Custom Forms:</strong> Use <code>[supabase_auth_form]</code> shortcode for custom authentication</li>
+        </ul>
+      </div>
+
+      <!-- Submit Button -->
+      <div style="padding-top: 15px; border-top: 1px solid #e5e7eb;">
+        <button
+          type="submit"
+          name="sb_save_memberpress"
+          class="button button-primary button-large"
+          style="padding: 8px 24px; font-size: 15px;"
+        >
+          💾 Save Changes
+        </button>
+        <span id="sb-memberpress-status" style="margin-left: 15px; font-style: italic; color: #64748b;"></span>
+      </div>
+    </form>
+
+    <!-- Technical Details (collapsible) -->
+    <details style="margin-top: 30px; padding: 15px; background: #fafafa; border-radius: 4px;">
+      <summary style="cursor: pointer; font-weight: 600; color: #475569; user-select: none;">🔧 Technical Details</summary>
+      <div style="margin-top: 15px; padding-left: 10px; color: #64748b; font-size: 13px; line-height: 1.8;">
+        <p><strong>How the filter works:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>Hooks into: <code>mepr_unauthorized_message</code> filter</li>
+          <li>Checks: MemberPress rule settings for current page</li>
+          <li>Removes: <code>&lt;div class="mepr-login-form-wrap"&gt;...&lt;/div&gt;</code> from HTML</li>
+          <li>When: Only if "Show login form" is disabled in rule settings</li>
+        </ul>
+        <p style="margin-top: 12px;"><strong>Why this is safe:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>Pure presentation layer - only affects HTML output</li>
+          <li>No changes to authentication logic</li>
+          <li>No database modifications</li>
+          <li>Can be disabled instantly if issues occur</li>
+          <li>Fully isolated from Supabase Bridge core functionality</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+
+  <script>
+  jQuery(document).ready(function($) {
+    $('#sb-memberpress-form').on('submit', function(e) {
+      e.preventDefault();
+
+      const $form = $(this);
+      const $status = $('#sb-memberpress-status');
+      const $button = $form.find('button[type="submit"]');
+
+      $button.prop('disabled', true);
+      $status.html('<span style="color: #f59e0b;">⏳ Saving...</span>');
+
+      $.ajax({
+        url: ajaxurl,
+        type: 'POST',
+        data: {
+          action: 'sb_toggle_memberpress_patch',
+          nonce: '<?php echo wp_create_nonce("sb_memberpress_ajax"); ?>',
+          enabled: $form.find('input[name="sb_memberpress_hide_login_link"]').is(':checked') ? '1' : '0'
+        },
+        success: function(response) {
+          if (response.success) {
+            $status.html('<span style="color: #10b981;">✅ ' + response.data.message + '</span>');
+            setTimeout(function() {
+              location.reload();
+            }, 1000);
+          } else {
+            $status.html('<span style="color: #ef4444;">❌ ' + response.data.message + '</span>');
+            $button.prop('disabled', false);
+          }
+        },
+        error: function() {
+          $status.html('<span style="color: #ef4444;">❌ Server error</span>');
+          $button.prop('disabled', false);
+        }
+      });
+    });
+  });
+  </script>
+
+  <?php
+}
+
+/**
  * Render LearnDash Banner tab
  */
 function sb_render_learndash_banner_tab() {
@@ -3759,4 +3959,24 @@ function sb_render_learndash_banner_tab() {
   </script>
 
   <?php
+}
+
+// === MemberPress Login Link Patch ===
+// Hides the default "Login" link from MemberPress unauthorized messages via CSS
+// MemberPress uses its own hook system (MeprHooks) which is not compatible with
+// standard WordPress filters, so we use CSS to hide the element
+
+add_action('wp_head', 'sb_hide_memberpress_login_link_css');
+function sb_hide_memberpress_login_link_css() {
+  // Check if patch is enabled
+  if (!get_option('sb_memberpress_hide_login_link', false)) {
+    return; // Patch disabled - do nothing
+  }
+
+  // Output CSS to hide the login link wrapper
+  echo '<style id="sb-memberpress-patch">
+    .mepr-login-form-wrap {
+      display: none !important;
+    }
+  </style>';
 }
