@@ -270,19 +270,29 @@
   // ═══════════════════════════════════════════════════════════
 
   function extractTokensFromHash() {
-    debug('Extracting tokens from URL hash');
+    debug('Extracting tokens from URL');
     debug('Current URL', window.location.href);
     debug('Hash fragment', window.location.hash);
+    debug('Query string', window.location.search);
 
+    let params;
+    let source;
+
+    // Try hash fragment first (Implicit flow)
     const hash = window.location.hash;
-
-    // Check if we have a hash with access_token
-    if (!hash || !hash.includes('access_token=')) {
+    if (hash && hash.includes('access_token=')) {
+      params = new URLSearchParams(hash.substring(1));
+      source = 'hash fragment (Implicit flow)';
+    }
+    // Fallback to query string (PKCE flow)
+    else if (window.location.search && window.location.search.includes('access_token=')) {
+      params = new URLSearchParams(window.location.search.substring(1));
+      source = 'query string (PKCE flow)';
+    }
+    else {
       throw new Error('Токен аутентификации не найден в URL. Пожалуйста, нажмите на волшебную ссылку в письме.');
     }
 
-    // Parse hash (remove # and parse as URLSearchParams)
-    const params = new URLSearchParams(hash.substring(1));
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
     const tokenType = params.get('token_type');
@@ -291,7 +301,7 @@
       throw new Error('Токен доступа отсутствует в URL');
     }
 
-    debug('Tokens extracted successfully');
+    debug('Tokens extracted successfully from ' + source);
     debug('Access token preview', accessToken.substring(0, 20) + '...');
 
     return {
@@ -428,7 +438,7 @@
 
       // Handle duplicate callback (null response)
       if (wpResponse === null) {
-        clearInterval(countdownTimer);
+        clearInterval(dotsTimer);
         return;
       }
 
@@ -444,7 +454,7 @@
       debug('Cleaned localStorage (login_return_url, registration_page_url)');
 
       // Clean URL hash and redirect
-      clearInterval(countdownTimer);
+      clearInterval(dotsTimer);
 
       setTimeout(() => {
         window.location.href = redirectUrl;
@@ -453,7 +463,7 @@
     } catch (error) {
       console.error('[Auth Callback] Error:', error);
       debug('Authentication failed', error.toString());
-      clearInterval(countdownTimer);
+      clearInterval(dotsTimer);
       updateStatus('⚠ Ошибка аутентификации: ' + error.message, 'error');
     }
   }
