@@ -4,31 +4,54 @@ description: Sprint/Phase completion protocol
 
 # Completion Protocol
 
-Execute the Completion Protocol from `CLAUDE.md`:
+⚠️ **CRITICAL: Use specialized agent to ensure ALL steps are completed**
 
-1. `npm run build` — verify build passes
-2. Update metafiles:
-   - `.claude/BACKLOG.md` — mark completed tasks `[x]`
-   - `.claude/SNAPSHOT.md` — update version and status
-   - `CHANGELOG.md` — add entry (if release)
-   - `README.md` + `README_RU.md` — update if major features added
-   - `.claude/ARCHITECTURE.md` — update if code structure changed
-3. Export dialogs:
-   ```bash
-   node .claude/dist/claude-export/cli.js export
-   ```
-4. Git commit:
-   ```bash
-   git add -A && git status
-   git commit -m "type: description"
-   ```
-5. Push & PR check:
-   - Ask: "Push to remote?"
-   - If yes: `git push`
-   - Check: `git log origin/main..HEAD --oneline`
-   - If empty → All merged, no PR needed
-   - If has commits → Ask: "Create PR?"
-6. Mark session clean:
-   ```bash
-   echo '{"status": "clean", "timestamp": "'$(date -Iseconds)'"}' > .claude/.last_session
-   ```
+## Why Agent?
+
+Long sessions cause context compactification (summarization). Even if you read CLAUDE.md at the start, you FORGOT details by now. Security scan step is CRITICAL and often missed.
+
+**Solution:** Dedicated agent reads CLAUDE.md fresh and executes ALL steps without forgetting.
+
+---
+
+## Execute Protocol
+
+**Use Task tool with general-purpose agent:**
+
+```
+subagent_type: 'general-purpose'
+prompt: "Execute Completion Protocol from CLAUDE.md. Steps:
+
+1. Read full Completion Protocol:
+   grep -A 300 '## Completion Protocol' CLAUDE.md
+
+2. Execute ALL steps from protocol, including:
+   - Step 0.5: Re-read protocol (if needed)
+   - Step 1: Build (if code changed)
+   - Step 2: Update metafiles
+   - Step 3: Export dialogs
+   - Step 3.5: Security Scan (MANDATORY before commit!)
+   - Step 4: Git commit
+   - Step 5: Ask about push & PR
+   - Step 6: Mark session clean
+
+3. CRITICAL: Do NOT skip Step 3.5 (Security Scan)
+   bash security/security-scan.sh
+   If fails → fix credentials → re-scan → ONLY THEN commit
+
+4. Return completion report with:
+   - All steps executed
+   - Security scan result
+   - Commits created
+   - Session status"
+```
+
+---
+
+## Agent Guarantees
+
+✅ Reads CLAUDE.md fresh (no summarization)
+✅ Executes ALL steps (including security scan)
+✅ Cannot "forget" steps
+✅ Returns verifiable report
+✅ Independent of main session context
