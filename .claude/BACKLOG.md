@@ -1,18 +1,39 @@
 # BACKLOG — Supabase Bridge
 
 *Framework: Claude Code Starter v2.3.1*
-*Last Updated: 2025-12-16*
+*Last Updated: 2025-12-21*
 
 ---
 
 ## Current Status
 
-**Version:** 0.9.8 (Production Ready)
+**Version:** 0.9.10 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed (v0.9.10) - PKCE Flow Support
+- [x] Added PKCE flow support to callback handler (both hash fragment and query string)
+- [x] Fixed dotsTimer bug in callback handler (ReferenceError: countdownTimer)
+- [x] Investigated OAuth flow changes in Supabase SDK
+- [x] Rollback and re-apply Phase 19 changes with fixes
+- [x] Tested OAuth in Chrome, Safari, Firefox - all browsers working
+- [x] Documented floating CDN dependency issue and solution
+
+### Completed (v0.9.9) - Safari Privacy & UX Polish
+- [x] Safari Privacy Protection (safeStorage wrapper with in-memory fallback)
+- [x] Russian localization for all UI elements
+- [x] UX improvements - eliminated flickering screens
+- [x] 3-step troubleshooting instructions in footer
+- [x] Instant loading screen for callback page
+- [x] Animated dots instead of countdown timer
+- [x] Security incident response - SSH keys removed from git history
+- [x] Repository cleanup - removed 51 debug files (-20,315 lines)
+- [x] Reorganized structure (security/, supabase/ folders)
+- [x] CLAUDE.md Completion Protocol improvements
+- [x] README.md fundamental overhaul
 
 ### Completed (v0.9.8)
 - [x] Comprehensive security scanning system (bash-based credential detection)

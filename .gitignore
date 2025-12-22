@@ -113,3 +113,25 @@ debug-*.html
 tests/
 security/
 webhook-system/
+
+# Claude dialogs
+dialog/2025-12-19_session-050ed032.md
+dialog/2025-12-19_session-4a7bfd40.md
+dialog/2025-12-19_session-0e7a2f56.md
+dialog/2025-12-19_session-d3b68b09.md
+dialog/2025-12-19_session-386080cf.md
+dialog/2025-12-19_session-f7f4aa4a.md
+dialog/2025-12-19_session-23aa3cc1.md
+dialog/2025-12-19_session-d750114c.md
+dialog/2025-12-19_session-5c6aa790.md
+dialog/2025-12-19_session-af0aa236.md
+dialog/2025-12-19_session-dcaf60eb.md
+dialog/2025-12-19_session-cecff52e.md
+dialog/2025-12-19_session-e75dfed8.md
+dialog/2025-12-19_session-9317b523.md
+dialog/2025-12-19_session-0e8cc7f1.md
+dialog/2025-12-19_session-bc8c61b1.md
+dialog/2025-12-19_session-e75e4cae.md
+dialog/2025-12-19_session-a3c7bb25.md
+dialog/2025-12-19_session-04210fae.md
+dialog/2025-12-19_session-09345fb9.md

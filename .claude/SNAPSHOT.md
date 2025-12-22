@@ -1,7 +1,7 @@
 # SNAPSHOT — Supabase Bridge
 
 *Framework: Claude Code Starter v2.3.1*
-*Last Updated: 2025-12-19 (Evening)*
+*Last Updated: 2025-12-21 (Evening)*
 
 ---
 
@@ -34,10 +34,11 @@
 **Phase 17: Login Flow & Unified Shortcode Architecture (v0.9.7)** [статус: ✅]
 **Phase 18: Security Hardening & Testing Infrastructure (v0.9.8)** [статус: ✅]
 **Phase 19: Safari Privacy Protection & UX Polish (v0.9.9)** [статус: ✅]
+**Phase 20: PKCE Flow Support & OAuth Stability (v0.9.10)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + All Auth Methods Fixed + Safari Privacy Support + Russian Localization + Comprehensive Security + Clean Repository (Production Ready)
+**Общий прогресс:** 100% MVP + All Auth Methods Fixed + Safari Privacy Support + PKCE Flow Support + Russian Localization + Comprehensive Security (Production Ready)
 
-**Текущая фаза:** v0.9.9 Safari Privacy & UX Polish Complete (Phase 19 finished)
+**Текущая фаза:** v0.9.10 PKCE Flow Support Complete (Phase 20 finished)
 
 ---
 
@@ -316,6 +317,30 @@ supabase-bridge/
 - No security issues in git history
 - Framework has built-in protection against stale documentation
 - README accurately reflects v0.9.9 state (not v0.8.5)
+
+### Phase 20: PKCE Flow Support & OAuth Stability (v0.9.10) - Completed 2025-12-21
+1. ✅ Added PKCE flow support to callback handler
+2. ✅ Modified extractTokensFromHash() to support both OAuth flows:
+   - Implicit flow (hash fragment #access_token=...)
+   - PKCE flow (query string ?access_token=...)
+3. ✅ Fixed dotsTimer bug (ReferenceError: countdownTimer not defined)
+4. ✅ Rollback from broken Phase 19 deployment to working version (a60af9a)
+5. ✅ Re-applied Phase 19 changes with fixes
+6. ✅ Investigated Supabase SDK CDN floating version issue
+7. ✅ Tested OAuth in Chrome, Safari, Firefox - all working
+
+**Root Cause:**
+- Supabase JS SDK @2 loaded from CDN (floating version)
+- SDK updated and changed default OAuth flow behavior
+- Chrome/Safari started using PKCE flow (query string)
+- Firefox continued using Implicit flow (hash fragment)
+- Previous callback handler only supported Implicit flow
+
+**Results:**
+- OAuth login works in ALL browsers (Chrome, Safari, Firefox)
+- Backward compatible with both OAuth flows
+- Code resilient to future Supabase SDK changes
+- No breaking changes for users
 
 ---
 
