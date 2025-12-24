@@ -109,9 +109,11 @@ test-*.html
 debug-*.html
 *-debug.html
 
-# Testing and security - not needed in public repo
+# Testing - not needed in public repo
 tests/
-security/
+
+# Security - keep scripts, ignore reports
+security/reports/
 webhook-system/
 
 # Claude dialogs
