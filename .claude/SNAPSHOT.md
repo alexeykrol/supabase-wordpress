@@ -371,10 +371,10 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready
 **Live Sites:**
-- https://alexeykrol.com (v0.9.9 - stable, Russian UI, Safari compatible)
-**Version:** 0.9.9
-**Last Update:** 2025-12-19
-**Known Issues:** 0 (All auth methods working, Safari Privacy supported, Russian localization, repository clean)
+- https://alexeykrol.com (v0.9.10 - stable, PKCE flow support, Russian UI, Safari compatible)
+**Version:** 0.9.10
+**Last Update:** 2025-12-21
+**Known Issues:** 0 (All auth methods working, PKCE flow support, Safari Privacy supported, Russian localization, repository clean)
 
 ---
 

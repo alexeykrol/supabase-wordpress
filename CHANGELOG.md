@@ -2,6 +2,72 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.9.10] - 2025-12-21
+
+### Added
+- **PKCE Flow Support** - OAuth now works in Chrome and Safari
+  - Modified extractTokensFromHash() to support both OAuth flows:
+    - Implicit flow (hash fragment #access_token=...)
+    - PKCE flow (query string ?access_token=...)
+  - Maintains backward compatibility with Firefox
+  - Fixes OAuth login issues caused by Supabase JS SDK @2 from CDN
+
+### Fixed
+- **dotsTimer Bug** - Fixed ReferenceError in callback handler
+  - Replaced clearInterval(countdownTimer) with clearInterval(dotsTimer)
+  - Fixed 3 occurrences in callback handler (lines 431, 447, 456)
+- **MemberPress Compatibility** - Added patch to hide login link
+  - Prevents duplicate login links from showing
+  - Improves UX when using MemberPress with Supabase Bridge
+
+### Testing
+- Verified OAuth login works in Chrome, Safari, Firefox
+- Tested Google OAuth and Facebook OAuth
+- Tested Magic Link authentication
+
+## [0.9.9] - 2025-12-19
+
+### Added
+- **Safari Privacy Protection** - safeStorage wrapper for Enhanced Privacy Protection
+  - Fixes authentication errors in Safari Private Browsing mode
+  - Automatic fallback when localStorage is blocked
+- **Complete Russian Localization** - All UI elements translated
+- **Instant Loading Screen** - Animated dots while processing authentication
+- **3-Step Troubleshooting** - Clear instructions for common issues
+
+### Changed
+- **UX Improvements** - Eliminated flickering screens during authentication flow
+- **Repository Cleanup** - Removed 51 debug files (-20,315 lines)
+- **Folder Reorganization** - Moved files to security/ and supabase/ folders
+
+### Security
+- **SSH Keys Removed** - Cleaned from git history
+- **Production URL Updated** - Now using alexeykrol.com
+
+## [0.9.8] - 2025-12-18
+
+### Added
+- **Security Hardening** - Enhanced security measures
+- **Testing Infrastructure** - Comprehensive testing framework
+
+### Changed
+- **Code Quality** - Improved code organization and documentation
+
+## [0.9.7] - 2025-12-18
+
+### Added
+- **Return-to-Origin Login Flow** - Users return to original page after login
+- **Unified Shortcode Architecture** - Simplified integration
+
+### Changed
+- **Login Flow Improvements** - Better UX with automatic redirects
+
+## [0.9.6] - 2025-12-18
+
+### Added
+- **Two-Page Architecture Refactoring** - Separated auth UI from callback handler
+- **Improved Page Structure** - Better organization of authentication flow
+
 ## [0.9.5] - 2025-12-18
 
 ### Fixed
