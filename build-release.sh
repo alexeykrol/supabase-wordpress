@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="0.9.5"
+VERSION="0.9.10"
 PLUGIN_NAME="supabase-bridge"
 BUILD_DIR="build"
 RELEASE_NAME="${PLUGIN_NAME}-v${VERSION}"
@@ -25,9 +25,9 @@ cp LICENSE ${BUILD_DIR}/${PLUGIN_NAME}/
 cp README.md ${BUILD_DIR}/${PLUGIN_NAME}/
 cp CHANGELOG.md ${BUILD_DIR}/${PLUGIN_NAME}/
 
-# Copy SQL files
-cp supabase-tables.sql ${BUILD_DIR}/${PLUGIN_NAME}/
-cp SECURITY_RLS_POLICIES_FINAL.sql ${BUILD_DIR}/${PLUGIN_NAME}/
+# Copy SQL files (if they exist)
+[ -f supabase-tables.sql ] && cp supabase-tables.sql ${BUILD_DIR}/${PLUGIN_NAME}/ || echo "⚠️  supabase-tables.sql not found, skipping"
+[ -f SECURITY_RLS_POLICIES_FINAL.sql ] && cp SECURITY_RLS_POLICIES_FINAL.sql ${BUILD_DIR}/${PLUGIN_NAME}/ || echo "⚠️  SECURITY_RLS_POLICIES_FINAL.sql not found, skipping"
 
 # Copy documentation (production guides)
 cp QUICK_SETUP_CHECKLIST.md ${BUILD_DIR}/${PLUGIN_NAME}/
