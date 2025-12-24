@@ -21,6 +21,7 @@ echo "📦 Copying plugin files..."
 # Copy main plugin files
 cp supabase-bridge.php ${BUILD_DIR}/${PLUGIN_NAME}/
 cp auth-form.html ${BUILD_DIR}/${PLUGIN_NAME}/
+cp test-no-elem-2-wordpress-paste.html ${BUILD_DIR}/${PLUGIN_NAME}/
 cp LICENSE ${BUILD_DIR}/${PLUGIN_NAME}/
 cp README.md ${BUILD_DIR}/${PLUGIN_NAME}/
 cp CHANGELOG.md ${BUILD_DIR}/${PLUGIN_NAME}/
