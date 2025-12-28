@@ -1939,17 +1939,16 @@ function sb_render_setup_page() {
       <a href="?page=supabase-bridge-setup&tab=courses" class="nav-tab <?php echo $current_tab === 'courses' ? 'nav-tab-active' : ''; ?>">
         📚 Courses
       </a>
+      <?php /* HIDDEN: Webhook tab (feature on hold)
       <a href="?page=supabase-bridge-setup&tab=webhooks" class="nav-tab <?php echo $current_tab === 'webhooks' ? 'nav-tab-active' : ''; ?>">
         🪝 Webhooks
       </a>
+      */ ?>
       <a href="?page=supabase-bridge-setup&tab=learndash-banner" class="nav-tab <?php echo $current_tab === 'learndash-banner' ? 'nav-tab-active' : ''; ?>">
         🎓 Banner
       </a>
       <a href="?page=supabase-bridge-setup&tab=memberpress" class="nav-tab <?php echo $current_tab === 'memberpress' ? 'nav-tab-active' : ''; ?>">
         🔧 MemberPress
-      </a>
-      <a href="?page=supabase-bridge-setup&tab=test-helpers" class="nav-tab <?php echo $current_tab === 'test-helpers' ? 'nav-tab-active' : ''; ?>">
-        🧪 Test Helpers
       </a>
     </h2>
 
@@ -2279,11 +2278,13 @@ function sb_render_setup_page() {
         <?php sb_render_courses_tab(); ?>
       </div><!-- End Tab 4: Courses -->
 
-    <?php elseif ($current_tab === 'webhooks'): ?>
+    <?php /* HIDDEN: Webhook tab content (feature on hold)
+    elseif ($current_tab === 'webhooks'): ?>
       <!-- TAB 3: Webhooks -->
       <div class="tab-content">
         <?php sb_render_webhooks_tab(); ?>
       </div><!-- End Tab 3: Webhooks -->
+    */ ?>
 
     <?php elseif ($current_tab === 'learndash-banner'): ?>
       <!-- TAB 4: LearnDash Banner -->
@@ -2296,12 +2297,6 @@ function sb_render_setup_page() {
       <div class="tab-content">
         <?php sb_render_memberpress_tab(); ?>
       </div><!-- End Tab 5: MemberPress Patches -->
-
-    <?php elseif ($current_tab === 'test-helpers'): ?>
-      <!-- TAB 6: Test Helper Functions -->
-      <div class="tab-content">
-        <?php sb_render_test_helpers_tab(); ?>
-      </div><!-- End Tab 6: Test Helper Functions -->
 
     <?php endif; ?>
 
@@ -4147,232 +4142,6 @@ function sb_render_memberpress_tab() {
   });
   </script>
 
-  <?php
-}
-
-/**
- * Render Test Helpers tab (v0.9.11)
- *
- * This tab tests the new helper functions:
- * - sb_user_has_membership($user_id, $membership_id)
- * - sb_user_enrolled_in_course($user_id, $course_id)
- *
- * Purpose: Verify that helper functions work correctly with real production data
- * before integrating them into the callback handler.
- */
-function sb_render_test_helpers_tab() {
-  // Check if user is logged in
-  if (!is_user_logged_in()) {
-    ?>
-    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; border-radius: 4px;">
-      <h3 style="margin: 0 0 10px 0; color: #991b1b;">⚠️ Not Logged In</h3>
-      <p style="margin: 0; color: #7f1d1d;">You must be logged in to test the helper functions. Please log in and refresh this page.</p>
-    </div>
-    <?php
-    return;
-  }
-
-  $current_user = wp_get_current_user();
-  $user_id = $current_user->ID;
-
-  // Get all membership and course pairs
-  $membership_pairs = get_option('sb_membership_pairs', []);
-  $course_pairs = get_option('sb_course_pairs', []);
-
-  ?>
-  <div style="background: #fff; padding: 25px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
-    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">🧪 Test Helper Functions (v0.9.11)</h2>
-
-    <!-- Current User Info -->
-    <div style="background: #f0f6fc; border-left: 4px solid #0969da; padding: 20px; margin-bottom: 25px; border-radius: 4px;">
-      <h3 style="margin: 0 0 15px 0; color: #0550ae;">👤 Current User</h3>
-      <p style="margin: 5px 0; color: #0550ae;">
-        <strong>User ID:</strong> <code><?php echo esc_html($user_id); ?></code>
-      </p>
-      <p style="margin: 5px 0; color: #0550ae;">
-        <strong>Username:</strong> <code><?php echo esc_html($current_user->user_login); ?></code>
-      </p>
-      <p style="margin: 5px 0; color: #0550ae;">
-        <strong>Email:</strong> <code><?php echo esc_html($current_user->user_email); ?></code>
-      </p>
-    </div>
-
-    <!-- Plugin Status -->
-    <div style="background: #f9fafb; padding: 20px; border-left: 4px solid #6b7280; margin-bottom: 25px;">
-      <h3 style="margin: 0 0 15px 0; color: #374151;">🔌 Plugin Status</h3>
-      <p style="margin: 5px 0;">
-        <strong>MemberPress:</strong>
-        <?php if (class_exists('MeprUser')): ?>
-          <span style="color: #10b981; font-weight: 600;">✅ Active</span>
-        <?php else: ?>
-          <span style="color: #ef4444; font-weight: 600;">❌ Not Active</span>
-        <?php endif; ?>
-      </p>
-      <p style="margin: 5px 0;">
-        <strong>LearnDash:</strong>
-        <?php if (function_exists('sfwd_lms_has_access')): ?>
-          <span style="color: #10b981; font-weight: 600;">✅ Active</span>
-        <?php else: ?>
-          <span style="color: #ef4444; font-weight: 600;">❌ Not Active</span>
-        <?php endif; ?>
-      </p>
-    </div>
-
-    <!-- Test Results: Memberships -->
-    <div style="margin-bottom: 30px;">
-      <h3 style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">🎫 Membership Tests</h3>
-
-      <?php if (empty($membership_pairs)): ?>
-        <div style="background: #f9fafb; padding: 20px; text-align: center; color: #6b7280; border-radius: 4px;">
-          📋 No membership pairs configured. Go to "🎫 Memberships" tab to add some.
-        </div>
-      <?php else: ?>
-        <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
-          <thead>
-            <tr>
-              <th style="width: 40%;">Landing Page</th>
-              <th style="width: 30%;">Membership</th>
-              <th style="width: 30%;">User Has Membership?</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($membership_pairs as $pair): ?>
-              <?php
-                $membership_id = intval($pair['membership_id']);
-                $landing_url = $pair['registration_page_url'];
-
-                // Test the helper function
-                $has_membership = sb_user_has_membership($user_id, $membership_id);
-
-                // Get membership name
-                $membership_name = 'Unknown';
-                if (class_exists('MeprProduct')) {
-                  $membership = new MeprProduct($membership_id);
-                  $membership_name = $membership->post_title ?? 'Unknown';
-                }
-              ?>
-              <tr>
-                <td>
-                  <code style="font-size: 11px; color: #666;"><?php echo esc_html($landing_url); ?></code>
-                </td>
-                <td>
-                  <strong><?php echo esc_html($membership_name); ?></strong>
-                  <br>
-                  <code style="font-size: 11px; color: #999;">ID: <?php echo esc_html($membership_id); ?></code>
-                </td>
-                <td>
-                  <?php if ($has_membership): ?>
-                    <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
-                      ✅ YES
-                    </span>
-                  <?php else: ?>
-                    <span style="background: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
-                      ❌ NO
-                    </span>
-                  <?php endif; ?>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      <?php endif; ?>
-    </div>
-
-    <!-- Test Results: Courses -->
-    <div style="margin-bottom: 30px;">
-      <h3 style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">📚 Course Enrollment Tests</h3>
-
-      <?php if (empty($course_pairs)): ?>
-        <div style="background: #f9fafb; padding: 20px; text-align: center; color: #6b7280; border-radius: 4px;">
-          📋 No course pairs configured. Go to "📚 Courses" tab to add some.
-        </div>
-      <?php else: ?>
-        <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
-          <thead>
-            <tr>
-              <th style="width: 40%;">Landing Page</th>
-              <th style="width: 30%;">Course</th>
-              <th style="width: 30%;">User Enrolled?</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($course_pairs as $pair): ?>
-              <?php
-                $course_id = intval($pair['course_id']);
-                $landing_url = $pair['registration_page_url'];
-
-                // Test the helper function
-                $is_enrolled = sb_user_enrolled_in_course($user_id, $course_id);
-
-                // Get course name
-                $course_name = get_the_title($course_id);
-                if (empty($course_name)) {
-                  $course_name = 'Unknown Course';
-                }
-              ?>
-              <tr>
-                <td>
-                  <code style="font-size: 11px; color: #666;"><?php echo esc_html($landing_url); ?></code>
-                </td>
-                <td>
-                  <strong><?php echo esc_html($course_name); ?></strong>
-                  <br>
-                  <code style="font-size: 11px; color: #999;">ID: <?php echo esc_html($course_id); ?></code>
-                </td>
-                <td>
-                  <?php if ($is_enrolled): ?>
-                    <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
-                      ✅ YES
-                    </span>
-                  <?php else: ?>
-                    <span style="background: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
-                      ❌ NO
-                    </span>
-                  <?php endif; ?>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      <?php endif; ?>
-    </div>
-
-    <!-- Instructions -->
-    <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin-top: 30px; border-radius: 4px;">
-      <h3 style="margin: 0 0 15px 0; color: #92400e;">📖 How to Use This Test Page</h3>
-      <ol style="margin: 0; padding-left: 20px; color: #78350f; line-height: 1.8;">
-        <li>Ensure you're logged in with a test user account</li>
-        <li>Check the membership and course enrollment status above</li>
-        <li>If needed, manually assign/remove memberships or enrollments in MemberPress/LearnDash</li>
-        <li>Refresh this page to see updated results</li>
-        <li>Verify that the helper functions correctly detect your membership and enrollment status</li>
-      </ol>
-    </div>
-
-    <!-- Technical Info -->
-    <details style="margin-top: 30px; padding: 15px; background: #fafafa; border-radius: 4px;">
-      <summary style="cursor: pointer; font-weight: 600; color: #475569; user-select: none;">🔧 Technical Details</summary>
-      <div style="margin-top: 15px; padding-left: 10px; color: #64748b; font-size: 13px; line-height: 1.8;">
-        <p><strong>Functions being tested:</strong></p>
-        <ul style="margin: 8px 0; padding-left: 20px; font-family: monospace; font-size: 12px;">
-          <li><code>sb_user_has_membership($user_id, $membership_id)</code></li>
-          <li><code>sb_user_enrolled_in_course($user_id, $course_id)</code></li>
-        </ul>
-        <p style="margin-top: 12px;"><strong>APIs used:</strong></p>
-        <ul style="margin: 8px 0; padding-left: 20px; font-family: monospace; font-size: 12px;">
-          <li>MemberPress: <code>MeprUser->active_product_subscriptions('ids')</code></li>
-          <li>LearnDash: <code>sfwd_lms_has_access($course_id, $user_id)</code></li>
-        </ul>
-        <p style="margin-top: 12px;"><strong>Safety:</strong></p>
-        <ul style="margin: 8px 0; padding-left: 20px;">
-          <li>All tests are read-only</li>
-          <li>No database modifications</li>
-          <li>No side effects</li>
-          <li>Safe to run multiple times</li>
-        </ul>
-      </div>
-    </details>
-  </div>
   <?php
 }
 
