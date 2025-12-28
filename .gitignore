@@ -109,11 +109,17 @@ test-*.html
 debug-*.html
 *-debug.html
 
+# Internal AI/Framework files - not related to plugin
+AI_DEVELOPER_PROFILING*.md
+MULTI_AGENT_AUTONOMOUS_COMMUNICATION*.md
+FRAMEWORK_IMPROVEMENTS*.md
+RELEASE_PROTOCOL*.md
+
 # Testing - not needed in public repo
 tests/
 
-# Security - keep scripts, ignore reports
-security/reports/
+# Security - internal tools and reports
+security/
 webhook-system/
 
 # Claude dialogs
