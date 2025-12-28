@@ -2,6 +2,32 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.9.11] - 2025-12-28
+
+### Added
+- **Helper Functions** - Check membership/enrollment status
+  - `sb_has_membership($user_id, $membership_id)` - Check if user has active membership
+  - `sb_is_enrolled($user_id, $course_id)` - Check if user is enrolled in course
+- **User Status Analyzer Module** - Analyzes current memberships/enrollments
+  - Checks registration URL against configured pairs
+  - Determines what memberships/courses should be assigned
+  - Returns clear data structure for action executor
+- **Action Executor Module** - Executes membership/course assignments
+  - Prevents duplicate assignments using helper functions
+  - Comprehensive logging for debugging
+  - Clean separation from analysis logic
+
+### Fixed
+- **Redirect Logic Conflict** - Clear priority between Registration Pairs and Return URL
+  - Registration Pairs redirect takes priority over `redirect_to` parameter
+  - Added documentation in code explaining redirect logic
+  - Prevents accidental redirect URL overrides
+
+### Testing
+- All integration tests passed successfully
+- Verified duplicate prevention for memberships and courses
+- Tested redirect logic priority
+
 ## [0.9.10] - 2025-12-21
 
 ### Added

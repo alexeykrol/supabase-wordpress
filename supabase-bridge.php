@@ -819,6 +819,340 @@ function sb_enroll_course_on_registration($wp_user_id, $registration_url) {
   }
 }
 
+// === Helper Functions: Check User Status (v0.9.11) ===
+
+/**
+ * Check if user has active membership
+ *
+ * @param int $user_id WordPress user ID
+ * @param int $membership_id MemberPress membership/product ID
+ * @return bool True if user has active membership, false otherwise
+ */
+function sb_user_has_membership($user_id, $membership_id) {
+  // Validate inputs
+  if (!$user_id || !$membership_id) {
+    return false;
+  }
+
+  // Check if MemberPress is active
+  if (!class_exists('MeprUser')) {
+    error_log('Supabase Bridge: MemberPress not active, cannot check membership');
+    return false;
+  }
+
+  try {
+    $mepr_user = new MeprUser($user_id);
+
+    // Get all active product subscriptions for this user
+    $active_memberships = $mepr_user->active_product_subscriptions('ids');
+
+    // Check if the specific membership is in the list
+    $has_membership = in_array($membership_id, $active_memberships);
+
+    sb_log("Membership check", 'DEBUG', [
+      'user_id' => $user_id,
+      'membership_id' => $membership_id,
+      'has_membership' => $has_membership
+    ]);
+
+    return $has_membership;
+
+  } catch (Exception $e) {
+    error_log('Supabase Bridge: Membership check failed - ' . $e->getMessage());
+    return false;
+  }
+}
+
+/**
+ * Check if user is enrolled in LearnDash course
+ *
+ * @param int $user_id WordPress user ID
+ * @param int $course_id LearnDash course ID
+ * @return bool True if user is enrolled, false otherwise
+ */
+function sb_user_enrolled_in_course($user_id, $course_id) {
+  // Validate inputs
+  if (!$user_id || !$course_id) {
+    return false;
+  }
+
+  // Check if LearnDash is active
+  if (!function_exists('sfwd_lms_has_access')) {
+    error_log('Supabase Bridge: LearnDash not active, cannot check enrollment');
+    return false;
+  }
+
+  try {
+    // sfwd_lms_has_access returns true if user has access to the course
+    $is_enrolled = sfwd_lms_has_access($course_id, $user_id);
+
+    sb_log("Course enrollment check", 'DEBUG', [
+      'user_id' => $user_id,
+      'course_id' => $course_id,
+      'is_enrolled' => $is_enrolled
+    ]);
+
+    return $is_enrolled;
+
+  } catch (Exception $e) {
+    error_log('Supabase Bridge: Course enrollment check failed - ' . $e->getMessage());
+    return false;
+  }
+}
+
+// === User Status Analyzer (v0.9.11) ===
+
+/**
+ * Analyze user status and determine required actions
+ *
+ * This is Module 1 of the two-module architecture:
+ * - Analyzes user state (new vs existing, has membership?, has enrollment?)
+ * - Returns "User Signature" - a data structure describing required actions
+ * - Read-only, no side effects
+ *
+ * @param WP_User|null $user WordPress user object (null if new user)
+ * @param bool $is_new_user Whether this is a newly created user
+ * @param string $registration_url The validated registration page URL
+ * @return array User Signature with analysis results
+ *
+ * User Signature structure:
+ * [
+ *   'user_id' => int,              // WordPress user ID
+ *   'is_new_user' => boolean,      // True if user was just created
+ *   'registration_url' => string,  // Validated landing page URL
+ *   'needs_membership' => boolean, // True if user needs membership assigned
+ *   'membership_id' => int|null,   // MemberPress membership ID (if configured)
+ *   'needs_enrollment' => boolean, // True if user needs course enrollment
+ *   'course_id' => int|null,       // LearnDash course ID (if configured)
+ * ]
+ */
+function sb_analyze_user_status($user, $is_new_user, $registration_url) {
+  // Initialize signature with safe defaults
+  $signature = [
+    'user_id' => $user ? $user->ID : 0,
+    'is_new_user' => $is_new_user,
+    'registration_url' => $registration_url,
+    'needs_membership' => false,
+    'membership_id' => null,
+    'needs_enrollment' => false,
+    'course_id' => null,
+  ];
+
+  // If no user or no registration URL, return empty signature
+  if (!$user || !$registration_url) {
+    sb_log("User Status Analyzer: Invalid input", 'WARNING', [
+      'user_id' => $user ? $user->ID : 'null',
+      'registration_url' => $registration_url ?: 'null'
+    ]);
+    return $signature;
+  }
+
+  $user_id = $user->ID;
+
+  // === Step 1: Find membership configuration for this landing page ===
+  $membership_pairs = get_option('sb_membership_pairs', []);
+  $membership_id = null;
+
+  foreach ($membership_pairs as $pair) {
+    if (isset($pair['registration_page_url']) && $pair['registration_page_url'] === $registration_url) {
+      $membership_id = intval($pair['membership_id']);
+      break;
+    }
+  }
+
+  // === Step 2: Check if user needs membership ===
+  if ($membership_id) {
+    $signature['membership_id'] = $membership_id;
+
+    // Check if user already has this membership
+    $has_membership = sb_user_has_membership($user_id, $membership_id);
+
+    if (!$has_membership) {
+      $signature['needs_membership'] = true;
+      sb_log("User Status Analyzer: User needs membership", 'DEBUG', [
+        'user_id' => $user_id,
+        'membership_id' => $membership_id,
+        'is_new_user' => $is_new_user
+      ]);
+    } else {
+      sb_log("User Status Analyzer: User already has membership", 'DEBUG', [
+        'user_id' => $user_id,
+        'membership_id' => $membership_id
+      ]);
+    }
+  } else {
+    sb_log("User Status Analyzer: No membership configured for this landing", 'DEBUG', [
+      'registration_url' => $registration_url
+    ]);
+  }
+
+  // === Step 3: Find course configuration for this landing page ===
+  $course_pairs = get_option('sb_course_pairs', []);
+  $course_id = null;
+
+  foreach ($course_pairs as $pair) {
+    if (isset($pair['registration_page_url']) && $pair['registration_page_url'] === $registration_url) {
+      $course_id = intval($pair['course_id']);
+      break;
+    }
+  }
+
+  // === Step 4: Check if user needs course enrollment ===
+  if ($course_id) {
+    $signature['course_id'] = $course_id;
+
+    // Check if user is already enrolled
+    $is_enrolled = sb_user_enrolled_in_course($user_id, $course_id);
+
+    if (!$is_enrolled) {
+      $signature['needs_enrollment'] = true;
+      sb_log("User Status Analyzer: User needs enrollment", 'DEBUG', [
+        'user_id' => $user_id,
+        'course_id' => $course_id,
+        'is_new_user' => $is_new_user
+      ]);
+    } else {
+      sb_log("User Status Analyzer: User already enrolled", 'DEBUG', [
+        'user_id' => $user_id,
+        'course_id' => $course_id
+      ]);
+    }
+  } else {
+    sb_log("User Status Analyzer: No course configured for this landing", 'DEBUG', [
+      'registration_url' => $registration_url
+    ]);
+  }
+
+  // === Step 5: Return signature ===
+  sb_log("User Status Analyzer: Analysis complete", 'INFO', [
+    'user_id' => $user_id,
+    'is_new_user' => $is_new_user,
+    'needs_membership' => $signature['needs_membership'],
+    'needs_enrollment' => $signature['needs_enrollment']
+  ]);
+
+  return $signature;
+}
+
+// === Action Executor (v0.9.11) ===
+
+/**
+ * Execute required actions based on User Signature
+ *
+ * This is Module 2 of the two-module architecture:
+ * - Takes User Signature as input
+ * - Executes required actions (assign membership, enroll in course)
+ * - Completely isolated from analysis logic
+ *
+ * @param array $signature User Signature from sb_analyze_user_status()
+ * @return array Execution results
+ *
+ * Return structure:
+ * [
+ *   'success' => boolean,
+ *   'membership_assigned' => boolean,
+ *   'enrollment_completed' => boolean,
+ *   'errors' => array,
+ * ]
+ */
+function sb_execute_user_actions($signature) {
+  // Initialize result
+  $result = [
+    'success' => true,
+    'membership_assigned' => false,
+    'enrollment_completed' => false,
+    'errors' => [],
+  ];
+
+  // Validate signature
+  if (!isset($signature['user_id']) || !$signature['user_id']) {
+    $result['success'] = false;
+    $result['errors'][] = 'Invalid signature: missing user_id';
+    sb_log("Action Executor: Invalid signature", 'ERROR', ['signature' => $signature]);
+    return $result;
+  }
+
+  $user_id = $signature['user_id'];
+  $registration_url = $signature['registration_url'] ?? '';
+
+  sb_log("Action Executor: Starting execution", 'INFO', [
+    'user_id' => $user_id,
+    'needs_membership' => $signature['needs_membership'],
+    'needs_enrollment' => $signature['needs_enrollment']
+  ]);
+
+  // === Step 1: Assign membership if needed ===
+  if ($signature['needs_membership'] && $signature['membership_id']) {
+    try {
+      sb_log("Action Executor: Assigning membership", 'DEBUG', [
+        'user_id' => $user_id,
+        'membership_id' => $signature['membership_id']
+      ]);
+
+      // Use existing function to assign membership
+      sb_assign_membership_on_registration($user_id, $registration_url);
+
+      $result['membership_assigned'] = true;
+
+      sb_log("Action Executor: Membership assigned successfully", 'INFO', [
+        'user_id' => $user_id,
+        'membership_id' => $signature['membership_id']
+      ]);
+
+    } catch (Exception $e) {
+      $result['success'] = false;
+      $result['errors'][] = 'Membership assignment failed: ' . $e->getMessage();
+
+      sb_log("Action Executor: Membership assignment failed", 'ERROR', [
+        'user_id' => $user_id,
+        'membership_id' => $signature['membership_id'],
+        'error' => $e->getMessage()
+      ]);
+    }
+  }
+
+  // === Step 2: Enroll in course if needed ===
+  if ($signature['needs_enrollment'] && $signature['course_id']) {
+    try {
+      sb_log("Action Executor: Enrolling in course", 'DEBUG', [
+        'user_id' => $user_id,
+        'course_id' => $signature['course_id']
+      ]);
+
+      // Use existing function to enroll in course
+      sb_enroll_course_on_registration($user_id, $registration_url);
+
+      $result['enrollment_completed'] = true;
+
+      sb_log("Action Executor: Course enrollment completed successfully", 'INFO', [
+        'user_id' => $user_id,
+        'course_id' => $signature['course_id']
+      ]);
+
+    } catch (Exception $e) {
+      $result['success'] = false;
+      $result['errors'][] = 'Course enrollment failed: ' . $e->getMessage();
+
+      sb_log("Action Executor: Course enrollment failed", 'ERROR', [
+        'user_id' => $user_id,
+        'course_id' => $signature['course_id'],
+        'error' => $e->getMessage()
+      ]);
+    }
+  }
+
+  // === Step 3: Return result ===
+  sb_log("Action Executor: Execution complete", 'INFO', [
+    'user_id' => $user_id,
+    'success' => $result['success'],
+    'membership_assigned' => $result['membership_assigned'],
+    'enrollment_completed' => $result['enrollment_completed'],
+    'errors_count' => count($result['errors'])
+  ]);
+
+  return $result;
+}
+
 // Create Supabase tables for registration pairs
 function sb_create_supabase_tables() {
   // Read SQL file
@@ -1343,13 +1677,10 @@ function sb_handle_callback(\WP_REST_Request $req) {
           if ($validated_registration_url) {
             sb_log_registration_to_supabase($email, $supabase_user_id, $validated_registration_url);
             // Note: We don't check return value - logging is non-critical
-
-            // === Phase 4: Auto-assign MemberPress membership (v0.9.0) ===
-            sb_assign_membership_on_registration($uid, $validated_registration_url);
-
-            // === Phase 5: Auto-enroll LearnDash course (v0.9.0) ===
-            sb_enroll_course_on_registration($uid, $validated_registration_url);
           }
+
+          // NOTE: Membership & enrollment logic moved to Phase 7 (after user creation)
+          // to support BOTH new and existing users (v0.9.11)
         }
       }
     }
@@ -1357,6 +1688,34 @@ function sb_handle_callback(\WP_REST_Request $req) {
     // Update Supabase user ID for user (handles both new and existing users)
     if ($user && $user->ID) {
       update_user_meta($user->ID, 'supabase_user_id', $supabase_user_id);
+    }
+
+    // === Phase 7: Universal Membership & Enrollment (v0.9.11) ===
+    // This logic works for BOTH new and existing users
+    // Module 1 (Analyzer) checks if user needs membership/enrollment
+    // Module 2 (Executor) performs actions only if needed (idempotent)
+    if ($user && $validated_registration_url) {
+      sb_log("Phase 7: Starting universal membership & enrollment logic", 'INFO', [
+        'user_id' => $user->ID,
+        'is_new_user' => $is_new_user,
+        'registration_url' => $validated_registration_url
+      ]);
+
+      // Module 1: Analyze user status
+      $signature = sb_analyze_user_status($user, $is_new_user, $validated_registration_url);
+
+      // Module 2: Execute required actions based on signature
+      $execution_result = sb_execute_user_actions($signature);
+
+      sb_log("Phase 7: Membership & enrollment complete", 'INFO', [
+        'user_id' => $user->ID,
+        'execution_result' => $execution_result
+      ]);
+    } else {
+      sb_log("Phase 7: Skipped (no registration_url)", 'DEBUG', [
+        'user_id' => $user ? $user->ID : 'null',
+        'has_registration_url' => !empty($validated_registration_url)
+      ]);
     }
 
     // 4) Логиним в WP
@@ -1380,9 +1739,9 @@ function sb_handle_callback(\WP_REST_Request $req) {
       $client_ip
     ));
 
-    // Determine redirect URL for new users (Registration Pairs)
+    // Determine redirect URL for ALL users who accessed via registration URL (Registration Pairs)
     $redirect_url = null;
-    if ($is_new_user && $validated_registration_url) {
+    if ($validated_registration_url) {
       $redirect_url = sb_get_thankyou_url_for_registration($validated_registration_url);
     }
 
@@ -1588,6 +1947,9 @@ function sb_render_setup_page() {
       </a>
       <a href="?page=supabase-bridge-setup&tab=memberpress" class="nav-tab <?php echo $current_tab === 'memberpress' ? 'nav-tab-active' : ''; ?>">
         🔧 MemberPress
+      </a>
+      <a href="?page=supabase-bridge-setup&tab=test-helpers" class="nav-tab <?php echo $current_tab === 'test-helpers' ? 'nav-tab-active' : ''; ?>">
+        🧪 Test Helpers
       </a>
     </h2>
 
@@ -1934,6 +2296,12 @@ function sb_render_setup_page() {
       <div class="tab-content">
         <?php sb_render_memberpress_tab(); ?>
       </div><!-- End Tab 5: MemberPress Patches -->
+
+    <?php elseif ($current_tab === 'test-helpers'): ?>
+      <!-- TAB 6: Test Helper Functions -->
+      <div class="tab-content">
+        <?php sb_render_test_helpers_tab(); ?>
+      </div><!-- End Tab 6: Test Helper Functions -->
 
     <?php endif; ?>
 
@@ -3779,6 +4147,232 @@ function sb_render_memberpress_tab() {
   });
   </script>
 
+  <?php
+}
+
+/**
+ * Render Test Helpers tab (v0.9.11)
+ *
+ * This tab tests the new helper functions:
+ * - sb_user_has_membership($user_id, $membership_id)
+ * - sb_user_enrolled_in_course($user_id, $course_id)
+ *
+ * Purpose: Verify that helper functions work correctly with real production data
+ * before integrating them into the callback handler.
+ */
+function sb_render_test_helpers_tab() {
+  // Check if user is logged in
+  if (!is_user_logged_in()) {
+    ?>
+    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; border-radius: 4px;">
+      <h3 style="margin: 0 0 10px 0; color: #991b1b;">⚠️ Not Logged In</h3>
+      <p style="margin: 0; color: #7f1d1d;">You must be logged in to test the helper functions. Please log in and refresh this page.</p>
+    </div>
+    <?php
+    return;
+  }
+
+  $current_user = wp_get_current_user();
+  $user_id = $current_user->ID;
+
+  // Get all membership and course pairs
+  $membership_pairs = get_option('sb_membership_pairs', []);
+  $course_pairs = get_option('sb_course_pairs', []);
+
+  ?>
+  <div style="background: #fff; padding: 25px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">🧪 Test Helper Functions (v0.9.11)</h2>
+
+    <!-- Current User Info -->
+    <div style="background: #f0f6fc; border-left: 4px solid #0969da; padding: 20px; margin-bottom: 25px; border-radius: 4px;">
+      <h3 style="margin: 0 0 15px 0; color: #0550ae;">👤 Current User</h3>
+      <p style="margin: 5px 0; color: #0550ae;">
+        <strong>User ID:</strong> <code><?php echo esc_html($user_id); ?></code>
+      </p>
+      <p style="margin: 5px 0; color: #0550ae;">
+        <strong>Username:</strong> <code><?php echo esc_html($current_user->user_login); ?></code>
+      </p>
+      <p style="margin: 5px 0; color: #0550ae;">
+        <strong>Email:</strong> <code><?php echo esc_html($current_user->user_email); ?></code>
+      </p>
+    </div>
+
+    <!-- Plugin Status -->
+    <div style="background: #f9fafb; padding: 20px; border-left: 4px solid #6b7280; margin-bottom: 25px;">
+      <h3 style="margin: 0 0 15px 0; color: #374151;">🔌 Plugin Status</h3>
+      <p style="margin: 5px 0;">
+        <strong>MemberPress:</strong>
+        <?php if (class_exists('MeprUser')): ?>
+          <span style="color: #10b981; font-weight: 600;">✅ Active</span>
+        <?php else: ?>
+          <span style="color: #ef4444; font-weight: 600;">❌ Not Active</span>
+        <?php endif; ?>
+      </p>
+      <p style="margin: 5px 0;">
+        <strong>LearnDash:</strong>
+        <?php if (function_exists('sfwd_lms_has_access')): ?>
+          <span style="color: #10b981; font-weight: 600;">✅ Active</span>
+        <?php else: ?>
+          <span style="color: #ef4444; font-weight: 600;">❌ Not Active</span>
+        <?php endif; ?>
+      </p>
+    </div>
+
+    <!-- Test Results: Memberships -->
+    <div style="margin-bottom: 30px;">
+      <h3 style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">🎫 Membership Tests</h3>
+
+      <?php if (empty($membership_pairs)): ?>
+        <div style="background: #f9fafb; padding: 20px; text-align: center; color: #6b7280; border-radius: 4px;">
+          📋 No membership pairs configured. Go to "🎫 Memberships" tab to add some.
+        </div>
+      <?php else: ?>
+        <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
+          <thead>
+            <tr>
+              <th style="width: 40%;">Landing Page</th>
+              <th style="width: 30%;">Membership</th>
+              <th style="width: 30%;">User Has Membership?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($membership_pairs as $pair): ?>
+              <?php
+                $membership_id = intval($pair['membership_id']);
+                $landing_url = $pair['registration_page_url'];
+
+                // Test the helper function
+                $has_membership = sb_user_has_membership($user_id, $membership_id);
+
+                // Get membership name
+                $membership_name = 'Unknown';
+                if (class_exists('MeprProduct')) {
+                  $membership = new MeprProduct($membership_id);
+                  $membership_name = $membership->post_title ?? 'Unknown';
+                }
+              ?>
+              <tr>
+                <td>
+                  <code style="font-size: 11px; color: #666;"><?php echo esc_html($landing_url); ?></code>
+                </td>
+                <td>
+                  <strong><?php echo esc_html($membership_name); ?></strong>
+                  <br>
+                  <code style="font-size: 11px; color: #999;">ID: <?php echo esc_html($membership_id); ?></code>
+                </td>
+                <td>
+                  <?php if ($has_membership): ?>
+                    <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
+                      ✅ YES
+                    </span>
+                  <?php else: ?>
+                    <span style="background: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
+                      ❌ NO
+                    </span>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      <?php endif; ?>
+    </div>
+
+    <!-- Test Results: Courses -->
+    <div style="margin-bottom: 30px;">
+      <h3 style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">📚 Course Enrollment Tests</h3>
+
+      <?php if (empty($course_pairs)): ?>
+        <div style="background: #f9fafb; padding: 20px; text-align: center; color: #6b7280; border-radius: 4px;">
+          📋 No course pairs configured. Go to "📚 Courses" tab to add some.
+        </div>
+      <?php else: ?>
+        <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
+          <thead>
+            <tr>
+              <th style="width: 40%;">Landing Page</th>
+              <th style="width: 30%;">Course</th>
+              <th style="width: 30%;">User Enrolled?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($course_pairs as $pair): ?>
+              <?php
+                $course_id = intval($pair['course_id']);
+                $landing_url = $pair['registration_page_url'];
+
+                // Test the helper function
+                $is_enrolled = sb_user_enrolled_in_course($user_id, $course_id);
+
+                // Get course name
+                $course_name = get_the_title($course_id);
+                if (empty($course_name)) {
+                  $course_name = 'Unknown Course';
+                }
+              ?>
+              <tr>
+                <td>
+                  <code style="font-size: 11px; color: #666;"><?php echo esc_html($landing_url); ?></code>
+                </td>
+                <td>
+                  <strong><?php echo esc_html($course_name); ?></strong>
+                  <br>
+                  <code style="font-size: 11px; color: #999;">ID: <?php echo esc_html($course_id); ?></code>
+                </td>
+                <td>
+                  <?php if ($is_enrolled): ?>
+                    <span style="background: #d1fae5; color: #065f46; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
+                      ✅ YES
+                    </span>
+                  <?php else: ?>
+                    <span style="background: #fee2e2; color: #991b1b; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: inline-block;">
+                      ❌ NO
+                    </span>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      <?php endif; ?>
+    </div>
+
+    <!-- Instructions -->
+    <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin-top: 30px; border-radius: 4px;">
+      <h3 style="margin: 0 0 15px 0; color: #92400e;">📖 How to Use This Test Page</h3>
+      <ol style="margin: 0; padding-left: 20px; color: #78350f; line-height: 1.8;">
+        <li>Ensure you're logged in with a test user account</li>
+        <li>Check the membership and course enrollment status above</li>
+        <li>If needed, manually assign/remove memberships or enrollments in MemberPress/LearnDash</li>
+        <li>Refresh this page to see updated results</li>
+        <li>Verify that the helper functions correctly detect your membership and enrollment status</li>
+      </ol>
+    </div>
+
+    <!-- Technical Info -->
+    <details style="margin-top: 30px; padding: 15px; background: #fafafa; border-radius: 4px;">
+      <summary style="cursor: pointer; font-weight: 600; color: #475569; user-select: none;">🔧 Technical Details</summary>
+      <div style="margin-top: 15px; padding-left: 10px; color: #64748b; font-size: 13px; line-height: 1.8;">
+        <p><strong>Functions being tested:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px; font-family: monospace; font-size: 12px;">
+          <li><code>sb_user_has_membership($user_id, $membership_id)</code></li>
+          <li><code>sb_user_enrolled_in_course($user_id, $course_id)</code></li>
+        </ul>
+        <p style="margin-top: 12px;"><strong>APIs used:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px; font-family: monospace; font-size: 12px;">
+          <li>MemberPress: <code>MeprUser->active_product_subscriptions('ids')</code></li>
+          <li>LearnDash: <code>sfwd_lms_has_access($course_id, $user_id)</code></li>
+        </ul>
+        <p style="margin-top: 12px;"><strong>Safety:</strong></p>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>All tests are read-only</li>
+          <li>No database modifications</li>
+          <li>No side effects</li>
+          <li>Safe to run multiple times</li>
+        </ul>
+      </div>
+    </details>
+  </div>
   <?php
 }
 

@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.9.10-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.11-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0--6.8-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -24,12 +24,12 @@
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
-   - [supabase-bridge-v0.9.10.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.10/supabase-bridge-v0.9.10.zip)
+   - [supabase-bridge-v0.9.11.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.11/supabase-bridge-v0.9.11.zip)
    - Or build from source: `./build-release.sh` (requires git clone)
 
 2. **Install plugin**:
    - WordPress Admin → Plugins → Add New → Upload Plugin
-   - Choose `supabase-bridge-v0.9.10.zip`
+   - Choose `supabase-bridge-v0.9.11.zip`
    - Click "Install Now" → "Activate Plugin"
 
 3. **Setup Supabase database**:
@@ -64,6 +64,30 @@
 - Quick setup (5 min): [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)
 - Production deployment: [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)
 - Security architecture: [SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)
+
+---
+
+## 🎉 What's New in v0.9.11
+
+### Universal Membership & Enrollment System
+
+Released: 2025-12-28 | Status: ✅ Production Ready
+
+#### 🔧 Enhanced Integration System
+- **Helper functions** - Check membership/enrollment status with `sb_has_membership()` and `sb_is_enrolled()`
+- **User Status Analyzer** - Analyzes current memberships/enrollments and determines required actions
+- **Action Executor** - Executes assignments while preventing duplicates
+- **Smart redirect logic** - Registration Pairs take priority over return URL parameter
+
+#### 🐛 Bug Fixes & Improvements
+- **Fixed redirect conflict** - Clear priority between Registration Pairs and `redirect_to` parameter
+- **Duplicate prevention** - Prevents re-assigning memberships/courses that user already has
+- **Full test coverage** - All integration tests passing
+
+#### 📊 Code Quality
+- **Separation of concerns** - Clean split between analysis and execution logic
+- **Comprehensive logging** - All actions logged for debugging
+- **Documentation** - Clear code comments explaining redirect logic
 
 ---
 
@@ -323,9 +347,9 @@ WordPress Registration → Database Trigger → Edge Function → n8n/Make.com
 
 ## 🗺️ Roadmap
 
-### Current Status: v0.9.10 ✅ Production Ready
+### Current Status: v0.9.11 ✅ Production Ready
 
-**Complete Feature Set** - All planned MVP features implemented + OAuth stability improvements:
+**Complete Feature Set** - All planned MVP features implemented + Universal Membership/Enrollment System:
 
 #### Authentication & Security
 - ✅ Multi-provider authentication (Google, Facebook, Magic Link)
@@ -337,9 +361,10 @@ WordPress Registration → Database Trigger → Edge Function → n8n/Make.com
 #### Analytics & Integrations
 - ✅ Registration Pairs (landing page → thank you page tracking)
 - ✅ Webhook integration (n8n/Make.com with automatic retries)
-- ✅ MemberPress integration (auto-assign FREE memberships)
-- ✅ LearnDash integration (auto-enroll in courses)
+- ✅ MemberPress integration (auto-assign FREE memberships with duplicate prevention)
+- ✅ LearnDash integration (auto-enroll in courses with duplicate prevention)
 - ✅ LearnDash banner management UI (one-click enable/disable)
+- ✅ Universal Membership/Enrollment System (helper functions, status analyzer, action executor)
 
 #### WordPress Integration
 - ✅ WordPress settings UI (5 tabs: General, Pairs, Webhooks, Memberships, Courses, Banner)

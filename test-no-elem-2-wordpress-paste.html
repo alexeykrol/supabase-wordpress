@@ -367,6 +367,31 @@
   // ═══════════════════════════════════════════════════════════
 
   function getRedirectUrl(wpResponse) {
+    // ═══════════════════════════════════════════════════════════
+    // PRIORITY-BASED REDIRECT LOGIC (v0.9.11)
+    // ═══════════════════════════════════════════════════════════
+    //
+    // Priority 1: Backend set redirect_url (Registration Pairs)
+    //   → User came from landing page form (e.g., /reg_ai_intro/)
+    //   → Redirect to Thank You page (regardless of NEW vs EXISTING)
+    //
+    // Priority 2: Return URL (General Login)
+    //   → User came from general login in menu (e.g., /test-no-elem/)
+    //   → Return to page where they came from
+    //
+    // Priority 3: Default fallback
+    //   → Home page or global default
+    // ═══════════════════════════════════════════════════════════
+
+    // PRIORITY 1: Check if backend set redirect_url (Registration Pairs)
+    if (wpResponse && wpResponse.redirect_url) {
+      // Backend found this form in Registration Pairs → Landing page scenario
+      debug('✓ Backend set redirect_url (Landing Page Form)', wpResponse.redirect_url);
+      debug('  → Redirecting to Thank You page (user came from targeted landing)');
+      return wpResponse.redirect_url;
+    }
+
+    // PRIORITY 2: No redirect_url → General login scenario → Use Return URL
     // Read redirect_to parameter from URL query string
     const urlParams = new URLSearchParams(window.location.search);
     let redirectTo = urlParams.get('redirect_to');
@@ -374,29 +399,18 @@
     // Fallback: Read from localStorage (saved on login page)
     if (!redirectTo) {
       redirectTo = safeStorage.getItem('login_return_url');
-      debug('No URL parameter, using localStorage', redirectTo || 'not found');
     }
 
-    debug('URL parameters', window.location.search);
-    debug('redirect_to parameter', redirectTo || 'not set');
-
-    // WordPress tells us if user is new
-    const isNewUser = wpResponse && wpResponse.is_new_user;
-    debug('User type', isNewUser ? 'NEW (registration)' : 'EXISTING (login)');
-
-    if (isNewUser) {
-      // CASE 2: REGISTRATION (new user)
-      // Use Thank You page from WordPress API (Registration Pairs) or default
-      const thankYouUrl = wpResponse.redirect_url || CONFIG.THANK_YOU_PAGE;
-      debug('REGISTRATION → Thank you page', thankYouUrl);
-      return thankYouUrl;
-    } else {
-      // CASE 1: LOGIN (existing user)
-      // Return to origin page (from redirect_to parameter) or default
-      const returnUrl = redirectTo || CONFIG.DEFAULT_REDIRECT;
-      debug('LOGIN → Return to origin page', returnUrl);
-      return returnUrl;
+    if (redirectTo) {
+      debug('✓ Using Return URL (General Login)', redirectTo);
+      debug('  → User came from menu login, returning to origin page');
+      return redirectTo;
     }
+
+    // PRIORITY 3: Default fallback
+    debug('✓ Using default redirect', CONFIG.DEFAULT_REDIRECT);
+    debug('  → No specific redirect found, using global default');
+    return CONFIG.DEFAULT_REDIRECT;
   }
 
   // ═══════════════════════════════════════════════════════════

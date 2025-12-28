@@ -1,7 +1,7 @@
 # SNAPSHOT — Supabase Bridge
 
 *Framework: Claude Code Starter v2.3.1*
-*Last Updated: 2025-12-24*
+*Last Updated: 2025-12-28*
 
 ---
 
@@ -35,10 +35,11 @@
 **Phase 18: Security Hardening & Testing Infrastructure (v0.9.8)** [статус: ✅]
 **Phase 19: Safari Privacy Protection & UX Polish (v0.9.9)** [статус: ✅]
 **Phase 20: PKCE Flow Support & OAuth Stability (v0.9.10)** [статус: ✅]
+**Phase 21: Universal Membership & Enrollment (v0.9.11)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + All Auth Methods Fixed + Safari Privacy Support + PKCE Flow Support + Russian Localization + Comprehensive Security (Production Ready)
+**Общий прогресс:** 100% MVP + All Auth Methods Fixed + Safari Privacy Support + PKCE Flow Support + Russian Localization + Comprehensive Security + Universal Membership/Enrollment System (Production Ready)
 
-**Текущая фаза:** v0.9.10 PKCE Flow Support Complete (Phase 20 finished)
+**Текущая фаза:** v0.9.11 Universal Membership & Enrollment Complete (Phase 21 finished)
 
 ---
 
@@ -342,6 +343,30 @@ supabase-bridge/
 - Code resilient to future Supabase SDK changes
 - No breaking changes for users
 
+### Phase 21: Universal Membership & Enrollment (v0.9.11) - Completed 2025-12-28
+1. ✅ Added helper functions for membership/enrollment checks
+   - `sb_has_membership($user_id, $membership_id)` - check if user has active membership
+   - `sb_is_enrolled($user_id, $course_id)` - check if user is enrolled in course
+2. ✅ Implemented User Status Analyzer module
+   - Analyzes user's current memberships and enrollments
+   - Checks registration URL against configured pairs
+   - Determines what memberships/courses should be assigned
+3. ✅ Implemented Action Executor module
+   - Executes membership assignments and course enrollments
+   - Prevents duplicate assignments
+   - Logs all actions for debugging
+4. ✅ Fixed redirect logic conflict (Registration Pairs vs Return URL)
+   - Registration Pairs redirect takes priority over `redirect_to` parameter
+   - Clear documentation in code about redirect logic
+   - Prevents accidental redirect URL overrides
+5. ✅ All integration tests passed successfully
+
+**Results:**
+- Clean separation of concerns (analysis vs execution)
+- Prevents duplicate membership/enrollment assignments
+- Clear redirect logic hierarchy
+- Full test coverage for all integrations
+
 ---
 
 ## 🔄 Текущая работа: Maintenance Mode
@@ -371,10 +396,10 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready
 **Live Sites:**
-- https://alexeykrol.com (v0.9.10 - stable, PKCE flow support, Russian UI, Safari compatible)
-**Version:** 0.9.10
-**Last Update:** 2025-12-21
-**Known Issues:** 0 (All auth methods working, PKCE flow support, Safari Privacy supported, Russian localization, repository clean)
+- https://alexeykrol.com (v0.9.11 - stable, universal membership/enrollment, PKCE flow support, Russian UI, Safari compatible)
+**Version:** 0.9.11
+**Last Update:** 2025-12-28
+**Known Issues:** 0 (All auth methods working, universal membership/enrollment system, PKCE flow support, Safari Privacy supported, Russian localization, repository clean)
 
 ---
 
