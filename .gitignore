@@ -81,6 +81,9 @@ dialog/*.md
 # Not needed for plugin users, only for AI-assisted development
 .claude/
 CLAUDE.md
+init-project.sh
+quick-update.sh
+phpunit.xml
 
 # SSH keys and production credentials - NEVER commit these!
 claude_ssh_key*
