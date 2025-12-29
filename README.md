@@ -21,6 +21,69 @@
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+Before installing the plugin, ensure you have:
+
+**1. Supabase Account & Project**
+- Register at [supabase.com](https://supabase.com)
+- Create a new project
+- Note your project URL and Anon Key (Settings → API)
+
+**2. OAuth Provider Setup**
+
+**Google OAuth:**
+- Go to [Google Cloud Console](https://console.cloud.google.com/)
+- Create OAuth 2.0 credentials
+- Add authorized redirect URIs: `https://yourproject.supabase.co/auth/v1/callback`
+- Configure in Supabase: Authentication → Providers → Google
+
+**Facebook OAuth:**
+- Go to [Facebook Developers](https://developers.facebook.com/)
+- Create a new app
+- Add Facebook Login product
+- Add redirect URI: `https://yourproject.supabase.co/auth/v1/callback`
+- Configure in Supabase: Authentication → Providers → Facebook
+
+**3. Required WordPress Plugins**
+- **MemberPress** - For membership management (free memberships supported)
+- **LearnDash** - For course management and enrollment
+- Both plugins must be installed and activated before Supabase Bridge
+
+**4. Cache Plugin Configuration (CRITICAL)**
+
+This plugin requires proper cache configuration to work correctly.
+
+**Required cache exclusions:**
+
+You must exclude the following page from caching (the process is similar in all caching plugins):
+
+```
+/test-no-elem-2/
+```
+
+This is the authentication callback page with dynamic content. If cached, authentication will fail.
+
+**Also ensure these are excluded** (typically already in default exclusions):
+- `/wp-json/*` - WordPress REST API endpoints
+- `/wp-admin/*` - WordPress admin area
+
+**How to configure:**
+- **LiteSpeed Cache:** Cache → Excludes → "Do Not Cache URIs"
+- **WP Rocket:** Settings → Advanced → "Never Cache URL(s)"
+- **W3 Total Cache:** Performance → Page Cache → "Never cache the following pages"
+- **WP Super Cache:** Advanced → "Rejected URIs"
+
+**IMPORTANT:** Always purge/clear cache after plugin configuration changes.
+
+**5. MemberPress Configuration**
+
+Disable MemberPress default registration (conflicts with Supabase Auth):
+- Go to MemberPress → Settings → General
+- **Disable "Enable MemberPress Registration"** - uncheck this option
+- Save changes
+- This prevents duplicate registration forms and conflicts
+
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
@@ -50,14 +113,38 @@
    - Click "Add New Pair"
    - Example: `/services/` → `/services-thankyou/`
 
-6. **Configure Supabase Auth**:
+6. **Configure MemberPress integration** (optional):
+   - WordPress Admin → Supabase Bridge → Memberships tab
+   - Click "Add New Pair"
+   - Select **Landing Page**: Choose the registration page URL (e.g., `/reg_ai_intro/`)
+   - Select **Membership**: Choose MemberPress membership to auto-assign
+   - Click "Add Pair"
+   - Users registering from this landing page will automatically receive this membership
+
+7. **Configure LearnDash course enrollment** (optional):
+   - WordPress Admin → Supabase Bridge → Courses tab
+   - Click "Add New Pair"
+   - Select **Landing Page**: Choose the registration page URL (e.g., `/reg_ai_intro/`)
+   - Select **Course**: Choose LearnDash course for auto-enrollment
+   - Click "Add Pair"
+   - Users registering from this landing page will automatically be enrolled in this course
+
+8. **Configure LearnDash banner visibility** (optional):
+   - WordPress Admin → Supabase Bridge → Banner tab
+   - Check "Hide enrollment banner" to remove "NOT ENROLLED / Take this Course" banner
+   - Click "Apply Changes"
+   - **IMPORTANT:** Clear cache after changes:
+     - LiteSpeed Cache: WordPress Admin → LiteSpeed Cache → Purge All
+     - Browser: Hard refresh (Ctrl+Shift+R on Windows, Cmd+Shift+R on Mac)
+
+9. **Configure Supabase Auth**:
    - Supabase Dashboard → Authentication → Settings
    - **Enable email confirmations**: ON
    - **Password minimum length**: 10
    - Supabase Dashboard → Authentication → URL Configuration
    - **Redirect URLs**: `https://yourdomain.com/*`
 
-7. **Done!** Users can now register and be tracked by landing page.
+10. **Done!** Users can now register, receive memberships, and be enrolled in courses automatically based on their landing page.
 
 📖 **Full Documentation:**
 - **Complete feature list:** [FEATURES.md](FEATURES.md) - 🎯 **129 features organized by category!**
@@ -86,82 +173,11 @@
 - ✅ **0 Vulnerabilities** - Clean `composer audit` report
 - ✅ **4-Layer Security Architecture** - WordPress validation → Supabase RLS → Cloudflare WAF → AIOS
 
-### Analytics & Tracking
-- ✅ **Registration Pairs** - Map landing pages → thank you pages for conversion tracking
-- ✅ **Supabase Logging** - All registrations logged to Supabase with full metadata
-- ✅ **Page-Specific Redirects** - Different thank you pages per landing page
-- ✅ **Multi-Site Support** - Site-specific data filtering with RLS policies
-
 ### LMS & Membership Integrations
 - ✅ **MemberPress Integration** - Auto-assign FREE memberships on registration
 - ✅ **LearnDash Integration** - Auto-enroll users in courses on registration
 - ✅ **LearnDash Banner Management** - One-click enrollment banner removal with UI
 - ✅ **Landing Page Mapping** - Different memberships/courses per registration source
-
-### WordPress Integration
-- ✅ **Automatic User Sync** - Creates WordPress users on first login
-- ✅ **Session Management** - WordPress authentication cookies
-- ✅ **Supabase User ID Storage** - Links WP user to Supabase `auth.uid()`
-- ✅ **Smart Redirects** - Return to origin page after login
-- ✅ **Two-Page Architecture** - Separate form and callback pages for clean flow
-- ✅ **Russian Localization** - Complete UI translation
-- ✅ **Role Assignment** - Default subscriber role (configurable)
-- ✅ **Shortcode Support** - `[supabase_auth_form]` + `[supabase_auth_callback]`
-- ✅ **Settings UI** - WordPress Admin → Supabase Bridge (5 tabs: General, Pairs, Memberships, Courses, Banner)
-
-### Developer Experience
-- ✅ **Ready-to-use Form** - `auth-form.html` with all 3 auth methods
-- ✅ **REST API** - `/wp-json/supabase-auth/callback` and `/logout` endpoints
-- ✅ **Encrypted Settings** - AES-256-CBC encryption for credentials in database
-- ✅ **No Database Changes** - Uses existing `wp_users` and `wp_usermeta`
-- ✅ **Composer** - Modern PHP dependency management
-- ✅ **ZIP Installation** - Standard WordPress plugin upload method
-
----
-
-## 🗺️ Roadmap
-
-### Current Status: v0.9.11 ✅ Production Ready
-
-**Complete Feature Set** - All planned MVP features implemented + Universal Membership/Enrollment System:
-
-#### Authentication & Security
-- ✅ Multi-provider authentication (Google, Facebook, Magic Link)
-- ✅ Multi-flow OAuth support (PKCE + Implicit flows)
-- ✅ Safari Privacy Protection (works on iOS/macOS Privacy mode)
-- ✅ Enterprise-grade security (4-layer defense architecture)
-- ✅ Russian localization (complete UI translation)
-
-#### Analytics & Integrations
-- ✅ Registration Pairs (landing page → thank you page tracking)
-- ✅ MemberPress integration (auto-assign FREE memberships with duplicate prevention)
-- ✅ LearnDash integration (auto-enroll in courses with duplicate prevention)
-- ✅ LearnDash banner management UI (one-click enable/disable)
-- ✅ Universal Membership/Enrollment System (helper functions, status analyzer, action executor)
-
-#### WordPress Integration
-- ✅ WordPress settings UI (5 tabs: General, Pairs, Memberships, Courses, Banner)
-- ✅ Shortcode system (`[supabase_auth_form]` + `[supabase_auth_callback]`)
-- ✅ Two-page architecture (form page + callback page)
-- ✅ Smart redirects (return to origin page after login)
-
-#### Security & Testing
-- ✅ Comprehensive security scanning (dialog files + source code)
-- ✅ Integration testing suite (all core features)
-- ✅ Clean repository (no credentials, production code only)
-
-### Future Enhancements (v0.10.0+)
-
-**Community-Driven Features** - Based on user feedback:
-
-- **Role Mapping** - Map Supabase roles → WordPress roles (admin, editor, subscriber)
-- **Enhanced Metadata Sync** - Sync avatar, first name, last name from OAuth providers
-- **Email/Password Authentication** - Native Supabase email/password login
-- **Multi-language Support** - Add more languages beyond Russian
-
-**Full Development History:** See [.claude/BACKLOG.md](.claude/BACKLOG.md)
-
-**Want a feature?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues) or ⭐ star the repo!
 
 ---
 
@@ -176,61 +192,6 @@
 - 💡 **Feature Request?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues) and vote 👍
 
 **See all issues:** https://github.com/alexeykrol/supabase-wordpress/issues
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────┐
-│   Browser   │
-│  (User)     │
-└──────┬──────┘
-       │ 1. Click "Login with Google"
-       ▼
-┌─────────────────┐
-│  Supabase Auth  │ ← OAuth providers (Google, Facebook, etc.)
-│  (supabase.co)  │
-└────────┬────────┘
-         │ 2. Redirect with access_token (JWT)
-         ▼
-┌──────────────────────┐
-│  WordPress Plugin    │
-│  REST API Endpoint   │ ← /wp-json/supabase-auth/callback
-│                      │
-│  1. Verify JWT (JWKS)│
-│  2. Find/Create User │
-│  3. Set WP Session   │
-└──────────┬───────────┘
-           │ 3. WordPress user logged in
-           ▼
-┌──────────────────────┐
-│   WordPress Site     │ ← User can access WP content, plugins, admin
-│   (wp_users)         │
-└──────────────────────┘
-```
-
-**Key Components:**
-- **Frontend:** Vanilla JavaScript with `@supabase/supabase-js` (CDN)
-- **Backend:** WordPress REST API + PHP JWT verification
-- **Security:** RS256 signature validation via Supabase JWKS endpoint
-- **Storage:** WordPress `wp_users` + `wp_usermeta` tables
-
----
-
-## 🔐 Security
-
-This plugin follows WordPress security best practices:
-
-- ✅ **Never trust client input** - All JWT validation on server
-- ✅ **Defense in depth** - Multiple security layers (CSRF, rate limiting, headers)
-- ✅ **Audit trail** - All authentication events logged with IP
-- ✅ **Secure defaults** - Email verification required for OAuth
-- ✅ **Regular updates** - `composer audit` runs clean (0 vulnerabilities)
-
-**Security Policy:** See [SECURITY.md](Init/SECURITY.md)
-
-**Found a vulnerability?** Please report privately to the maintainer.
 
 ---
 
