@@ -84,6 +84,14 @@ CLAUDE.md
 init-project.sh
 quick-update.sh
 phpunit.xml
+package.json
+package-lock.json
+
+# Old/deprecated features - no longer used
+supabase/webhook-system-v*.sql
+
+# External automation scenarios - not part of plugin
+MemberPress.json
 
 # SSH keys and production credentials - NEVER commit these!
 claude_ssh_key*
