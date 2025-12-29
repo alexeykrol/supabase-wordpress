@@ -1,19 +1,14 @@
-# WordPress Configuration Files (CRITICAL - contain real credentials)
+# WordPress Plugin - Supabase Bridge
+# Public .gitignore - Safe patterns for plugin users
+
+# WordPress Configuration Files
 wp-config.php
 wp-config-*.php
-wp-config_*.php
-wp-config-local.php
-wp-config-alexeykrol.php
-wp-config-quest.php
-wp-config-questtales.php
 
 # Environment files
 .env
 .env.local
 .env.*.local
-
-# Production Credentials
-.production-credentials
 
 # Composer
 /vendor/
@@ -56,125 +51,12 @@ coverage/
 # Backups
 *.bak
 *.backup
-*-copy.html
-*-old.html
 
 # Build directory
 build/
 
-# Deployment archives (versioned releases)
-supabase-bridge-v*.zip
-build-release.sh
-
-# Legacy directories (NOT Init/ - it's critical!)
-archive/
-docs/
+# Deployment archives
+*.zip
 
 # WordPress debugging
 wp-content/debug.log
-
-# Claude dialogs - contain conversation history with potential secrets
-# Using wildcard to protect ALL dialog files automatically
-dialog/
-dialog/*.md
-
-# Claude Code Starter Framework - internal development utility
-# Not needed for plugin users, only for AI-assisted development
-.claude/
-CLAUDE.md
-init-project.sh
-quick-update.sh
-phpunit.xml
-package.json
-package-lock.json
-
-# Old/deprecated features - no longer used
-supabase/webhook-system-v*.sql
-
-# External automation scenarios - not part of plugin
-MemberPress.json
-
-# SSH keys and production credentials - NEVER commit these!
-claude_ssh_key*
-.production-credentials
-*.pem
-*.key
-*_rsa
-*_dsa
-*_ecdsa
-*_ed25519
-id_rsa*
-id_dsa*
-id_ecdsa*
-id_ed25519*
-
-# Debug and development files - keep repo clean
-PRODUCTION_DEBUGGING*.md
-PRODUCTION_SETUP*.md
-QUICK_SETUP*.md
-CACHE_TROUBLESHOOTING*.md
-SECURITY_ROLLBACK*.md
-AGENT_SKILLS*.md
-CALLBACK_URL*.md
-FEATURES*.md
-FRAMEWORK_GUIDE*.md
-test-*.html
-*-test.html
-debug-*.html
-*-debug.html
-
-# Internal AI/Framework files - not related to plugin
-AI_DEVELOPER_PROFILING*.md
-MULTI_AGENT_AUTONOMOUS_COMMUNICATION*.md
-FRAMEWORK_IMPROVEMENTS*.md
-RELEASE_PROTOCOL*.md
-
-# Testing - not needed in public repo
-tests/
-
-# Security - internal tools and reports
-security/
-webhook-system/
-
-# Claude dialogs
-dialog/2025-12-21_session-f649a213.md
-dialog/2025-12-21_session-049ece27.md
-dialog/2025-12-21_session-01423efb.md
-dialog/2025-12-21_session-20d4b698.md
-dialog/2025-12-21_session-c3e3b4ce.md
-dialog/2025-12-21_session-1ef83794.md
-dialog/2025-12-21_session-9c89af73.md
-dialog/2025-12-21_session-31001877.md
-dialog/2025-12-21_session-215298ab.md
-dialog/2025-12-21_session-9ee39ad1.md
-dialog/2025-12-21_session-33ad8223.md
-dialog/2025-12-21_session-9db7b129.md
-dialog/2025-12-21_session-55c166f3.md
-dialog/2025-12-21_session-69cef344.md
-dialog/2025-12-21_session-84a9f688.md
-dialog/2025-12-21_session-9c7cc236.md
-dialog/2025-12-21_session-842eac84.md
-dialog/2025-12-21_session-541ad1d2.md
-dialog/2025-12-21_session-7e63996c.md
-dialog/2025-12-21_session-1eae36c9.md
-dialog/2025-12-21_session-986e7fa1.md
-dialog/2025-12-19_session-050ed032.md
-dialog/2025-12-19_session-4a7bfd40.md
-dialog/2025-12-19_session-0e7a2f56.md
-dialog/2025-12-19_session-d3b68b09.md
-dialog/2025-12-19_session-386080cf.md
-dialog/2025-12-19_session-f7f4aa4a.md
-dialog/2025-12-19_session-23aa3cc1.md
-dialog/2025-12-19_session-d750114c.md
-dialog/2025-12-19_session-5c6aa790.md
-dialog/2025-12-19_session-af0aa236.md
-dialog/2025-12-19_session-dcaf60eb.md
-dialog/2025-12-19_session-cecff52e.md
-dialog/2025-12-19_session-e75dfed8.md
-dialog/2025-12-19_session-9317b523.md
-dialog/2025-12-19_session-0e8cc7f1.md
-dialog/2025-12-19_session-bc8c61b1.md
-dialog/2025-12-19_session-e75e4cae.md
-dialog/2025-12-19_session-a3c7bb25.md
-dialog/2025-12-19_session-04210fae.md
-dialog/2025-12-19_session-09345fb9.md
