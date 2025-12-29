@@ -64,6 +64,7 @@ build/
 
 # Deployment archives (versioned releases)
 supabase-bridge-v*.zip
+build-release.sh
 
 # Legacy directories (NOT Init/ - it's critical!)
 archive/
