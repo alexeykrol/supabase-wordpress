@@ -77,8 +77,10 @@ wp-content/debug.log
 dialog/
 dialog/*.md
 
-# Claude framework logs
-.claude/logs/
+# Claude Code Starter Framework - internal development utility
+# Not needed for plugin users, only for AI-assisted development
+.claude/
+CLAUDE.md
 
 # SSH keys and production credentials - NEVER commit these!
 claude_ssh_key*
