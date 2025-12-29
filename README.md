@@ -146,12 +146,6 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
 
 10. **Done!** Users can now register, receive memberships, and be enrolled in courses automatically based on their landing page.
 
-📖 **Full Documentation:**
-- **Complete feature list:** [FEATURES.md](FEATURES.md) - 🎯 **129 features organized by category!**
-- Quick setup (5 min): [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)
-- Production deployment: [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)
-- Security architecture: [SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)
-
 ---
 
 ## ✨ Core Features
@@ -186,30 +180,10 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
 **Production Status:** ✅ Plugin is stable and tested on [alexeykrol.com](https://alexeykrol.com)
 
 **Need Help?**
-- 📖 **Documentation:** See [QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md) for quick start
-- 📖 **Production Setup:** See [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md) for detailed deployment
 - 🐛 **Found a Bug?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues)
 - 💡 **Feature Request?** [Open an issue](https://github.com/alexeykrol/supabase-wordpress/issues) and vote 👍
 
 **See all issues:** https://github.com/alexeykrol/supabase-wordpress/issues
-
----
-
-## 📖 Documentation
-
-### Feature Overview:
-- **[FEATURES.md](FEATURES.md)** - 🎯 Complete feature list (129 features organized by category!)
-
-### Quick Start & Deployment:
-- **[QUICK_SETUP_CHECKLIST.md](QUICK_SETUP_CHECKLIST.md)** - 1-page deployment guide (5 minutes)
-- **[PRODUCTION_SETUP.md](PRODUCTION_SETUP.md)** - Detailed AIOS/Cloudflare/LiteSpeed configuration
-
-### Security & Architecture:
-- **[SECURITY_ROLLBACK_SUMMARY.md](SECURITY_ROLLBACK_SUMMARY.md)** - Security architecture explained
-- **[SECURITY_RLS_POLICIES_FINAL.sql](SECURITY_RLS_POLICIES_FINAL.sql)** - RLS policies for Supabase
-
-### Database Schema:
-- **[supabase-tables.sql](supabase-tables.sql)** - Create tables in Supabase
 
 ---
 
@@ -241,8 +215,6 @@ Copyright (c) 2025 Alexey Krol
 
 - **[Supabase](https://supabase.com)** - Amazing open-source Firebase alternative
 - **[firebase/php-jwt](https://github.com/firebase/php-jwt)** - JWT verification library
-- **[Claude Code Starter Framework](https://github.com/anthropics/claude-code-starter)** - Documentation structure
-- **[Build AI Agents Course](https://github.com/alexeykrol/build-ai-agents-course)** - This plugin was developed as part of a comprehensive course on AI-assisted development (370-470 person-hours of work completed in 21 days)
 
 ---
 
