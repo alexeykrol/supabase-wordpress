@@ -747,12 +747,29 @@ function sb_assign_membership_on_registration($wp_user_id, $registration_url) {
     // Let MemberPress handle expires_at based on product settings
     $txn->store();
 
-    error_log(sprintf(
-      'Supabase Bridge: Membership assigned - User ID: %d, Membership ID: %d, Transaction ID: %d',
-      $wp_user_id,
-      $membership_id,
-      $txn->id
-    ));
+    // ✅ CRITICAL FIX: Trigger MemberPress webhook for Make.com integration
+    // Without this, webhooks are NOT sent and GetResponse automation fails
+    if (class_exists('MeprEvent')) {
+      $event = MeprEvent::record('transaction-completed', $txn);
+
+      error_log(sprintf(
+        'Supabase Bridge: Membership assigned + Webhook triggered - User ID: %d, Membership ID: %d, Transaction ID: %d, Event ID: %d',
+        $wp_user_id,
+        $membership_id,
+        $txn->id,
+        $event->id ?? 0
+      ));
+    } else {
+      // Fallback: use WordPress action directly
+      do_action('mepr-event-transaction-completed', $txn);
+
+      error_log(sprintf(
+        'Supabase Bridge: Membership assigned + Webhook triggered (fallback) - User ID: %d, Membership ID: %d, Transaction ID: %d',
+        $wp_user_id,
+        $membership_id,
+        $txn->id
+      ));
+    }
 
     return true;
 
