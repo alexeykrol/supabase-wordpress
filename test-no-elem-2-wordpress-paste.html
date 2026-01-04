@@ -321,6 +321,17 @@
     const endpoint = window.location.origin + '/wp-json/supabase-bridge/v1/callback';
     debug('Endpoint', endpoint);
 
+    // Determine registration_url with priority:
+    // 1. URL query param (Magic Link - works across devices)
+    // 2. localStorage (OAuth or same tab - works on same device)
+    // 3. Current page path (fallback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const registration_url = urlParams.get('registration_url') ||
+                            safeStorage.getItem('registration_page_url') ||
+                            window.location.pathname;
+
+    debug('Registration URL determined', registration_url);
+
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -329,7 +340,7 @@
         },
         body: JSON.stringify({
           access_token: tokens.access_token,
-          registration_url: safeStorage.getItem('registration_page_url') || window.location.pathname
+          registration_url: registration_url
         }),
         credentials: 'include' // CRITICAL: Include cookies
       });

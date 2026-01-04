@@ -206,6 +206,49 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
 
 ---
 
+## ⚠️ Important Notes
+
+### Caching Plugins
+
+**⚠️ CRITICAL:** If you use caching plugins (LiteSpeed Cache, WP Rocket, W3 Total Cache, etc.), you **MUST exclude pages with authentication forms from cache**.
+
+**Why?**
+- The auth form shortcode `[supabase_auth_form]` generates dynamic content
+- Cached pages will show **empty content** instead of the form
+- Users won't be able to register or login
+
+**Solution:**
+
+1. **Disable caching** for pages using `[supabase_auth_form]` shortcode:
+   - `/reg_ai_intro/` (or your registration page)
+   - Any other pages with the auth form
+
+2. **How to exclude pages from cache:**
+
+   **LiteSpeed Cache:**
+   - Go to: LiteSpeed Cache → Cache → Excludes
+   - Add URI: `/reg_ai_intro/`
+
+   **WP Rocket:**
+   - Go to: WP Rocket → Advanced Rules
+   - Add "Never Cache URL(s)": `/reg_ai_intro/`
+
+   **W3 Total Cache:**
+   - Go to: Performance → Page Cache → Advanced
+   - Add "Never cache the following pages": `/reg_ai_intro/`
+
+3. **After adding exclusions:**
+   - Clear all cache
+   - Test the form appears correctly
+
+**Verification:**
+```bash
+# Check if page is cached (should return no cache headers)
+curl -I https://yoursite.com/reg_ai_intro/ | grep -i cache
+```
+
+---
+
 ## 📝 Support & Issues
 
 **Production Status:** ✅ Plugin is stable and tested on [alexeykrol.com](https://alexeykrol.com)

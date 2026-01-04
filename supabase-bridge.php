@@ -3445,7 +3445,10 @@ function sb_ajax_save_pair() {
     }
   }
 
-  // Note: Pairs stored only in wp_options (no Supabase sync needed)
+  // Sync to Supabase wp_registration_pairs table
+  if ($saved_pair) {
+    sb_sync_pair_to_supabase($saved_pair);
+  }
 
   wp_send_json_success(['message' => 'Pair saved successfully', 'pair_id' => $pair_id]);
 }
@@ -3497,7 +3500,8 @@ function sb_ajax_delete_pair() {
   // Save to wp_options
   update_option('sb_registration_pairs', $pairs);
 
-  // Note: Pairs stored only in wp_options (no Supabase sync needed)
+  // Delete from Supabase wp_registration_pairs table
+  sb_delete_pair_from_supabase($pair_id);
 
   wp_send_json_success(['message' => 'Pair deleted successfully']);
 }

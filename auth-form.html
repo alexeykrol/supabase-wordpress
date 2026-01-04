@@ -939,11 +939,14 @@
       console.log('🎯 User submitted email for magic link');
 
       try {
-        // Отправка magic link
+        // Отправка magic link с registration_url в URL (работает между устройствами)
+        const currentPage = window.location.pathname;
+        const callbackWithParam = '{{CALLBACK_URL}}?registration_url=' + encodeURIComponent(currentPage);
+
         const { error } = await supabaseClient.auth.signInWithOtp({
           email: email,
           options: {
-            emailRedirectTo: '{{CALLBACK_URL}}'
+            emailRedirectTo: callbackWithParam
           }
         });
 
@@ -1083,10 +1086,14 @@
         }
 
         try {
+          // Повторная отправка с тем же registration_url
+          const currentPage = window.location.pathname;
+          const callbackWithParam = '{{CALLBACK_URL}}?registration_url=' + encodeURIComponent(currentPage);
+
           const { error } = await supabaseClient.auth.signInWithOtp({
             email: email,
             options: {
-              emailRedirectTo: '{{CALLBACK_URL}}'
+              emailRedirectTo: callbackWithParam
             }
           });
 
