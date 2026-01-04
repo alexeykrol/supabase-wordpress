@@ -275,11 +275,47 @@
     debug('Hash fragment', window.location.hash);
     debug('Query string', window.location.search);
 
+    // ═══════════════════════════════════════════════════════════
+    // STEP 1: Check for Supabase errors FIRST (before looking for tokens)
+    // ═══════════════════════════════════════════════════════════
+    const hash = window.location.hash;
+    if (hash && hash.includes('error=')) {
+      debug('Supabase error detected in URL hash');
+      const errorParams = new URLSearchParams(hash.substring(1));
+      const errorCode = errorParams.get('error_code');
+      const errorType = errorParams.get('error');
+      const errorDescription = errorParams.get('error_description');
+
+      debug('Error code', errorCode);
+      debug('Error type', errorType);
+      debug('Error description', errorDescription);
+
+      // User-friendly messages for common errors
+      let userMessage;
+
+      if (errorCode === 'otp_expired') {
+        userMessage = 'Ссылка для входа устарела (истёк срок действия). Пожалуйста, запросите новую ссылку для входа.';
+      } else if (errorCode === 'otp_disabled') {
+        userMessage = 'Вход по email временно недоступен. Попробуйте войти через Google или Facebook.';
+      } else if (errorType === 'access_denied') {
+        userMessage = 'Доступ запрещён. Пожалуйста, попробуйте ещё раз или свяжитесь с поддержкой.';
+      } else {
+        // Generic error with description from Supabase
+        userMessage = errorDescription
+          ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
+          : 'Ошибка входа. Пожалуйста, попробуйте ещё раз.';
+      }
+
+      throw new Error(userMessage);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 2: No errors → Extract authentication tokens
+    // ═══════════════════════════════════════════════════════════
     let params;
     let source;
 
     // Try hash fragment first (Implicit flow)
-    const hash = window.location.hash;
     if (hash && hash.includes('access_token=')) {
       params = new URLSearchParams(hash.substring(1));
       source = 'hash fragment (Implicit flow)';
@@ -489,7 +525,37 @@
       console.error('[Auth Callback] Error:', error);
       debug('Authentication failed', error.toString());
       clearInterval(dotsTimer);
-      updateStatus('⚠ Ошибка аутентификации: ' + error.message, 'error');
+
+      // Get registration_url to provide helpful retry link
+      const urlParams = new URLSearchParams(window.location.search);
+      const formPageUrl = urlParams.get('registration_url') || '/';
+
+      // Update error message
+      updateStatus('⚠️ ' + error.message, 'error');
+
+      // Update retry panel with link to form page
+      const retryPanel = document.getElementById('authRetry');
+      if (retryPanel) {
+        retryPanel.innerHTML = `
+          <p style="color: #666; font-size: 14px; margin: 15px 0;">
+            Чтобы войти снова, перейдите к форме входа:
+          </p>
+          <a href="${formPageUrl}" style="
+            display: inline-block;
+            padding: 12px 24px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.2s;
+          " onmouseover="this.style.background='#1d4ed8'"
+             onmouseout="this.style.background='#2563eb'">
+            Перейти к форме входа
+          </a>
+        `;
+        retryPanel.style.display = 'block';
+      }
     }
   }
 

@@ -45,7 +45,43 @@ Before installing the plugin, ensure you have:
 - Add redirect URI: `https://yourproject.supabase.co/auth/v1/callback`
 - Configure in Supabase: Authentication → Providers → Facebook
 
-**3. Required WordPress Plugins**
+**3. SMTP Provider Configuration (CRITICAL for Production)**
+
+⚠️ **IMPORTANT:** Supabase's built-in SMTP is **ONLY for testing/MVP** and has strict rate limits (~50-100 emails/hour).
+
+**For production use, you MUST configure an external SMTP provider:**
+
+Magic Link authentication will **FAIL under load** without external SMTP. During high traffic (European morning registrations), Supabase SMTP hit rate limits and blocked all new user registrations.
+
+**Recommended SMTP Providers:**
+- **Amazon SES** (Simple Email Service) - Used in this project, reliable at scale
+- SendGrid - Easy setup, good free tier
+- Mailgun - Developer-friendly API
+- Postmark - High deliverability
+- Any custom SMTP server
+
+**How to Configure:**
+1. Create account with SMTP provider (e.g., AWS → SES → verify domain)
+2. Get SMTP credentials (host, port, username, password)
+3. Go to Supabase Dashboard → Authentication → Email Templates
+4. Click "Settings" → "SMTP Settings"
+5. Enter your SMTP provider credentials:
+   ```
+   Host: email-smtp.us-east-1.amazonaws.com
+   Port: 587
+   Username: [Your SMTP username]
+   Password: [Your SMTP password]
+   Sender email: noreply@yourdomain.com
+   Sender name: Your Site Name
+   ```
+6. **Test email delivery** - send test Magic Link to verify
+
+**Without external SMTP configured:**
+- ✅ MVP/Testing: Works fine (< 50 users/hour)
+- ❌ Production: Will fail during traffic spikes
+- ❌ Marketing campaigns: Rate limits will block emails
+
+**4. Required WordPress Plugins**
 - **MemberPress** - For membership management (free memberships supported)
 - **LearnDash** - For course management and enrollment
 - Both plugins must be installed and activated before Supabase Bridge

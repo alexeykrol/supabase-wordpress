@@ -4,18 +4,54 @@ All notable changes to Supabase Bridge are documented in this file.
 
 ## [0.9.12] - 2026-01-04
 
-### Fixed
-- **Critical: Magic Link cross-device registration URL loss** - ~46% of Magic Link registrations losing pair_id
-  - Root cause: OAuth redirects lose localStorage when user opens email on different device/browser
-  - Solution: Pass `registration_url` via URL query parameter in Magic Link emails
-  - Modified `auth-form.html` to include registration_url in `emailRedirectTo` callback URL
-  - Modified callback page (`test-no-elem-2-wordpress-paste.html`) to read from URL param with localStorage fallback
-  - Priority-based detection: URL param → localStorage → current page path
-  - Fixes ~46% data loss in marketing analytics
-- **Registration pair sync bug** - WordPress pairs not syncing to Supabase
-  - Added missing `sb_sync_pair_to_supabase()` call in `sb_ajax_save_pair()`
-  - Added missing `sb_delete_pair_from_supabase()` call in `sb_ajax_delete_pair()`
-  - Registration pairs now properly sync from WordPress to Supabase table
+### 2026-01-04 22:45 - Error Handling Enhancement
+**Fixed: Supabase error detection on callback page** - Users stuck on "Welcome! Wait..." message
+- Added error detection BEFORE token extraction in callback handler
+- Parse Supabase errors from URL hash (`#error=otp_expired`, etc.)
+- Show user-friendly error messages with specific instructions
+- Provide "Return to form" button with link to `registration_url`
+- Handles common errors:
+  - `otp_expired` - "Link expired, request new one"
+  - `otp_disabled` - "Email login unavailable, use Google/Facebook"
+  - `access_denied` - "Access denied, contact support"
+  - Generic errors - Show Supabase error description
+
+**Error message format:**
+```
+⚠️ [Specific error message]
+
+Чтобы войти снова, перейдите к форме входа:
+[Перейти к форме входа] → {registration_url}
+```
+
+### 2026-01-04 14:30 - Critical Infrastructure Changes
+
+**CRITICAL: SMTP Provider Migration** - Migrated from Supabase SMTP to Amazon SES
+- **Root cause:** Supabase built-in SMTP hit rate limits during high traffic (European morning registrations)
+- **Impact:** Magic Link emails stopped sending, blocking new user registrations
+- **Solution:** Migrated to Amazon SES (Simple Email Service)
+- **Implementation:**
+  - Created AWS account and configured SES
+  - Verified domain ownership (DKIM, SPF records)
+  - Updated Supabase Dashboard → Authentication → SMTP Settings
+  - Tested email delivery at scale
+- **IMPORTANT:** Supabase SMTP is ONLY for MVP/testing. Production REQUIRES external SMTP provider.
+- **Recommended providers:** Amazon SES (used here), SendGrid, Mailgun, Postmark
+
+### 2026-01-04 10:15 - Data Integrity Fixes
+
+**Fixed: Magic Link cross-device registration URL loss** - ~46% of Magic Link registrations losing pair_id
+- Root cause: OAuth redirects lose localStorage when user opens email on different device/browser
+- Solution: Pass `registration_url` via URL query parameter in Magic Link emails
+- Modified `auth-form.html` to include registration_url in `emailRedirectTo` callback URL
+- Modified callback page (`test-no-elem-2-wordpress-paste.html`) to read from URL param with localStorage fallback
+- Priority-based detection: URL param → localStorage → current page path
+- Fixes ~46% data loss in marketing analytics
+
+**Fixed: Registration pair sync bug** - WordPress pairs not syncing to Supabase
+- Added missing `sb_sync_pair_to_supabase()` call in `sb_ajax_save_pair()`
+- Added missing `sb_delete_pair_from_supabase()` call in `sb_ajax_delete_pair()`
+- Registration pairs now properly sync from WordPress to Supabase table
 
 ### Added
 - **Data Integrity Monitoring System** - Local bash script for verifying registration tracking
