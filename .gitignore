@@ -61,3 +61,27 @@ build/
 # WordPress debugging
 wp-content/debug.log
 .production-credentials
+
+# Claude dialogs
+dialog/2025-12-21_session-cfe36ff4.md
+dialog/2025-12-21_session-61249d5c.md
+dialog/2025-12-21_session-5a26c026.md
+dialog/2025-12-21_session-87f6bd3e.md
+dialog/2025-12-21_session-4d06186f.md
+dialog/2025-12-21_session-33f6ed3d.md
+dialog/2025-12-21_session-177c6845.md
+dialog/2025-12-21_session-fe179125.md
+dialog/2025-12-21_session-1a6bc8d8.md
+dialog/2025-12-21_session-2216896c.md
+dialog/2025-12-21_session-5a81795a.md
+dialog/2025-12-21_session-7c186257.md
+dialog/2025-12-21_session-62623fee.md
+dialog/2025-12-21_session-bcac0864.md
+dialog/2025-12-21_session-f922e929.md
+dialog/2025-12-21_session-c72aaaf2.md
+dialog/2025-12-21_session-e8716ee0.md
+dialog/2025-12-21_session-f2913d85.md
+dialog/2025-12-21_session-2aedeb41.md
+dialog/2025-12-21_session-ec7d84ca.md
+dialog/2025-12-21_session-a1ae34e0.md
+dialog/2026-01-03_session-5a49ff71.md

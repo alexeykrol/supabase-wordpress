@@ -2,6 +2,56 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.9.12] - 2026-01-04
+
+### Fixed
+- **Critical: Magic Link cross-device registration URL loss** - ~46% of Magic Link registrations losing pair_id
+  - Root cause: OAuth redirects lose localStorage when user opens email on different device/browser
+  - Solution: Pass `registration_url` via URL query parameter in Magic Link emails
+  - Modified `auth-form.html` to include registration_url in `emailRedirectTo` callback URL
+  - Modified callback page (`test-no-elem-2-wordpress-paste.html`) to read from URL param with localStorage fallback
+  - Priority-based detection: URL param → localStorage → current page path
+  - Fixes ~46% data loss in marketing analytics
+- **Registration pair sync bug** - WordPress pairs not syncing to Supabase
+  - Added missing `sb_sync_pair_to_supabase()` call in `sb_ajax_save_pair()`
+  - Added missing `sb_delete_pair_from_supabase()` call in `sb_ajax_delete_pair()`
+  - Registration pairs now properly sync from WordPress to Supabase table
+
+### Added
+- **Data Integrity Monitoring System** - Local bash script for verifying registration tracking
+  - `monitoring/check-integrity.sh` - Compares auth.users vs wp_user_registrations
+  - Checks for lost registrations (not tracked in analytics)
+  - Checks for missing landing page attribution (pair_id = NULL)
+  - Configurable time period (default: 1 hour, supports custom periods)
+  - Exit code 0 = all checks passed, exit code 1 = issues detected
+  - Safe read-only queries (no data modifications)
+- **Monitoring Documentation**
+  - `monitoring/README.md` - Complete setup and usage guide
+  - `monitoring/.env.example` - Credential template with clear instructions
+  - Scheduling examples for automated checks
+  - Security notes (credentials in .gitignore)
+
+### Changed
+- **Callback URL structure for Magic Link** - Now includes registration_url parameter
+  - Old: `https://site.com/callback`
+  - New: `https://site.com/callback?registration_url=/landing-page/`
+  - Backward compatible - falls back to localStorage if param missing
+- **Credential management** - Added Supabase section to `.production-credentials`
+  - Consolidated credential storage for monitoring scripts
+  - Already in .gitignore for security
+
+### Testing
+- Verified 100% pair_id tracking accuracy after fix (SQL queries on production data)
+- Tested Magic Link cross-device flow (PC → mobile email → callback)
+- Tested registration pair sync (WordPress → Supabase)
+- All registration methods working: Google OAuth, Facebook OAuth, Magic Link
+
+### Results
+- 100% registration tracking accuracy (no more NULL pair_ids)
+- Cross-device Magic Link authentication fully working
+- Real-time data integrity monitoring capability
+- No lost registrations for marketing attribution
+
 ## [0.9.11] - 2025-12-28
 
 ### Added

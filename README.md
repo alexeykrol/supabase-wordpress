@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.9.11-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.12-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0--6.8-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
