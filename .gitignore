@@ -60,3 +60,4 @@ build/
 
 # WordPress debugging
 wp-content/debug.log
+.production-credentials
