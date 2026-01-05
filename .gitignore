@@ -1,6 +1,15 @@
 # WordPress Plugin - Supabase Bridge
 # Public .gitignore - Safe patterns for plugin users
 
+# Private documentation (contains production metrics)
+EMAIL_DELIVERY_ANALYSIS.md
+
+# Testing & Monitoring Documentation (internal use only)
+.claude/TESTING.md
+.claude/testing-roadmap.md
+.claude/logs/
+monitoring/
+
 # WordPress Configuration Files
 wp-config.php
 wp-config-*.php
@@ -43,6 +52,12 @@ tests/reports/
 coverage/
 .phpunit.result.cache
 
+# Playwright E2E Tests
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/.auth/
+
 # Temporary files
 *.tmp
 *.temp
@@ -63,6 +78,29 @@ wp-content/debug.log
 .production-credentials
 
 # Claude dialogs
+dialog/2026-01-04_session-20a5c8b0.md
+dialog/2026-01-04_session-13d838b8.md
+dialog/2026-01-04_session-7bb564eb.md
+dialog/2026-01-04_session-7f96eaf4.md
+dialog/2026-01-04_session-e75454a4.md
+dialog/2026-01-04_session-8b28dd5c.md
+dialog/2026-01-04_session-0584e4fd.md
+dialog/2026-01-04_session-33726e22.md
+dialog/2026-01-04_session-a75a9109.md
+dialog/2026-01-04_session-d423d6e6.md
+dialog/2026-01-04_session-79bbc7dd.md
+dialog/2026-01-04_session-f84bb89f.md
+dialog/2026-01-04_session-7f229962.md
+dialog/2026-01-04_session-b3722566.md
+dialog/2026-01-04_session-a1f75aee.md
+dialog/2026-01-04_session-e50fa93c.md
+dialog/2026-01-04_session-7fed6fc6.md
+dialog/2026-01-04_session-bde41fb4.md
+dialog/2026-01-04_session-752eea5b.md
+dialog/2026-01-04_session-59b19236.md
+dialog/2026-01-04_session-c41235c0.md
+dialog/2026-01-04_session-d34cb310.md
+dialog/2026-01-04_session-616a057b.md
 dialog/2026-01-04_session-6a9c494c.md
 dialog/2026-01-04_session-d32dee1e.md
 dialog/2026-01-04_session-3fd7fa02.md

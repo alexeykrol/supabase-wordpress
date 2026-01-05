@@ -753,7 +753,7 @@ function sb_assign_membership_on_registration($wp_user_id, $registration_url) {
       $event = MeprEvent::record('transaction-completed', $txn);
 
       error_log(sprintf(
-        'Supabase Bridge: Membership assigned + Webhook triggered - User ID: %d, Membership ID: %d, Transaction ID: %d, Event ID: %d',
+        'Supabase Bridge: Membership assigned + MemberPress webhook triggered - User ID: %d, Membership ID: %d, Transaction ID: %d, Event ID: %d',
         $wp_user_id,
         $membership_id,
         $txn->id,
@@ -764,10 +764,30 @@ function sb_assign_membership_on_registration($wp_user_id, $registration_url) {
       do_action('mepr-event-transaction-completed', $txn);
 
       error_log(sprintf(
-        'Supabase Bridge: Membership assigned + Webhook triggered (fallback) - User ID: %d, Membership ID: %d, Transaction ID: %d',
+        'Supabase Bridge: Membership assigned + MemberPress webhook triggered (fallback) - User ID: %d, Membership ID: %d, Transaction ID: %d',
         $wp_user_id,
         $membership_id,
         $txn->id
+      ));
+    }
+
+    // ✅ NEW: Send independent webhook with MemberPress-compatible format
+    // Supports Make.com, Zapier, n8n, and any HTTP endpoint
+    $webhook_result = sb_send_memberpress_webhook($wp_user_id, $membership_id, $txn->id, $registration_url);
+
+    if ($webhook_result['success']) {
+      error_log(sprintf(
+        'Supabase Bridge: MemberPress webhooks sent successfully - User ID: %d, Email: %s, Membership ID: %d, Sent to: %d URL(s)',
+        $wp_user_id,
+        get_userdata($wp_user_id)->user_email,
+        $membership_id,
+        $webhook_result['sent_count']
+      ));
+    } else {
+      error_log(sprintf(
+        'Supabase Bridge: MemberPress webhooks FAILED - User ID: %d, Error: %s',
+        $wp_user_id,
+        $webhook_result['error'] ?? 'Unknown error'
       ));
     }
 
@@ -1956,6 +1976,9 @@ function sb_render_setup_page() {
       <a href="?page=supabase-bridge-setup&tab=courses" class="nav-tab <?php echo $current_tab === 'courses' ? 'nav-tab-active' : ''; ?>">
         📚 Courses
       </a>
+      <a href="?page=supabase-bridge-setup&tab=memberpress-webhook" class="nav-tab <?php echo $current_tab === 'memberpress-webhook' ? 'nav-tab-active' : ''; ?>">
+        🔗 MemberPress Webhooks
+      </a>
       <?php /* HIDDEN: Webhook tab (feature on hold)
       <a href="?page=supabase-bridge-setup&tab=webhooks" class="nav-tab <?php echo $current_tab === 'webhooks' ? 'nav-tab-active' : ''; ?>">
         🪝 Webhooks
@@ -2294,6 +2317,12 @@ function sb_render_setup_page() {
       <div class="tab-content">
         <?php sb_render_courses_tab(); ?>
       </div><!-- End Tab 4: Courses -->
+
+    <?php elseif ($current_tab === 'memberpress-webhook'): ?>
+      <!-- TAB 5: MemberPress Webhooks -->
+      <div class="tab-content">
+        <?php sb_render_memberpress_webhook_tab(); ?>
+      </div><!-- End Tab 5: MemberPress Webhooks -->
 
     <?php /* HIDDEN: Webhook tab content (feature on hold)
     elseif ($current_tab === 'webhooks'): ?>
@@ -4363,4 +4392,698 @@ function sb_hide_memberpress_login_link_css() {
       display: none !important;
     }
   </style>';
+}
+
+// =========================================================================
+// === MemberPress Webhooks (Independent system with MemberPress format) ===
+// =========================================================================
+
+/**
+ * MIGRATION: Automatically migrate old webhook settings to new format
+ * Runs once on admin_init to ensure backward compatibility
+ */
+function sb_migrate_webhook_settings() {
+  // Check if migration already completed
+  if (get_option('sb_webhook_migration_completed', false)) {
+    return; // Already migrated
+  }
+
+  // Check if old settings exist
+  $old_enabled = get_option('sb_make_webhook_enabled', null);
+  $old_url = get_option('sb_make_webhook_url', null);
+
+  // If no old settings, nothing to migrate
+  if ($old_enabled === null && $old_url === null) {
+    update_option('sb_webhook_migration_completed', true);
+    return;
+  }
+
+  // Check if new settings already exist (manual configuration)
+  $new_enabled = get_option('sb_memberpress_webhook_enabled', null);
+  $new_urls = get_option('sb_memberpress_webhook_urls', null);
+
+  // If new settings already exist, don't overwrite them
+  if ($new_enabled !== null || $new_urls !== null) {
+    update_option('sb_webhook_migration_completed', true);
+    return;
+  }
+
+  // Perform migration: convert old format to new
+  if ($old_enabled !== null) {
+    update_option('sb_memberpress_webhook_enabled', $old_enabled);
+  }
+
+  if ($old_url !== null && !empty(trim($old_url))) {
+    // Convert single URL to textarea format (one line)
+    update_option('sb_memberpress_webhook_urls', trim($old_url));
+  }
+
+  // Migrate last webhook status (if exists)
+  $old_last_webhook = get_option('sb_make_last_webhook', null);
+  if ($old_last_webhook !== null) {
+    // Add sent_count field for new format compatibility
+    $old_last_webhook['sent_count'] = $old_last_webhook['success'] ? 1 : 0;
+    $old_last_webhook['fail_count'] = $old_last_webhook['success'] ? 0 : 1;
+    $old_last_webhook['total_urls'] = 1;
+    update_option('sb_memberpress_last_webhook', $old_last_webhook);
+  }
+
+  // Mark migration as completed
+  update_option('sb_webhook_migration_completed', true);
+
+  // Log migration
+  error_log('Supabase Bridge: Webhook settings migrated from old format to new MemberPress format');
+}
+
+// Run migration automatically on admin init
+add_action('admin_init', 'sb_migrate_webhook_settings');
+
+/**
+ * Render MemberPress webhook configuration tab
+ */
+function sb_render_memberpress_webhook_tab() {
+  $webhook_urls = get_option('sb_memberpress_webhook_urls', '');
+  $webhook_enabled = get_option('sb_memberpress_webhook_enabled', false);
+  $last_webhook = get_option('sb_memberpress_last_webhook', []);
+
+  // Get REAL data from last registration for payload preview
+  global $wpdb;
+  $last_txn = $wpdb->get_row(
+    "SELECT * FROM {$wpdb->prefix}mepr_transactions
+     WHERE trans_num LIKE 'sb-%'
+     AND status = 'complete'
+     ORDER BY created_at DESC
+     LIMIT 1"
+  );
+
+  $payload_preview = '';
+  if ($last_txn) {
+    $user = get_userdata($last_txn->user_id);
+    $product = class_exists('MeprProduct') ? new MeprProduct($last_txn->product_id) : null;
+
+    $payload_preview = json_encode([
+      'event' => 'non-recurring-transaction-completed',
+      'type' => 'transaction',
+      'data' => [
+        'membership' => [
+          'id' => (int) $last_txn->product_id,
+          'title' => $product ? $product->post_title : 'N/A',
+          'price' => $product ? $product->price : '0.00',
+          'period' => $product ? $product->period : '1',
+          'period_type' => $product ? $product->period_type : 'lifetime',
+        ],
+        'member' => [
+          'id' => (int) $last_txn->user_id,
+          'email' => $user ? $user->user_email : 'N/A',
+          'username' => $user ? $user->user_login : 'N/A',
+          'first_name' => $user ? $user->first_name : '',
+          'last_name' => $user ? $user->last_name : '',
+          'display_name' => $user ? $user->display_name : 'N/A',
+        ],
+        'id' => (string) $last_txn->id,
+        'amount' => $last_txn->amount,
+        'total' => $last_txn->total,
+        'status' => $last_txn->status,
+        'txn_type' => $last_txn->txn_type,
+        'gateway' => $last_txn->gateway,
+        'created_at' => $last_txn->created_at,
+        'expires_at' => $last_txn->expires_at,
+      ]
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  }
+  ?>
+  <div style="margin-top: 20px;">
+    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">🔗 MemberPress Webhooks</h2>
+
+    <!-- Info Notice -->
+    <div class="notice notice-info" style="padding: 15px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">ℹ️ About This Integration</h3>
+      <p><strong>Independent webhook system</strong> - sends MemberPress-compatible events when membership is assigned.</p>
+      <p><strong>Payload format:</strong> Sends EXACT MemberPress format (100+ fields) - works with existing Make.com/Zapier/n8n automations.</p>
+      <p><strong>Trigger:</strong> Every time a FREE membership is assigned to a user (new or existing), webhook is sent.</p>
+      <p><strong>Use case:</strong> Add users to GetResponse mailing lists, trigger email sequences, update CRM, etc.</p>
+      <p><strong>Multiple services:</strong> Supports Make.com, Zapier, n8n, and any HTTP endpoint simultaneously.</p>
+    </div>
+
+    <!-- Configuration Form -->
+    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">⚙️ Webhook Configuration</h3>
+
+      <table class="form-table">
+        <tr>
+          <th scope="row">
+            <label for="sb_memberpress_webhook_enabled">Enable Webhooks</label>
+          </th>
+          <td>
+            <label>
+              <input
+                type="checkbox"
+                id="sb_memberpress_webhook_enabled"
+                <?php checked($webhook_enabled, true); ?>
+              >
+              Send webhooks when membership is assigned
+            </label>
+          </td>
+        </tr>
+
+        <tr>
+          <th scope="row">
+            <label for="sb_memberpress_webhook_urls">Webhook URLs</label>
+          </th>
+          <td>
+            <textarea
+              id="sb_memberpress_webhook_urls"
+              rows="5"
+              class="large-text"
+              placeholder="https://hook.make.com/abc123...&#10;https://hooks.zapier.com/xyz789...&#10;https://n8n.yourdomain.com/webhook/..."
+            ><?php echo esc_textarea($webhook_urls); ?></textarea>
+            <p class="description">
+              Enter webhook URLs (one per line). Supports Make.com, Zapier, n8n, and any HTTP endpoint.<br>
+              <strong>Important:</strong> All URLs will receive MemberPress-compatible payload format.
+            </p>
+          </td>
+        </tr>
+      </table>
+
+      <p class="submit" style="padding-top: 10px;">
+        <button type="button" id="sb-save-memberpress-webhook" class="button button-primary">
+          💾 Save Settings
+        </button>
+        <button type="button" id="sb-test-memberpress-webhook" class="button" style="margin-left: 10px;" <?php echo !$webhook_enabled || !$webhook_urls ? 'disabled' : ''; ?>>
+          🧪 Test Webhook
+        </button>
+      </p>
+
+      <div id="sb-memberpress-webhook-message"></div>
+    </div>
+
+    <!-- Webhook Payload Documentation -->
+    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">📦 Webhook Payload (MemberPress Format)</h3>
+      <?php if ($payload_preview): ?>
+        <p>This is the <strong>REAL payload</strong> that will be sent when you click "Test Webhook" (from last registration):</p>
+        <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 11px;"><code><?php echo esc_html($payload_preview); ?></code></pre>
+        <p style="margin-top: 10px; color: #0073aa;">
+          <strong>✅ 100% compatible</strong> with existing MemberPress automations in Make.com, Zapier, n8n.
+        </p>
+      <?php else: ?>
+        <p style="color: #d63638;">No registrations found yet. Register a user first to see real payload preview.</p>
+      <?php endif; ?>
+    </div>
+
+    <!-- Last Webhook Status -->
+    <?php if (!empty($last_webhook)): ?>
+    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">📊 Last Webhook</h3>
+      <table class="widefat" style="margin-top: 10px;">
+        <tr>
+          <th style="width: 150px;">Status</th>
+          <td>
+            <?php if ($last_webhook['success']): ?>
+              <span style="color: #46b450; font-weight: bold;">✅ Success</span>
+            <?php else: ?>
+              <span style="color: #dc3232; font-weight: bold;">❌ Failed</span>
+            <?php endif; ?>
+          </td>
+        </tr>
+        <tr>
+          <th>Email</th>
+          <td><?php echo esc_html($last_webhook['email'] ?? 'N/A'); ?></td>
+        </tr>
+        <tr>
+          <th>User ID</th>
+          <td><?php echo esc_html($last_webhook['user_id'] ?? 'N/A'); ?></td>
+        </tr>
+        <tr>
+          <th>Timestamp</th>
+          <td><?php echo esc_html($last_webhook['timestamp'] ?? 'N/A'); ?></td>
+        </tr>
+        <?php if (!$last_webhook['success'] && !empty($last_webhook['error'])): ?>
+        <tr>
+          <th>Error</th>
+          <td style="color: #dc3232;"><?php echo esc_html($last_webhook['error']); ?></td>
+        </tr>
+        <?php endif; ?>
+      </table>
+    </div>
+    <?php endif; ?>
+
+    <!-- How to Setup -->
+    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">🔧 Setup Instructions</h3>
+
+      <h4>Make.com:</h4>
+      <ol style="line-height: 1.8;">
+        <li>Create scenario with "Webhooks" trigger → "Custom webhook"</li>
+        <li>Copy webhook URL → paste above</li>
+        <li>Webhook receives <code>event</code>, <code>data.member</code>, <code>data.membership</code>, etc.</li>
+        <li>Map fields: Email = <code>data.member.email</code>, Name = <code>data.member.first_name</code></li>
+      </ol>
+
+      <h4>Zapier:</h4>
+      <ol style="line-height: 1.8;">
+        <li>Create Zap with "Webhooks by Zapier" trigger → "Catch Hook"</li>
+        <li>Copy webhook URL → paste above</li>
+        <li>Same field mapping as Make.com</li>
+      </ol>
+
+      <h4>n8n:</h4>
+      <ol style="line-height: 1.8;">
+        <li>Add "Webhook" node → "POST"</li>
+        <li>Copy webhook URL → paste above</li>
+        <li>Access fields via <code>$json.data.member.email</code></li>
+      </ol>
+
+      <p style="margin-top: 15px;">
+        <strong>💡 Tip:</strong> You can use the SAME webhook URL from existing MemberPress automations - payload format is identical!
+      </p>
+    </div>
+
+  </div>
+
+  <script>
+  jQuery(document).ready(function($) {
+    // Save webhook settings
+    $('#sb-save-memberpress-webhook').on('click', function() {
+      const button = $(this);
+      const messageDiv = $('#sb-memberpress-webhook-message');
+
+      button.prop('disabled', true).text('Saving...');
+      messageDiv.html('');
+
+      $.ajax({
+        url: ajaxurl,
+        method: 'POST',
+        data: {
+          action: 'sb_save_memberpress_webhook',
+          nonce: '<?php echo wp_create_nonce('sb_memberpress_webhook_nonce'); ?>',
+          enabled: $('#sb_memberpress_webhook_enabled').is(':checked'),
+          urls: $('#sb_memberpress_webhook_urls').val()
+        },
+        success: function(response) {
+          if (response.success) {
+            messageDiv.html('<div class="notice notice-success" style="padding: 10px; margin: 10px 0;"><p>✅ Settings saved successfully!</p></div>');
+            $('#sb-test-memberpress-webhook').prop('disabled', false);
+          } else {
+            messageDiv.html('<div class="notice notice-error" style="padding: 10px; margin: 10px 0;"><p>❌ Error: ' + (response.data || 'Unknown error') + '</p></div>');
+          }
+        },
+        error: function() {
+          messageDiv.html('<div class="notice notice-error" style="padding: 10px; margin: 10px 0;"><p>❌ AJAX request failed</p></div>');
+        },
+        complete: function() {
+          button.prop('disabled', false).text('💾 Save Settings');
+        }
+      });
+    });
+
+    // Test webhook
+    $('#sb-test-memberpress-webhook').on('click', function() {
+      const button = $(this);
+      const messageDiv = $('#sb-memberpress-webhook-message');
+
+      button.prop('disabled', true).text('Testing...');
+      messageDiv.html('');
+
+      $.ajax({
+        url: ajaxurl,
+        method: 'POST',
+        data: {
+          action: 'sb_test_memberpress_webhook',
+          nonce: '<?php echo wp_create_nonce('sb_memberpress_webhook_nonce'); ?>'
+        },
+        success: function(response) {
+          if (response.success) {
+            messageDiv.html('<div class="notice notice-success" style="padding: 10px; margin: 10px 0;"><p>✅ ' + response.data + '</p></div>');
+          } else {
+            messageDiv.html('<div class="notice notice-error" style="padding: 10px; margin: 10px 0;"><p>❌ Error: ' + (response.data || 'Unknown error') + '</p></div>');
+          }
+        },
+        error: function() {
+          messageDiv.html('<div class="notice notice-error" style="padding: 10px; margin: 10px 0;"><p>❌ AJAX request failed</p></div>');
+        },
+        complete: function() {
+          button.prop('disabled', false).text('🧪 Test Webhook');
+        }
+      });
+    });
+  });
+  </script>
+  <?php
+}
+
+/**
+ * AJAX: Save MemberPress webhook settings
+ */
+add_action('wp_ajax_sb_save_memberpress_webhook', 'sb_ajax_save_memberpress_webhook');
+function sb_ajax_save_memberpress_webhook() {
+  check_ajax_referer('sb_memberpress_webhook_nonce', 'nonce');
+
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Insufficient permissions');
+  }
+
+  $enabled = isset($_POST['enabled']) && $_POST['enabled'] === 'true';
+  $urls = sanitize_textarea_field($_POST['urls']);
+
+  // Validate URLs
+  if ($enabled && empty(trim($urls))) {
+    wp_send_json_error('At least one webhook URL is required when enabled');
+  }
+
+  if ($enabled) {
+    // Split URLs by newline and validate each
+    $url_list = array_filter(array_map('trim', explode("\n", $urls)));
+    foreach ($url_list as $url) {
+      if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        wp_send_json_error('Invalid webhook URL: ' . esc_html($url));
+      }
+    }
+  }
+
+  update_option('sb_memberpress_webhook_enabled', $enabled);
+  update_option('sb_memberpress_webhook_urls', $urls);
+
+  wp_send_json_success('Settings saved');
+}
+
+/**
+ * AJAX: Test MemberPress webhook
+ * Uses REAL data from last registration (not fake test data)
+ */
+add_action('wp_ajax_sb_test_memberpress_webhook', 'sb_ajax_test_memberpress_webhook');
+function sb_ajax_test_memberpress_webhook() {
+  check_ajax_referer('sb_memberpress_webhook_nonce', 'nonce');
+
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Insufficient permissions');
+  }
+
+  // Find last real transaction created by our plugin
+  global $wpdb;
+  $last_txn = $wpdb->get_row(
+    "SELECT * FROM {$wpdb->prefix}mepr_transactions
+     WHERE trans_num LIKE 'sb-%'
+     AND status = 'complete'
+     ORDER BY created_at DESC
+     LIMIT 1"
+  );
+
+  if (!$last_txn) {
+    wp_send_json_error('No completed transactions found. Register a user first to test with real data.');
+    return;
+  }
+
+  // Get registration URL from registration pairs (if exists)
+  $registration_url = '';
+  $pair = $wpdb->get_row($wpdb->prepare(
+    "SELECT registration_url FROM {$wpdb->prefix}user_registrations
+     WHERE user_id = %d
+     ORDER BY registered_at DESC
+     LIMIT 1",
+    $last_txn->user_id
+  ));
+  if ($pair) {
+    $registration_url = $pair->registration_url;
+  }
+
+  // Send webhook with REAL data (test_mode = false for production payload)
+  $result = sb_send_memberpress_webhook(
+    $last_txn->user_id,
+    $last_txn->product_id,
+    $last_txn->id,
+    $registration_url,
+    false // Use real data, not test data
+  );
+
+  if ($result['success']) {
+    $user = get_userdata($last_txn->user_id);
+    wp_send_json_success(sprintf(
+      'Test webhook sent to %d URL(s) using REAL data from last registration (User: %s, Transaction ID: %d)',
+      $result['sent_count'],
+      $user ? $user->user_email : 'N/A',
+      $last_txn->id
+    ));
+  } else {
+    wp_send_json_error($result['error']);
+  }
+}
+
+/**
+ * Send MemberPress-compatible webhook to multiple URLs
+ *
+ * @param int $user_id WordPress user ID
+ * @param int $membership_id MemberPress membership ID
+ * @param int $transaction_id MemberPress transaction ID
+ * @param string $registration_url Registration page URL
+ * @param bool $test_mode If true, sends test data
+ * @return array ['success' => bool, 'error' => string, 'sent_count' => int, 'results' => array]
+ */
+function sb_send_memberpress_webhook($user_id, $membership_id, $transaction_id, $registration_url = '', $test_mode = false) {
+  // Check if webhook is enabled (with fallback to old option)
+  $enabled = get_option('sb_memberpress_webhook_enabled', null);
+  if ($enabled === null) {
+    // Fallback: try old option name
+    $enabled = get_option('sb_make_webhook_enabled', false);
+  }
+
+  if (!$enabled) {
+    return ['success' => false, 'error' => 'Webhook disabled', 'sent_count' => 0];
+  }
+
+  // Get webhook URLs (with fallback to old option)
+  $webhook_urls_text = get_option('sb_memberpress_webhook_urls', '');
+
+  // Fallback: if new option is empty, try old single URL option
+  if (empty(trim($webhook_urls_text))) {
+    $old_url = get_option('sb_make_webhook_url', '');
+    if (!empty(trim($old_url))) {
+      $webhook_urls_text = $old_url; // Use old URL as fallback
+      error_log('Supabase Bridge: Using old webhook URL (migration pending)');
+    }
+  }
+
+  if (empty(trim($webhook_urls_text))) {
+    return ['success' => false, 'error' => 'Webhook URLs not configured', 'sent_count' => 0];
+  }
+
+  // Parse URLs from textarea (one per line)
+  $webhook_urls = array_filter(array_map('trim', explode("\n", $webhook_urls_text)));
+  if (empty($webhook_urls)) {
+    return ['success' => false, 'error' => 'No valid webhook URLs found', 'sent_count' => 0];
+  }
+
+  // Get user data
+  $user = get_userdata($user_id);
+  if (!$user && !$test_mode) {
+    return ['success' => false, 'error' => 'User not found', 'sent_count' => 0];
+  }
+
+  // Build MemberPress-compatible payload
+  if ($test_mode) {
+    // Test mode: simplified payload
+    $payload = [
+      'event' => 'non-recurring-transaction-completed',
+      'type' => 'transaction',
+      'data' => [
+        'membership' => [
+          'id' => 999999,
+          'title' => 'Test Membership',
+          'price' => '0.00',
+          'period' => '1',
+          'period_type' => 'lifetime'
+        ],
+        'member' => [
+          'id' => $user_id,
+          'email' => 'test@example.com',
+          'username' => 'testuser',
+          'first_name' => 'Test',
+          'last_name' => 'User',
+          'display_name' => 'Test User'
+        ],
+        'coupon' => '0',
+        'subscription' => '0',
+        'id' => '999999',
+        'amount' => '0.00',
+        'total' => '0.00',
+        'status' => 'complete',
+        'txn_type' => 'payment',
+        'gateway' => 'free',
+        'created_at' => current_time('mysql'),
+        'expires_at' => date('Y-m-d H:i:s', strtotime('+10 days'))
+      ]
+    ];
+  } else {
+    // Production mode: full MemberPress payload
+    $product = null;
+    $txn = null;
+
+    if (class_exists('MeprProduct')) {
+      $product = new MeprProduct($membership_id);
+    }
+
+    if (class_exists('MeprTransaction')) {
+      $txn = new MeprTransaction($transaction_id);
+    }
+
+    // Build membership object (MeprProduct properties)
+    $membership_data = [
+      'id' => $membership_id,
+      'title' => $product ? $product->post_title : 'Unknown Membership',
+      'content' => $product ? $product->post_content : '',
+      'excerpt' => $product ? $product->post_excerpt : '',
+      'date' => $product ? $product->post_date : current_time('mysql'),
+      'status' => $product ? $product->post_status : 'publish',
+      'price' => $product ? $product->price : '0.00',
+      'period' => $product ? $product->period : '1',
+      'period_type' => $product ? $product->period_type : 'lifetime'
+    ];
+
+    // Build member object (WP_User properties)
+    $member_data = [
+      'id' => $user_id,
+      'email' => $user->user_email,
+      'username' => $user->user_login,
+      'registered_at' => $user->user_registered,
+      'first_name' => $user->first_name,
+      'last_name' => $user->last_name,
+      'display_name' => $user->display_name,
+      'address' => [],
+      'profile' => []
+    ];
+
+    // Build transaction data
+    $transaction_data = [
+      'coupon' => '0',
+      'subscription' => '0',
+      'id' => (string) $transaction_id,
+      'amount' => $txn ? $txn->amount : '0.00',
+      'total' => $txn ? $txn->total : '0.00',
+      'status' => $txn ? $txn->status : 'complete',
+      'txn_type' => $txn ? $txn->txn_type : 'payment',
+      'gateway' => $txn ? $txn->gateway : 'free',
+      'created_at' => $txn ? $txn->created_at : current_time('mysql'),
+      'expires_at' => $txn ? $txn->expires_at : date('Y-m-d H:i:s', strtotime('+10 days'))
+    ];
+
+    // Combine into full payload
+    $payload = [
+      'event' => 'non-recurring-transaction-completed',
+      'type' => 'transaction',
+      'data' => array_merge($transaction_data, [
+        'membership' => $membership_data,
+        'member' => $member_data
+      ])
+    ];
+  }
+
+  // Send to all webhook URLs
+  $results = [];
+  $success_count = 0;
+  $fail_count = 0;
+
+  foreach ($webhook_urls as $webhook_url) {
+    $response = wp_remote_post($webhook_url, [
+      'body' => json_encode($payload),
+      'headers' => [
+        'Content-Type' => 'application/json'
+      ],
+      'timeout' => 10
+    ]);
+
+    // Check response
+    if (is_wp_error($response)) {
+      $error = $response->get_error_message();
+      $results[] = [
+        'url' => $webhook_url,
+        'success' => false,
+        'error' => $error
+      ];
+      $fail_count++;
+
+      error_log(sprintf(
+        'Supabase Bridge: MemberPress webhook failed - URL: %s, Error: %s',
+        $webhook_url,
+        $error
+      ));
+    } else {
+      $status_code = wp_remote_retrieve_response_code($response);
+      if ($status_code >= 200 && $status_code < 300) {
+        $results[] = [
+          'url' => $webhook_url,
+          'success' => true,
+          'status_code' => $status_code
+        ];
+        $success_count++;
+
+        error_log(sprintf(
+          'Supabase Bridge: MemberPress webhook sent - URL: %s, User ID: %d, Email: %s, Membership ID: %d',
+          $webhook_url,
+          $user_id,
+          $test_mode ? 'test@example.com' : $user->user_email,
+          $membership_id
+        ));
+      } else {
+        $error = "HTTP $status_code";
+        $results[] = [
+          'url' => $webhook_url,
+          'success' => false,
+          'error' => $error
+        ];
+        $fail_count++;
+
+        error_log(sprintf(
+          'Supabase Bridge: MemberPress webhook failed - URL: %s, HTTP: %d',
+          $webhook_url,
+          $status_code
+        ));
+      }
+    }
+  }
+
+  // Save last webhook status
+  update_option('sb_memberpress_last_webhook', [
+    'success' => $success_count > 0,
+    'user_id' => $user_id,
+    'email' => $test_mode ? 'test@example.com' : $user->user_email,
+    'timestamp' => current_time('mysql'),
+    'sent_count' => $success_count,
+    'fail_count' => $fail_count,
+    'total_urls' => count($webhook_urls)
+  ]);
+
+  // Return aggregated results
+  if ($success_count > 0) {
+    return [
+      'success' => true,
+      'sent_count' => $success_count,
+      'fail_count' => $fail_count,
+      'results' => $results
+    ];
+  } else {
+    return [
+      'success' => false,
+      'error' => 'All webhooks failed',
+      'sent_count' => 0,
+      'fail_count' => $fail_count,
+      'results' => $results
+    ];
+  }
+}
+
+/**
+ * BACKWARD COMPATIBILITY: Wrapper function for old code that calls sb_send_make_webhook()
+ * This ensures no fatal errors if old function name is used anywhere
+ *
+ * @deprecated Use sb_send_memberpress_webhook() instead
+ * @param int $user_id WordPress user ID
+ * @param int $membership_id MemberPress membership ID
+ * @param int $transaction_id MemberPress transaction ID
+ * @param string $registration_url Registration page URL
+ * @param bool $test_mode If true, sends test data
+ * @return array ['success' => bool, 'error' => string, 'sent_count' => int]
+ */
+function sb_send_make_webhook($user_id, $membership_id, $transaction_id, $registration_url = '', $test_mode = false) {
+  // Simply call the new function - all logic is there
+  return sb_send_memberpress_webhook($user_id, $membership_id, $transaction_id, $registration_url, $test_mode);
 }

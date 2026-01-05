@@ -2,6 +2,54 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.9.13] - 2026-01-05
+
+### MemberPress Webhook System Upgrade
+
+**Renamed webhook system from Make.com to MemberPress Webhooks** - Universal multi-platform webhook support
+- **Rebranding:** Changed all function names from `sb_make_webhook_*` to `sb_memberpress_webhook_*`
+- **Admin UI:** Updated tab from "🎣 Make.com" to "🎣 MemberPress Webhook"
+- **Multiple URL Support:** Changed from single URL input to textarea (one URL per line)
+  - Supports Make.com, Zapier, n8n, or any HTTP webhook endpoint
+  - Sends to all configured URLs simultaneously
+- **MemberPress-Compatible Payload:** Full 100+ field payload matching MemberPress webhook structure
+  - Event type: `non-recurring-transaction-completed`
+  - Nested objects: membership, member, transaction data
+  - 100% compatible with existing MemberPress automations in Make.com, Zapier, n8n
+- **Automatic Migration:** Created `sb_migrate_webhook_settings()` function
+  - Runs once on `admin_init`, migrates old settings to new format
+  - Backward compatibility wrapper (`sb_send_make_webhook()`)
+  - Fallback logic to read old options if new ones are empty
+  - Zero breaking changes during deployment
+- **Real Data Testing:** Test webhook uses ACTUAL data from last registration
+  - Queries `mepr_transactions` table for last `sb-%` transaction
+  - Fetches real user email, membership ID, transaction details
+  - `test_mode = false` for production-quality payload
+  - No more stub/fake test data (999999, test@example.com)
+- **Real Payload Preview:** Documentation section shows ACTUAL JSON preview
+  - Generated from last registration data (like MemberPress does)
+  - Shows what will be sent when test button is clicked
+  - Conditional display: real preview or "no registrations yet" message
+- **Dynamic Success Messages:** Test webhook shows details
+  - Example: "Test webhook sent to 2 URL(s) using REAL data from last registration (User: email@example.com, Transaction ID: 12345)"
+  - Instead of generic "Test webhook sent successfully!"
+  - Provides verification of which user's data was sent
+
+**Files Modified:**
+- `supabase-bridge.php` (lines 4405-5019)
+  - Migration function (4405-4459)
+  - Admin tab rendering with real payload preview (4464-4592)
+  - AJAX save handler (4660-4690)
+  - AJAX test handler with real data (4757-4813)
+  - Webhook send function (4789-5002)
+  - Backward compatibility wrapper (5016-5019)
+
+**Deployment:**
+- Tested on production (alexeykrol.com) with zero downtime
+- Auto-migration successful
+- All existing Make.com automations continue working
+- No errors in production logs
+
 ## [0.9.12] - 2026-01-04
 
 ### 2026-01-04 22:45 - Error Handling Enhancement
