@@ -4926,30 +4926,21 @@ function sb_send_memberpress_webhook($user_id, $membership_id, $transaction_id, 
       $txn = new MeprTransaction($transaction_id);
     }
 
-    // Build membership object (MeprProduct properties)
+    // Build membership object (minimal essential fields only)
     $membership_data = [
       'id' => $membership_id,
       'title' => $product ? $product->post_title : 'Unknown Membership',
-      'content' => $product ? $product->post_content : '',
-      'excerpt' => $product ? $product->post_excerpt : '',
-      'date' => $product ? $product->post_date : current_time('mysql'),
-      'status' => $product ? $product->post_status : 'publish',
       'price' => $product ? $product->price : '0.00',
       'period' => $product ? $product->period : '1',
       'period_type' => $product ? $product->period_type : 'lifetime'
     ];
 
-    // Build member object (WP_User properties)
+    // Build member object (minimal essential fields only)
     $member_data = [
       'id' => $user_id,
       'email' => $user->user_email,
-      'username' => $user->user_login,
-      'registered_at' => $user->user_registered,
       'first_name' => $user->first_name,
-      'last_name' => $user->last_name,
-      'display_name' => $user->display_name,
-      'address' => [],
-      'profile' => []
+      'last_name' => $user->last_name
     ];
 
     // Build transaction data
@@ -4982,9 +4973,18 @@ function sb_send_memberpress_webhook($user_id, $membership_id, $transaction_id, 
   $success_count = 0;
   $fail_count = 0;
 
+  // DEBUG: Log payload size
+  $payload_json = json_encode($payload);
+  $payload_size = strlen($payload_json);
+  error_log(sprintf(
+    'Supabase Bridge: Webhook payload size: %d bytes, Content: %s',
+    $payload_size,
+    substr($payload_json, 0, 500) // First 500 chars
+  ));
+
   foreach ($webhook_urls as $webhook_url) {
     $response = wp_remote_post($webhook_url, [
-      'body' => json_encode($payload),
+      'body' => $payload_json,
       'headers' => [
         'Content-Type' => 'application/json'
       ],

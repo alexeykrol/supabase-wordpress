@@ -77,6 +77,14 @@ build/
 wp-content/debug.log
 .production-credentials
 
+# Webhook resend scripts and logs (internal use only)
+resend-webhooks*.php
+sent-webhooks.log
+sent-emails.txt
+/tmp/resend-*.php
+/tmp/sent-*.log
+/tmp/sent-*.txt
+
 # Claude dialogs
 dialog/2026-01-04_session-20a5c8b0.md
 dialog/2026-01-04_session-13d838b8.md
