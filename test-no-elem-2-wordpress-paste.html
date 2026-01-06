@@ -461,11 +461,88 @@
   }
 
   // ═══════════════════════════════════════════════════════════
+  // Error Logging (sends timeout errors to backend for analysis)
+  // ═══════════════════════════════════════════════════════════
+
+  function logTimeoutError() {
+    try {
+      const errorData = {
+        error_type: 'auth_timeout',
+        timestamp: new Date().toISOString(),
+        url: window.location.href,
+        browser: navigator.userAgent,
+        platform: navigator.platform,
+        screen: `${window.screen.width}x${window.screen.height}`,
+        viewport: `${window.innerWidth}x${window.innerHeight}`
+      };
+
+      debug('Logging timeout error', errorData);
+
+      // Send to WordPress admin-ajax.php
+      const formData = new FormData();
+      formData.append('action', 'sb_log_auth_timeout');
+      formData.append('data', JSON.stringify(errorData));
+
+      fetch(window.location.origin + '/wp-admin/admin-ajax.php', {
+        method: 'POST',
+        body: formData
+      }).catch(err => {
+        debug('Failed to send timeout log', err.message);
+      });
+    } catch (e) {
+      debug('Error in logTimeoutError', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // Main Authentication Flow
   // ═══════════════════════════════════════════════════════════
 
   async function processAuthentication() {
     debug('Starting authentication process');
+
+    // ═══════════════════════════════════════════════════════════
+    // TIMEOUT SAFEGUARD: If redirect doesn't happen in 20 sec
+    // ═══════════════════════════════════════════════════════════
+    let redirected = false;
+
+    setTimeout(() => {
+      if (!redirected) {
+        // Прошло 20 секунд, редирект не произошел
+        debug('⚠️ TIMEOUT: Redirect did not happen in 20 seconds');
+        clearInterval(dotsTimer);
+
+        // Log timeout error for analysis
+        logTimeoutError();
+
+        // Show fallback UI with retry button
+        const instantLoader = document.getElementById('instant-loader');
+        if (instantLoader) {
+          instantLoader.innerHTML = `
+            <div style="text-align: center; max-width: 400px; padding: 40px;">
+              <h2 style="color: #dc2626; font-size: 24px; margin: 0 0 20px 0; font-weight: 600;">⚠️ Что-то пошло не так</h2>
+              <p style="color: #666; font-size: 16px; margin: 0 0 30px 0; line-height: 1.5;">
+                Вход занял слишком много времени
+              </p>
+              <a href="/test-no-elem/" style="
+                display: inline-block;
+                padding: 14px 28px;
+                background: #2563eb;
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 16px;
+                transition: background 0.2s;
+              " onmouseover="this.style.background='#1d4ed8'"
+                 onmouseout="this.style.background='#2563eb'">
+                Войти заново
+              </a>
+            </div>
+          `;
+        }
+      }
+    }, 20000); // 20 seconds timeout
 
     // Update instant loader content instead of hiding it (avoid flickering)
     const instantLoader = document.getElementById('instant-loader');
@@ -516,6 +593,9 @@
 
       // Clean URL hash and redirect
       clearInterval(dotsTimer);
+
+      // Mark redirect as successful (prevents timeout safeguard)
+      redirected = true;
 
       setTimeout(() => {
         window.location.href = redirectUrl;

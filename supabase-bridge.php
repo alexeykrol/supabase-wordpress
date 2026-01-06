@@ -3822,6 +3822,34 @@ function sb_ajax_toggle_memberpress_patch() {
   wp_send_json_success(['message' => $message]);
 }
 
+// === AJAX: Log authentication timeout errors ===
+add_action('wp_ajax_nopriv_sb_log_auth_timeout', 'sb_ajax_log_auth_timeout'); // Allow non-logged-in users
+add_action('wp_ajax_sb_log_auth_timeout', 'sb_ajax_log_auth_timeout');
+function sb_ajax_log_auth_timeout() {
+  // Get error data from POST
+  $data = isset($_POST['data']) ? json_decode(stripslashes($_POST['data']), true) : [];
+
+  // Validate data
+  if (empty($data) || !isset($data['error_type'])) {
+    wp_send_json_error(['message' => 'Invalid data']);
+    return;
+  }
+
+  // Log to WordPress debug.log
+  error_log(sprintf(
+    'Supabase Bridge: Auth timeout detected - Browser: %s, URL: %s, Platform: %s, Timestamp: %s',
+    isset($data['browser']) ? substr($data['browser'], 0, 100) : 'unknown',
+    isset($data['url']) ? $data['url'] : 'unknown',
+    isset($data['platform']) ? $data['platform'] : 'unknown',
+    isset($data['timestamp']) ? $data['timestamp'] : date('c')
+  ));
+
+  // Optionally: Store in database for analysis (wp_options or custom table)
+  // For now, just log to debug.log
+
+  wp_send_json_success(['message' => 'Logged']);
+}
+
 add_action('wp_ajax_sb_save_learndash_banner', 'sb_ajax_save_learndash_banner');
 function sb_ajax_save_learndash_banner() {
   // Verify nonce
