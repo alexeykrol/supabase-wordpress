@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with audit logging and hardening. Includes webhook system for n8n/Make.com integration. Production debugging with enhanced logging.
- * Version: 0.9.11
+ * Version: 0.10.0
  * Author: Alexey Krol
  * License: MIT
  * Requires at least: 5.0
@@ -3199,13 +3199,15 @@ function sb_render_course_access_tab() {
 
   // Get all LearnDash courses
   $courses = [];
-  if (function_exists('learndash_get_posts_by_args')) {
-    $course_posts = learndash_get_posts_by_args([
+  if (function_exists('learndash_get_courses') || post_type_exists('sfwd-courses')) {
+    $args = [
       'post_type' => 'sfwd-courses',
       'posts_per_page' => -1,
+      'post_status' => 'publish',
       'orderby' => 'title',
       'order' => 'ASC'
-    ]);
+    ];
+    $course_posts = get_posts($args);
     foreach ($course_posts as $course) {
       $courses[] = [
         'id' => $course->ID,
@@ -3232,111 +3234,142 @@ function sb_render_course_access_tab() {
       </ul>
     </div>
 
-    <!-- Existing Pairs Table -->
-    <?php if (!empty($pairs)): ?>
-    <h3>Configured Auto-Enrollment Rules</h3>
-    <table class="widefat striped" style="margin-top: 10px;">
-      <thead>
-        <tr>
-          <th style="width: 40%;">Membership (MemberPress)</th>
-          <th style="width: 40%;">Course (LearnDash)</th>
-          <th style="width: 20%; text-align: center;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php foreach ($pairs as $pair): ?>
-        <tr>
-          <td>
-            <?php
-            $membership = get_post($pair['membership_id']);
-            echo $membership ? esc_html($membership->post_title) : '<em>Membership not found</em>';
-            ?>
-            <br><small style="color: #999;">ID: <?php echo esc_html($pair['membership_id']); ?></small>
-          </td>
-          <td>
-            <?php
-            $course = get_post($pair['course_id']);
-            echo $course ? esc_html($course->post_title) : '<em>Course not found</em>';
-            ?>
-            <br><small style="color: #999;">ID: <?php echo esc_html($pair['course_id']); ?></small>
-          </td>
-          <td style="text-align: center;">
-            <button
-              class="button button-small"
-              onclick="deleteCourseAccessPair('<?php echo esc_js($pair['id']); ?>')"
-              style="color: #dc2626;">
-              🗑️ Delete
-            </button>
-          </td>
-        </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+    <!-- Add Button -->
+    <p style="margin: 20px 0;">
+      <button type="button" class="button button-primary" onclick="sbShowCourseAccessModal()">
+        ➕ Add New Auto-Enrollment Rule
+      </button>
+    </p>
+
+    <?php if (empty($pairs)): ?>
+      <!-- Empty State -->
+      <div style="background: #f0f6fc; border: 1px solid #d1e4f5; border-radius: 6px; padding: 40px; text-align: center; margin: 20px 0;">
+        <p style="font-size: 16px; color: #666; margin: 0;">
+          📋 No auto-enrollment rules configured yet.
+        </p>
+        <p style="color: #999; margin: 10px 0 0 0;">
+          Click "Add New Auto-Enrollment Rule" to start auto-enrolling users when they purchase memberships.
+        </p>
+      </div>
     <?php else: ?>
-    <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 6px;">
-      <p style="margin: 0; color: #1e40af;">
-        ℹ️ No auto-enrollment rules configured yet. Add your first rule below.
-      </p>
-    </div>
+      <!-- Pairs Table -->
+      <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+        <thead>
+          <tr>
+            <th style="width: 40%;">Membership (MemberPress)</th>
+            <th style="width: 40%;">Course (LearnDash)</th>
+            <th style="width: 10%;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($pairs as $pair): ?>
+            <tr>
+              <td>
+                <strong><?php
+                  $membership = get_post($pair['membership_id']);
+                  echo $membership ? esc_html($membership->post_title) : '<em>Membership not found</em>';
+                ?></strong>
+                <br>
+                <span style="font-size: 11px; color: #666;">ID: <?php echo esc_html($pair['membership_id']); ?></span>
+              </td>
+              <td>
+                <strong>📚 <?php
+                  $course = get_post($pair['course_id']);
+                  echo $course ? esc_html($course->post_title) : '<em>Course not found</em>';
+                ?></strong>
+                <br>
+                <span style="font-size: 11px; color: #666;">ID: <?php echo esc_html($pair['course_id']); ?></span>
+              </td>
+              <td>
+                <button type="button" class="button button-small button-link-delete" onclick="sbDeleteCourseAccess('<?php echo esc_js($pair['id']); ?>', '<?php echo esc_js($membership ? $membership->post_title : 'Unknown'); ?>')">
+                  🗑️ Delete
+                </button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
     <?php endif; ?>
 
-    <!-- Add New Pair Form -->
-    <h3 style="margin-top: 30px;">Add New Auto-Enrollment Rule</h3>
-    <form id="course-access-form" style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 10px;">
-      <table class="form-table">
-        <tr>
-          <th scope="row">
-            <label for="membership_id">Membership (MemberPress)</label>
-          </th>
-          <td>
-            <select name="membership_id" id="membership_id" class="regular-text" required>
-              <option value="">Select Membership...</option>
-              <?php foreach ($memberships as $membership): ?>
-              <option value="<?php echo esc_attr($membership['id']); ?>">
-                <?php echo esc_html($membership['title']); ?>
-                <?php if ($membership['price'] > 0): ?>
-                  ($<?php echo esc_html(number_format($membership['price'], 2)); ?>)
-                <?php else: ?>
-                  (FREE)
-                <?php endif; ?>
-              </option>
-              <?php endforeach; ?>
-            </select>
-            <p class="description">The membership that triggers auto-enrollment</p>
-          </td>
-        </tr>
-        <tr>
-          <th scope="row">
-            <label for="course_id">Course (LearnDash)</label>
-          </th>
-          <td>
-            <select name="course_id" id="course_id" class="regular-text" required>
-              <option value="">Select Course...</option>
-              <?php foreach ($courses as $course): ?>
-              <option value="<?php echo esc_attr($course['id']); ?>">
-                <?php echo esc_html($course['title']); ?>
-              </option>
-              <?php endforeach; ?>
-            </select>
-            <p class="description">The course to enroll user into when they purchase the membership</p>
-          </td>
-        </tr>
-      </table>
-      <p class="submit" style="margin-top: 20px;">
-        <button type="submit" class="button button-primary">
-          ➕ Add Auto-Enrollment Rule
-        </button>
-      </p>
-    </form>
+    <!-- Modal Window -->
+    <div id="sb-course-access-modal" style="display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+      <div style="background: #fff; margin: 50px auto; padding: 30px; width: 600px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+        <h2>Add New Auto-Enrollment Rule</h2>
+        <form id="sb-course-access-form">
+          <table class="form-table">
+            <tr>
+              <th scope="row">
+                <label for="sb-ca-membership">Membership (MemberPress)</label>
+              </th>
+              <td>
+                <select name="membership_id" id="sb-ca-membership" class="regular-text" required>
+                  <option value="">— Select a membership —</option>
+                  <?php foreach ($memberships as $membership): ?>
+                    <option value="<?php echo esc_attr($membership['id']); ?>">
+                      <?php echo esc_html($membership['title']); ?>
+                      <?php if ($membership['price'] > 0): ?>
+                        ($<?php echo esc_html(number_format($membership['price'], 2)); ?>)
+                      <?php else: ?>
+                        (FREE)
+                      <?php endif; ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <label for="sb-ca-course">Course (LearnDash)</label>
+              </th>
+              <td>
+                <select name="course_id" id="sb-ca-course" class="regular-text" required>
+                  <option value="">— Select a course —</option>
+                  <?php foreach ($courses as $course): ?>
+                    <option value="<?php echo esc_attr($course['id']); ?>">
+                      <?php echo esc_html($course['title']); ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+          </table>
 
-    <!-- JavaScript for AJAX -->
+          <p class="submit" style="text-align: right; margin-bottom: 0;">
+            <button type="button" class="button" onclick="sbCloseCourseAccessModal()">Cancel</button>
+            <button type="submit" class="button button-primary">Save Rule</button>
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <!-- JavaScript -->
     <script>
+    // Show modal
+    function sbShowCourseAccessModal() {
+      document.getElementById('sb-course-access-modal').style.display = 'block';
+      document.getElementById('sb-ca-membership').value = '';
+      document.getElementById('sb-ca-course').value = '';
+    }
+
+    // Close modal
+    function sbCloseCourseAccessModal() {
+      document.getElementById('sb-course-access-modal').style.display = 'none';
+    }
+
+    // Close on outside click
+    window.onclick = function(event) {
+      const modal = document.getElementById('sb-course-access-modal');
+      if (event.target === modal) {
+        sbCloseCourseAccessModal();
+      }
+    };
+
     // Save course access pair
-    document.getElementById('course-access-form').addEventListener('submit', function(e) {
+    document.getElementById('sb-course-access-form').addEventListener('submit', function(e) {
       e.preventDefault();
 
-      const membershipId = document.getElementById('membership_id').value;
-      const courseId = document.getElementById('course_id').value;
+      const membershipId = document.getElementById('sb-ca-membership').value;
+      const courseId = document.getElementById('sb-ca-course').value;
 
       if (!membershipId || !courseId) {
         alert('Please select both membership and course');
@@ -3370,8 +3403,8 @@ function sb_render_course_access_tab() {
     });
 
     // Delete course access pair
-    function deleteCourseAccessPair(pairId) {
-      if (!confirm('Are you sure you want to delete this auto-enrollment rule?')) {
+    function sbDeleteCourseAccess(pairId, membershipName) {
+      if (!confirm('Delete auto-enrollment rule for "' + membershipName + '"?')) {
         return;
       }
 

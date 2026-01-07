@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.9.12-blue.svg)
+![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0--6.8-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -123,12 +123,12 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
-   - [supabase-bridge-v0.9.11.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.9.11/supabase-bridge-v0.9.11.zip)
+   - [supabase-bridge-v0.10.0.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.10.0/supabase-bridge-v0.10.0.zip)
    - Or build from source: `./build-release.sh` (requires git clone)
 
 2. **Install plugin**:
    - WordPress Admin → Plugins → Add New → Upload Plugin
-   - Choose `supabase-bridge-v0.9.11.zip`
+   - Choose `supabase-bridge-v0.10.0.zip`
    - Click "Install Now" → "Activate Plugin"
 
 3. **Setup Supabase database**:
@@ -165,7 +165,16 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
    - Click "Add Pair"
    - Users registering from this landing page will automatically be enrolled in this course
 
-8. **Configure LearnDash banner visibility** (optional):
+8. **Configure Course Access auto-enrollment** (optional):
+   - WordPress Admin → Supabase Bridge → Course Access tab
+   - Click "➕ Add New Auto-Enrollment Rule"
+   - Select **Membership**: Choose MemberPress membership (product)
+   - Select **Course**: Choose LearnDash course to auto-enroll
+   - Click "Add Pair"
+   - When users purchase this membership (one-time or subscription), they will be automatically enrolled in the course
+   - You can create multiple rules for the same membership (e.g., main course + bonus course)
+
+9. **Configure LearnDash banner visibility** (optional):
    - WordPress Admin → Supabase Bridge → Banner tab
    - Check "Hide enrollment banner" to remove "NOT ENROLLED / Take this Course" banner
    - Click "Apply Changes"
@@ -173,14 +182,14 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
      - LiteSpeed Cache: WordPress Admin → LiteSpeed Cache → Purge All
      - Browser: Hard refresh (Ctrl+Shift+R on Windows, Cmd+Shift+R on Mac)
 
-9. **Configure Supabase Auth**:
+10. **Configure Supabase Auth**:
    - Supabase Dashboard → Authentication → Settings
    - **Enable email confirmations**: ON
    - **Password minimum length**: 10
    - Supabase Dashboard → Authentication → URL Configuration
    - **Redirect URLs**: `https://yourdomain.com/*`
 
-10. **Done!** Users can now register, receive memberships, and be enrolled in courses automatically based on their landing page.
+11. **Done!** Users can now register, receive memberships, be enrolled in courses automatically based on their landing page, and get auto-enrolled when purchasing memberships.
 
 ---
 
@@ -237,6 +246,11 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
 ### LMS & Membership Integrations
 - ✅ **MemberPress Integration** - Auto-assign FREE memberships on registration
 - ✅ **LearnDash Integration** - Auto-enroll users in courses on registration
+- ✅ **Course Access Auto-Enrollment** - Automatically enroll users in courses when they purchase memberships
+  - Map memberships to courses (one membership → multiple courses)
+  - Triggers on purchase (one-time or subscription)
+  - Preserves user progress on renewals
+  - Course access controlled by membership status
 - ✅ **LearnDash Banner Management** - One-click enrollment banner removal with UI
 - ✅ **Landing Page Mapping** - Different memberships/courses per registration source
 

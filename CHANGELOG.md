@@ -2,6 +2,72 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.10.0] - 2026-01-06
+
+### 🎓 Course Access Auto-Enrollment System
+
+**Major new feature: Automatically enroll users in LearnDash courses when they purchase MemberPress memberships**
+
+**Admin Interface:**
+- **New "Course Access" Tab** - Admin interface for managing membership → course mappings
+- **Modal Popup UI** - Clean modal window for adding new rules (matches Courses tab pattern)
+- **Visual Table** - Shows all active auto-enrollment rules with delete actions
+- **Empty State** - Helpful message when no rules configured yet
+
+**Mapping System:**
+- **Flexible Mapping** - One membership can map to multiple courses
+  - Example: Premium membership → Main course + Bonus course
+- **Storage** - Rules saved in `wp_options` table (key: `sb_membership_course_pairs`)
+- **Structure** - Each rule contains: unique ID, membership_id, course_id, created_at timestamp
+
+**Enrollment Logic:**
+- **Dual Triggers:**
+  - `mepr_event_transaction_completed` - One-time purchases (status: complete)
+  - `mepr_subscription_transition_status` - Recurring subscriptions (status: active)
+- **Duplicate Prevention** - Checks `sfwd_lms_has_access()` before enrolling
+- **Progress Preservation** - Never removes enrollment, only course access (controlled by membership status)
+- **Smart Renewals** - Skips already enrolled users to preserve progress
+
+**User Experience:**
+- **Automatic** - No manual enrollment needed after purchase
+- **Instant** - Enrollment happens immediately on purchase completion
+- **Seamless** - Works with both one-time payments and subscriptions
+- **Access Control** - Course access automatically managed by membership status
+  - Active membership = course access granted
+  - Paused/cancelled membership = course access removed (but progress preserved)
+
+**Bug Fixes:**
+- **LearnDash Course Loading** - Fixed non-existent function `learndash_get_posts_by_args()`
+  - Now uses standard WordPress `get_posts()` function
+  - Added `'post_status' => 'publish'` parameter
+  - Courses now load correctly in dropdown (lines 3200-3217)
+- **UI/UX Improvement** - Redesigned from inline form to modal popup
+  - Better experience with long membership/course lists
+  - Consistent with other admin tabs (Courses, Memberships)
+  - Cleaner table view (lines 3227-3435)
+
+**Files Modified:**
+- `supabase-bridge.php`:
+  - Course Access tab navigation (lines 1979-1981)
+  - Tab content handler (lines 2324-2328)
+  - Main UI function with modal popup (lines 3193-3435)
+  - AJAX save handler (lines 4032-4090)
+  - AJAX delete handler (lines 4093-4142)
+  - Auto-enrollment function (lines 5476-5550)
+  - MemberPress transaction hook (lines 5556-5577)
+  - MemberPress subscription hook (lines 5583-5602)
+
+**Production Deployment:**
+- Tested on [alexeykrol.com](https://alexeykrol.com)
+- 6 membership → course mappings configured
+- Zero impact on existing functionality
+
+**Documentation:**
+- README.md updated with Course Access instructions
+- Feature description added to LMS integrations section
+
+---
+
 ## [0.9.13] - 2026-01-05
 
 ### MemberPress Webhook System Upgrade
