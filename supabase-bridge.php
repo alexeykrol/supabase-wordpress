@@ -1976,6 +1976,9 @@ function sb_render_setup_page() {
       <a href="?page=supabase-bridge-setup&tab=courses" class="nav-tab <?php echo $current_tab === 'courses' ? 'nav-tab-active' : ''; ?>">
         📚 Courses
       </a>
+      <a href="?page=supabase-bridge-setup&tab=course-access" class="nav-tab <?php echo $current_tab === 'course-access' ? 'nav-tab-active' : ''; ?>">
+        🎓 Course Access
+      </a>
       <a href="?page=supabase-bridge-setup&tab=memberpress-webhook" class="nav-tab <?php echo $current_tab === 'memberpress-webhook' ? 'nav-tab-active' : ''; ?>">
         🔗 MemberPress Webhooks
       </a>
@@ -2318,8 +2321,14 @@ function sb_render_setup_page() {
         <?php sb_render_courses_tab(); ?>
       </div><!-- End Tab 4: Courses -->
 
+    <?php elseif ($current_tab === 'course-access'): ?>
+      <!-- TAB 5: Course Access (Auto-Enroll) -->
+      <div class="tab-content">
+        <?php sb_render_course_access_tab(); ?>
+      </div><!-- End Tab 5: Course Access -->
+
     <?php elseif ($current_tab === 'memberpress-webhook'): ?>
-      <!-- TAB 5: MemberPress Webhooks -->
+      <!-- TAB 6: MemberPress Webhooks -->
       <div class="tab-content">
         <?php sb_render_memberpress_webhook_tab(); ?>
       </div><!-- End Tab 5: MemberPress Webhooks -->
@@ -3170,6 +3179,231 @@ function sb_render_courses_tab() {
   <?php
 }
 
+// === Phase 6: Course Access Tab (Auto-Enroll on Membership Purchase) ===
+function sb_render_course_access_tab() {
+  // Get pairs from wp_options
+  $pairs = get_option('sb_membership_course_pairs', []);
+
+  // Get all MemberPress memberships (products)
+  $memberships = [];
+  if (class_exists('MeprProduct')) {
+    $all_products = MeprProduct::get_all();
+    foreach ($all_products as $product) {
+      $memberships[] = [
+        'id' => $product->ID,
+        'title' => $product->post_title,
+        'price' => $product->price
+      ];
+    }
+  }
+
+  // Get all LearnDash courses
+  $courses = [];
+  if (function_exists('learndash_get_posts_by_args')) {
+    $course_posts = learndash_get_posts_by_args([
+      'post_type' => 'sfwd-courses',
+      'posts_per_page' => -1,
+      'orderby' => 'title',
+      'order' => 'ASC'
+    ]);
+    foreach ($course_posts as $course) {
+      $courses[] = [
+        'id' => $course->ID,
+        'title' => $course->post_title
+      ];
+    }
+  }
+  ?>
+  <div style="margin-top: 20px;">
+    <h2>🎓 Membership → Course Auto-Enrollment</h2>
+    <p style="color: #666; font-size: 14px; line-height: 1.6;">
+      💡 <strong>How it works:</strong> When a user purchases a membership (one-time or subscription), they are automatically enrolled in the specified course(s).<br>
+      📝 <strong>Note:</strong> One membership can enroll users in multiple courses - just add multiple pairs with the same membership.<br>
+      ⚡ <strong>Triggers:</strong> Works for both MemberPress transactions (one-time) and subscriptions (recurring) with status <code>complete</code> or <code>active</code>.
+    </p>
+
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 6px;">
+      <strong>⚠️ Important:</strong>
+      <ul style="margin: 8px 0; padding-left: 20px;">
+        <li>Enrollment happens <strong>only once</strong> - if user already enrolled, their progress is preserved</li>
+        <li>Course access is controlled by MemberPress membership status (not enrollment status)</li>
+        <li>If membership expires/paused → access removed, but enrollment/progress remains</li>
+        <li>When membership renewed → user continues from where they left off</li>
+      </ul>
+    </div>
+
+    <!-- Existing Pairs Table -->
+    <?php if (!empty($pairs)): ?>
+    <h3>Configured Auto-Enrollment Rules</h3>
+    <table class="widefat striped" style="margin-top: 10px;">
+      <thead>
+        <tr>
+          <th style="width: 40%;">Membership (MemberPress)</th>
+          <th style="width: 40%;">Course (LearnDash)</th>
+          <th style="width: 20%; text-align: center;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($pairs as $pair): ?>
+        <tr>
+          <td>
+            <?php
+            $membership = get_post($pair['membership_id']);
+            echo $membership ? esc_html($membership->post_title) : '<em>Membership not found</em>';
+            ?>
+            <br><small style="color: #999;">ID: <?php echo esc_html($pair['membership_id']); ?></small>
+          </td>
+          <td>
+            <?php
+            $course = get_post($pair['course_id']);
+            echo $course ? esc_html($course->post_title) : '<em>Course not found</em>';
+            ?>
+            <br><small style="color: #999;">ID: <?php echo esc_html($pair['course_id']); ?></small>
+          </td>
+          <td style="text-align: center;">
+            <button
+              class="button button-small"
+              onclick="deleteCourseAccessPair('<?php echo esc_js($pair['id']); ?>')"
+              style="color: #dc2626;">
+              🗑️ Delete
+            </button>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    <?php else: ?>
+    <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 6px;">
+      <p style="margin: 0; color: #1e40af;">
+        ℹ️ No auto-enrollment rules configured yet. Add your first rule below.
+      </p>
+    </div>
+    <?php endif; ?>
+
+    <!-- Add New Pair Form -->
+    <h3 style="margin-top: 30px;">Add New Auto-Enrollment Rule</h3>
+    <form id="course-access-form" style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 10px;">
+      <table class="form-table">
+        <tr>
+          <th scope="row">
+            <label for="membership_id">Membership (MemberPress)</label>
+          </th>
+          <td>
+            <select name="membership_id" id="membership_id" class="regular-text" required>
+              <option value="">Select Membership...</option>
+              <?php foreach ($memberships as $membership): ?>
+              <option value="<?php echo esc_attr($membership['id']); ?>">
+                <?php echo esc_html($membership['title']); ?>
+                <?php if ($membership['price'] > 0): ?>
+                  ($<?php echo esc_html(number_format($membership['price'], 2)); ?>)
+                <?php else: ?>
+                  (FREE)
+                <?php endif; ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+            <p class="description">The membership that triggers auto-enrollment</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">
+            <label for="course_id">Course (LearnDash)</label>
+          </th>
+          <td>
+            <select name="course_id" id="course_id" class="regular-text" required>
+              <option value="">Select Course...</option>
+              <?php foreach ($courses as $course): ?>
+              <option value="<?php echo esc_attr($course['id']); ?>">
+                <?php echo esc_html($course['title']); ?>
+              </option>
+              <?php endforeach; ?>
+            </select>
+            <p class="description">The course to enroll user into when they purchase the membership</p>
+          </td>
+        </tr>
+      </table>
+      <p class="submit" style="margin-top: 20px;">
+        <button type="submit" class="button button-primary">
+          ➕ Add Auto-Enrollment Rule
+        </button>
+      </p>
+    </form>
+
+    <!-- JavaScript for AJAX -->
+    <script>
+    // Save course access pair
+    document.getElementById('course-access-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const membershipId = document.getElementById('membership_id').value;
+      const courseId = document.getElementById('course_id').value;
+
+      if (!membershipId || !courseId) {
+        alert('Please select both membership and course');
+        return;
+      }
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          action: 'sb_save_course_access_pair',
+          nonce: '<?php echo wp_create_nonce('sb_course_access_nonce'); ?>',
+          membership_id: membershipId,
+          course_id: courseId
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Auto-enrollment rule added successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+    });
+
+    // Delete course access pair
+    function deleteCourseAccessPair(pairId) {
+      if (!confirm('Are you sure you want to delete this auto-enrollment rule?')) {
+        return;
+      }
+
+      fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          action: 'sb_delete_course_access_pair',
+          nonce: '<?php echo wp_create_nonce('sb_course_access_nonce'); ?>',
+          pair_id: pairId
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('✅ Auto-enrollment rule deleted successfully!');
+          location.reload();
+        } else {
+          alert('❌ Error: ' + (data.data || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        alert('❌ Network error: ' + error.message);
+      });
+    }
+    </script>
+  </div>
+  <?php
+}
+
 // === Phase 3: Webhooks Tab (v0.8.0) - FULL IMPLEMENTATION ===
 function sb_render_webhooks_tab() {
   // Get current settings
@@ -3790,6 +4024,121 @@ function sb_ajax_delete_course_pair() {
   update_option('sb_course_pairs', $pairs);
 
   wp_send_json_success(['message' => 'Course enrollment deleted successfully']);
+}
+
+// === Phase 6: Course Access (Auto-Enroll) AJAX Handlers ===
+
+// AJAX: Save course access pair (membership → course)
+add_action('wp_ajax_sb_save_course_access_pair', 'sb_ajax_save_course_access_pair');
+function sb_ajax_save_course_access_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_course_access_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Get and validate inputs
+  $membership_id = intval($_POST['membership_id'] ?? 0);
+  $course_id = intval($_POST['course_id'] ?? 0);
+
+  if ($membership_id <= 0) {
+    wp_send_json_error('Membership required');
+    return;
+  }
+
+  if ($course_id <= 0) {
+    wp_send_json_error('Course required');
+    return;
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_membership_course_pairs', []);
+
+  // Check for duplicate
+  foreach ($pairs as $pair) {
+    if ($pair['membership_id'] == $membership_id && $pair['course_id'] == $course_id) {
+      wp_send_json_error('This auto-enrollment rule already exists');
+      return;
+    }
+  }
+
+  // Create new pair
+  $pair_id = wp_generate_uuid4();
+  $pairs[] = [
+    'id' => $pair_id,
+    'membership_id' => $membership_id,
+    'course_id' => $course_id,
+    'created_at' => current_time('mysql'),
+  ];
+
+  // Save to wp_options
+  update_option('sb_membership_course_pairs', $pairs);
+
+  error_log(sprintf(
+    'Supabase Bridge: Course Access pair created - Membership ID: %d → Course ID: %d',
+    $membership_id,
+    $course_id
+  ));
+
+  wp_send_json_success(['message' => 'Auto-enrollment rule saved successfully', 'pair_id' => $pair_id]);
+}
+
+// AJAX: Delete course access pair
+add_action('wp_ajax_sb_delete_course_access_pair', 'sb_ajax_delete_course_access_pair');
+function sb_ajax_delete_course_access_pair() {
+  // Verify nonce
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'sb_course_access_nonce')) {
+    wp_send_json_error('Invalid nonce');
+    return;
+  }
+
+  // Check permissions
+  if (!current_user_can('manage_options')) {
+    wp_send_json_error('Permission denied');
+    return;
+  }
+
+  // Get pair ID
+  $pair_id = sanitize_text_field($_POST['pair_id'] ?? '');
+
+  if (empty($pair_id)) {
+    wp_send_json_error('Pair ID required');
+    return;
+  }
+
+  // Get existing pairs
+  $pairs = get_option('sb_membership_course_pairs', []);
+
+  // Find and remove pair
+  $pair_found = false;
+  $pairs = array_filter($pairs, function($pair) use ($pair_id, &$pair_found) {
+    if ($pair['id'] === $pair_id) {
+      $pair_found = true;
+      return false; // Remove this pair
+    }
+    return true; // Keep this pair
+  });
+
+  if (!$pair_found) {
+    wp_send_json_error('Auto-enrollment rule not found');
+    return;
+  }
+
+  // Reindex array
+  $pairs = array_values($pairs);
+
+  // Save to wp_options
+  update_option('sb_membership_course_pairs', $pairs);
+
+  error_log('Supabase Bridge: Course Access pair deleted - Pair ID: ' . $pair_id);
+
+  wp_send_json_success(['message' => 'Auto-enrollment rule deleted successfully']);
 }
 
 // === AJAX: LearnDash Banner Management ===
@@ -5114,4 +5463,140 @@ function sb_send_memberpress_webhook($user_id, $membership_id, $transaction_id, 
 function sb_send_make_webhook($user_id, $membership_id, $transaction_id, $registration_url = '', $test_mode = false) {
   // Simply call the new function - all logic is there
   return sb_send_memberpress_webhook($user_id, $membership_id, $transaction_id, $registration_url, $test_mode);
+}
+
+// === Phase 6: Auto-Enrollment on Membership Purchase ===
+
+/**
+ * Auto-enroll user into LearnDash courses when they purchase a membership
+ *
+ * @param int $user_id WordPress user ID
+ * @param int $membership_id MemberPress product/membership ID
+ */
+function sb_auto_enroll_user_on_membership_purchase($user_id, $membership_id) {
+  // Validate inputs
+  if (!$user_id || !$membership_id) {
+    error_log('Supabase Bridge: Auto-enroll skipped - invalid user_id or membership_id');
+    return;
+  }
+
+  // Check if LearnDash is active
+  if (!function_exists('ld_update_course_access')) {
+    error_log('Supabase Bridge: Auto-enroll skipped - LearnDash not active');
+    return;
+  }
+
+  // Get all course access pairs
+  $pairs = get_option('sb_membership_course_pairs', []);
+
+  if (empty($pairs)) {
+    // No auto-enrollment rules configured - this is normal
+    return;
+  }
+
+  // Find all courses for this membership
+  $courses_to_enroll = [];
+  foreach ($pairs as $pair) {
+    if (intval($pair['membership_id']) === intval($membership_id)) {
+      $courses_to_enroll[] = intval($pair['course_id']);
+    }
+  }
+
+  if (empty($courses_to_enroll)) {
+    // No courses configured for this membership - this is normal
+    return;
+  }
+
+  // Enroll user into each course (with duplicate check)
+  $enrolled_count = 0;
+  $skipped_count = 0;
+
+  foreach ($courses_to_enroll as $course_id) {
+    // Check if already enrolled (preserve progress)
+    $is_enrolled = sfwd_lms_has_access($course_id, $user_id);
+
+    if ($is_enrolled) {
+      $skipped_count++;
+      error_log(sprintf(
+        'Supabase Bridge: Auto-enroll skipped (already enrolled) - User ID: %d, Course ID: %d',
+        $user_id,
+        $course_id
+      ));
+      continue;
+    }
+
+    // Enroll user
+    ld_update_course_access($user_id, $course_id, $remove = false);
+    $enrolled_count++;
+
+    error_log(sprintf(
+      'Supabase Bridge: Auto-enrolled user - User ID: %d, Membership ID: %d, Course ID: %d',
+      $user_id,
+      $membership_id,
+      $course_id
+    ));
+  }
+
+  // Summary log
+  if ($enrolled_count > 0 || $skipped_count > 0) {
+    error_log(sprintf(
+      'Supabase Bridge: Auto-enrollment complete - User ID: %d, Membership ID: %d, Enrolled: %d, Skipped (already enrolled): %d',
+      $user_id,
+      $membership_id,
+      $enrolled_count,
+      $skipped_count
+    ));
+  }
+}
+
+/**
+ * Hook: MemberPress transaction completed (one-time purchases)
+ * Triggers when transaction status becomes 'complete' or 'completed'
+ */
+add_action('mepr_event_transaction_completed', 'sb_on_transaction_completed', 10, 1);
+function sb_on_transaction_completed($event) {
+  // Get transaction object from event
+  $txn = $event->get_data();
+
+  if (!$txn || !is_object($txn)) {
+    error_log('Supabase Bridge: Transaction completed hook - invalid transaction object');
+    return;
+  }
+
+  // Verify transaction status
+  if (!in_array($txn->status, ['complete', 'completed'])) {
+    error_log(sprintf(
+      'Supabase Bridge: Transaction completed hook - skipping (status: %s)',
+      $txn->status
+    ));
+    return;
+  }
+
+  // Auto-enroll
+  sb_auto_enroll_user_on_membership_purchase($txn->user_id, $txn->product_id);
+}
+
+/**
+ * Hook: MemberPress subscription status transition (recurring subscriptions)
+ * Triggers when subscription status changes (e.g., pending → active)
+ */
+add_action('mepr_subscription_transition_status', 'sb_on_subscription_status_transition', 10, 3);
+function sb_on_subscription_status_transition($old_status, $new_status, $subscription) {
+  // Only trigger when subscription becomes active
+  if ($new_status !== 'active') {
+    return;
+  }
+
+  // Prevent duplicate enrollment if already active
+  if ($old_status === 'active') {
+    return;
+  }
+
+  if (!$subscription || !is_object($subscription)) {
+    error_log('Supabase Bridge: Subscription status transition hook - invalid subscription object');
+    return;
+  }
+
+  // Auto-enroll
+  sb_auto_enroll_user_on_membership_purchase($subscription->user_id, $subscription->product_id);
 }
