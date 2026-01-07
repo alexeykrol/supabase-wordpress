@@ -46,6 +46,47 @@ All notable changes to Supabase Bridge are documented in this file.
   - Consistent with other admin tabs (Courses, Memberships)
   - Cleaner table view (lines 3227-3435)
 
+### 🛒 Checkout Authentication Overlay
+
+**Major UX improvement: Non-logged-in users are now prompted to authenticate before checkout**
+
+**Problem Solved:**
+- MemberPress checkout pages show only email field for non-logged users
+- When existing email entered → error "email already exists, please login"
+- Login form was hidden by CSS → users stuck, unable to complete purchase
+- This caused lost sales and poor user experience
+
+**Solution:**
+- **Fullscreen Overlay** - Semi-transparent overlay appears on `/register/*` pages
+- **Clear Messaging** - "Чтобы оформить покупку, сначала авторизуйтесь — войдите или зарегистрируйтесь"
+- **Single Action Button** - "Авторизоваться" redirects to `/test-no-elem/` auth page
+- **Seamless Flow** - After authentication, user automatically returns to checkout page
+- **Smart Detection** - Only shows for non-logged-in users (PHP + JavaScript cookie check)
+
+**Implementation:**
+- **URL Pattern** - Activates on all MemberPress checkout pages (`/register/*`)
+- **Triple Protection:**
+  - PHP check: `is_user_logged_in()` - prevents overlay code output for logged-in users
+  - URL check: `strpos($current_url, '/register/')` - only activates on checkout pages
+  - JS check: `wordpress_logged_in_` cookie - client-side verification
+- **Reuses Existing Logic** - Leverages existing referrer redirect from `/test-no-elem/` page
+- **Cache-Safe** - Works correctly even with aggressive browser/server caching
+
+**User Experience:**
+1. Non-logged user visits `/register/courses/` (or any `/register/*` page)
+2. Fullscreen overlay appears with auth prompt
+3. User clicks "Авторизоваться" → redirected to `/test-no-elem/`
+4. User authenticates via Google/Facebook/Magic Link
+5. Automatic redirect back to original checkout page
+6. Now logged in → MemberPress shows normal checkout form
+7. Purchase completed successfully
+
+**Production Testing:**
+- ✅ Tested on desktop and mobile devices
+- ✅ Verified on multiple `/register/*` pages
+- ✅ Works correctly with LiteSpeed Cache exclusions
+- ✅ No impact on logged-in users
+
 **Files Modified:**
 - `supabase-bridge.php`:
   - Course Access tab navigation (lines 1979-1981)
@@ -56,6 +97,7 @@ All notable changes to Supabase Bridge are documented in this file.
   - Auto-enrollment function (lines 5476-5550)
   - MemberPress transaction hook (lines 5556-5577)
   - MemberPress subscription hook (lines 5583-5602)
+  - **Checkout Authentication Overlay (lines 5637-5759)**
 
 **Production Deployment:**
 - Tested on [alexeykrol.com](https://alexeykrol.com)

@@ -5633,3 +5633,128 @@ function sb_on_subscription_status_transition($old_status, $new_status, $subscri
   // Auto-enroll
   sb_auto_enroll_user_on_membership_purchase($subscription->user_id, $subscription->product_id);
 }
+
+// ============================================================================
+// CHECKOUT AUTHENTICATION OVERLAY (v0.10.0)
+// ============================================================================
+// Shows fullscreen overlay on /register/* pages for non-logged-in users
+// Redirects to /test-no-elem/ page which handles authentication and return
+
+add_action('wp_footer', 'sb_checkout_auth_overlay', 100);
+function sb_checkout_auth_overlay() {
+  // Only run on frontend
+  if (is_admin()) {
+    return;
+  }
+
+  // ONLY run on /register/* pages (MemberPress checkout pages)
+  $current_url = $_SERVER['REQUEST_URI'];
+  if (strpos($current_url, '/register/') === false) {
+    return;
+  }
+
+  // Check if user is already logged in
+  if (is_user_logged_in()) {
+    return;
+  }
+
+  // Output JavaScript + CSS for overlay
+  ?>
+  <script id="sb-checkout-auth-detector">
+  (function() {
+    // Check if current page is /register/*
+    if (window.location.pathname.indexOf('/register/') !== 0) {
+      return;
+    }
+
+    // Check if user is logged in (WordPress sets wordpress_logged_in_ cookie)
+    var isLoggedIn = document.cookie.split(';').some(function(item) {
+      return item.trim().indexOf('wordpress_logged_in_') === 0;
+    });
+
+    if (isLoggedIn) {
+      return; // User is logged in, don't show overlay
+    }
+
+    // Create overlay HTML
+    var overlay = document.createElement('div');
+    overlay.id = 'sb-checkout-auth-overlay';
+    overlay.innerHTML = `
+      <div class="sb-overlay-backdrop"></div>
+      <div class="sb-overlay-content">
+        <div class="sb-overlay-box">
+          <h2>Чтобы оформить покупку, сначала авторизуйтесь — войдите или зарегистрируйтесь</h2>
+          <a href="/test-no-elem/" class="sb-overlay-button">Авторизоваться</a>
+        </div>
+      </div>
+    `;
+
+    // Append to body
+    document.body.appendChild(overlay);
+  })();
+  </script>
+
+  <style id="sb-checkout-auth-overlay-css">
+  #sb-checkout-auth-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #sb-checkout-auth-overlay .sb-overlay-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+  }
+
+  #sb-checkout-auth-overlay .sb-overlay-content {
+    position: relative;
+    z-index: 10;
+  }
+
+  #sb-checkout-auth-overlay .sb-overlay-box {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  #sb-checkout-auth-overlay h2 {
+    margin: 0 0 32px 0;
+    font-size: 22px;
+    color: #333;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  #sb-checkout-auth-overlay .sb-overlay-button {
+    display: inline-block;
+    background: #4285f4;
+    color: white;
+    padding: 14px 48px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+
+  #sb-checkout-auth-overlay .sb-overlay-button:hover {
+    background: #357ae8;
+    color: white;
+  }
+  </style>
+  <?php
+}
