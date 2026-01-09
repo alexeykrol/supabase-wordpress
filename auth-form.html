@@ -843,6 +843,53 @@
       return window.location.pathname;
     })();
 
+    // ========== LANDING URL TRACKING (v0.10.0) ==========
+
+    // Clean advertising tracking parameters from URL (fbclid, gclid, etc.)
+    function cleanTrackingParams(url) {
+      if (!url) return null;
+
+      try {
+        const urlObj = new URL(url, window.location.origin);
+        const trackingParams = ['fbclid', 'gclid', 'msclkid', 'gbraid', 'wbraid'];
+
+        trackingParams.forEach(param => {
+          urlObj.searchParams.delete(param);
+        });
+
+        // Return pathname + clean search params
+        return urlObj.pathname + urlObj.search;
+      } catch (e) {
+        console.warn('Failed to clean tracking params:', e);
+        return url;
+      }
+    }
+
+    // Save landing URL (where user first arrived) for marketing analytics
+    const LANDING_URL = (function() {
+      if (document.referrer) {
+        try {
+          const referrerUrl = new URL(document.referrer);
+          // Only save if same domain
+          if (referrerUrl.origin === window.location.origin) {
+            const cleaned = cleanTrackingParams(document.referrer);
+            console.log('📊 LANDING_URL (cleaned):', cleaned);
+            return cleaned;
+          } else {
+            console.log('📊 LANDING_URL: external referrer, not tracking');
+            return null;
+          }
+        } catch (e) {
+          console.warn('Invalid landing referrer:', e);
+          return null;
+        }
+      }
+
+      // No referrer - user came directly to auth form
+      console.log('📊 LANDING_URL: none (direct auth form access)');
+      return null;
+    })();
+
     // Security: Validate redirect URL to prevent open redirect attacks
     function isSafeRedirect(url) {
       if (!url) return false;
@@ -939,9 +986,15 @@
       console.log('🎯 User submitted email for magic link');
 
       try {
-        // Отправка magic link с registration_url в URL (работает между устройствами)
+        // Отправка magic link с registration_url + landing_url в URL (работает между устройствами)
         const currentPage = window.location.pathname;
-        const callbackWithParam = '{{CALLBACK_URL}}?registration_url=' + encodeURIComponent(currentPage);
+        let callbackWithParam = '{{CALLBACK_URL}}?registration_url=' + encodeURIComponent(currentPage);
+
+        // Add landing_url if available (v0.10.0 - marketing tracking)
+        if (LANDING_URL) {
+          callbackWithParam += '&landing_url=' + encodeURIComponent(LANDING_URL);
+          console.log('📊 Magic Link includes landing_url:', LANDING_URL);
+        }
 
         const { error } = await supabaseClient.auth.signInWithOtp({
           email: email,
@@ -980,6 +1033,12 @@
       console.log('🎯 User clicked Google OAuth button');
 
       try {
+        // Save landing_url to localStorage for OAuth flow (v0.10.0)
+        if (LANDING_URL) {
+          safeStorage.setItem('sb_landing_url', LANDING_URL);
+          console.log('📊 Saved landing_url to localStorage for OAuth:', LANDING_URL);
+        }
+
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -1006,6 +1065,12 @@
       console.log('🎯 User clicked Facebook OAuth button');
 
       try {
+        // Save landing_url to localStorage for OAuth flow (v0.10.0)
+        if (LANDING_URL) {
+          safeStorage.setItem('sb_landing_url', LANDING_URL);
+          console.log('📊 Saved landing_url to localStorage for OAuth:', LANDING_URL);
+        }
+
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: 'facebook',
           options: {

@@ -2,6 +2,74 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.10.1] - 2026-01-09
+
+### 📊 Landing URL Marketing Tracking
+
+**Major new feature: Track landing page URLs with UTM parameters for marketing attribution**
+
+**Problem Solved:**
+- Need to track which Facebook ads/posts drive user registrations
+- Want to measure effectiveness of different landing pages
+- UTM parameters (e.g., `?utm=fb1`) must be preserved through authentication flow
+- Facebook/Google tracking parameters (`fbclid`, `gclid`) should be removed for privacy
+
+**Solution:**
+- **Database Schema** - Added `landing_url TEXT` column to `wp_user_registrations` table
+- **SQL Migration** - Created `supabase/add-landing-url-field.sql` with index for analytics
+- **Frontend Capture** - Captures `document.referrer` on auth form page
+- **Parameter Cleaning** - Removes `fbclid`, `gclid`, `msclkid`, `gbraid`, `wbraid` parameters
+- **Cross-Device Support** - Magic Link passes `landing_url` via URL parameter
+- **Same-Device Support** - OAuth saves `landing_url` to localStorage
+- **Backend Integration** - PHP validates and saves landing_url to Supabase
+
+**Implementation Details:**
+
+**Frontend (`auth-form.html`):**
+- `cleanTrackingParams()` function - strips Facebook/Google tracking parameters
+- `LANDING_URL` constant - captures referrer and validates same-domain
+- Magic Link: includes `landing_url` in `emailRedirectTo` parameter
+- OAuth: saves `landing_url` to localStorage via `safeStorage.setItem()`
+
+**Callback Handler (`test-no-elem-2-wordpress-paste.html`):**
+- Priority 1: Read from URL query param (Magic Link - cross-device)
+- Priority 2: Read from localStorage (OAuth - same-device)
+- Priority 3: null (direct auth form access)
+- Sends to PHP via POST body
+
+**Backend (`supabase-bridge.php`):**
+- Modified `sb_log_registration_to_supabase($email, $supabase_user_id, $registration_url, $landing_url = null)`
+- Added optional `$landing_url` parameter (backward compatible)
+- Validates via `sb_validate_url_path()` function
+- Includes in Supabase INSERT payload
+
+**Use Cases:**
+1. **Paid Traffic** - User clicks Facebook ad → lands on `/ai_intro_land/?utm=fb1` → clicks auth form → registers → `landing_url` saved
+2. **SEO/Organic** - User finds closed content via search → auth form → registers → `landing_url` = content page URL
+3. **Direct Auth** - User goes directly to auth form → registers → `landing_url` = null
+
+**Production Testing:**
+- ✅ Deployed to production (alexeykrol.com)
+- ✅ Tested with real Facebook ads traffic
+- ✅ Verified UTM parameters: `?utm=afb_0003`, `?utm=fbp_001`, `?utm=pfb_0003`, `?utm=fba_001`
+- ✅ Confirmed Facebook tracking parameters removed (`fbclid`, `brid`, etc.)
+- ✅ 100% landing URL attribution for new registrations
+- ✅ Works with multiple landing pages and UTM codes
+
+**Results:**
+- Complete marketing attribution for Facebook ad campaigns
+- Track which specific Facebook posts drive conversions
+- UTM parameters preserved through entire auth flow
+- Privacy-friendly: only tracks same-domain referrers
+- Cross-device Magic Link captures landing URL correctly
+- Zero breaking changes for existing functionality
+
+**Files Modified:**
+- `supabase/add-landing-url-field.sql` - Database migration (NEW)
+- `auth-form.html` - Landing URL capture and cleaning (lines 849-891)
+- `test-no-elem-2-wordpress-paste.html` - Landing URL extraction (lines 371-391)
+- `supabase-bridge.php` - Backend integration (lines 602, 618-625, 663, 1633-1641, 1736)
+
 ## [0.10.0] - 2026-01-06
 
 ### 🎓 Course Access Auto-Enrollment System

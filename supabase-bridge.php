@@ -599,7 +599,7 @@ function sb_get_thankyou_url_for_registration($registration_url) {
 }
 
 // Log user registration to Supabase (non-blocking analytics)
-function sb_log_registration_to_supabase($user_email, $supabase_user_id, $registration_url) {
+function sb_log_registration_to_supabase($user_email, $supabase_user_id, $registration_url, $landing_url = null) {
   try {
     $url = sb_cfg('SUPABASE_URL');
     $anon_key = sb_cfg('SUPABASE_ANON_KEY');
@@ -615,11 +615,21 @@ function sb_log_registration_to_supabase($user_email, $supabase_user_id, $regist
     $validated_user_id = sb_validate_uuid($supabase_user_id);
     $validated_reg_url = sb_validate_url_path($registration_url);
 
+    // Validate landing_url (optional, can be null)
+    $validated_landing_url = null;
+    if (!empty($landing_url)) {
+      $validated_landing_url = sb_validate_url_path($landing_url);
+      if (!$validated_landing_url) {
+        error_log('Supabase Bridge: Warning - Invalid landing_url: ' . $landing_url);
+      }
+    }
+
     if (!$validated_email || !$validated_user_id || !$validated_reg_url) {
       error_log('Supabase Bridge: Registration log failed - Invalid data detected (possible injection attempt)');
       error_log('  email: ' . ($validated_email ? 'OK' : 'INVALID: ' . $user_email));
       error_log('  user_id: ' . ($validated_user_id ? 'OK' : 'INVALID: ' . $supabase_user_id));
       error_log('  registration_url: ' . ($validated_reg_url ? 'OK' : 'INVALID: ' . $registration_url));
+      error_log('  landing_url: ' . ($validated_landing_url ? 'OK' : 'NULL or INVALID'));
       return false;
     }
 
@@ -650,6 +660,7 @@ function sb_log_registration_to_supabase($user_email, $supabase_user_id, $regist
       'pair_id' => $pair_id, // NULL if no pair found or invalid
       'user_email' => $validated_email,
       'registration_url' => $validated_reg_url,
+      'landing_url' => $validated_landing_url, // NULL if not provided or invalid (v0.10.0)
       // Note: thankyou_page_url accessible via pair_id → wp_registration_pairs foreign key
     ];
 
@@ -1619,6 +1630,16 @@ function sb_handle_callback(\WP_REST_Request $req) {
       $validated_registration_url = sb_validate_url_path($registration_url);
     }
 
+    // Read landing_url from POST body (v0.10.0 - marketing analytics)
+    $landing_url = $req->get_param('landing_url');
+    $validated_landing_url = null;
+    if (!empty($landing_url)) {
+      $validated_landing_url = sb_validate_url_path($landing_url);
+      if ($validated_landing_url) {
+        sb_log("Landing URL received", 'DEBUG', ['landing_url' => $validated_landing_url]);
+      }
+    }
+
     if (!$user) {
       sb_log("User not found - creating new WordPress user", 'INFO', ['email' => $email]);
 
@@ -1712,7 +1733,7 @@ function sb_handle_callback(\WP_REST_Request $req) {
           // === Phase 6: Log registration to Supabase (non-blocking) ===
           // Use validated_registration_url from earlier in the function
           if ($validated_registration_url) {
-            sb_log_registration_to_supabase($email, $supabase_user_id, $validated_registration_url);
+            sb_log_registration_to_supabase($email, $supabase_user_id, $validated_registration_url, $validated_landing_url);
             // Note: We don't check return value - logging is non-critical
           }
 

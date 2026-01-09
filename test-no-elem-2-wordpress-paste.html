@@ -368,6 +368,16 @@
 
     debug('Registration URL determined', registration_url);
 
+    // Determine landing_url for marketing analytics (v0.10.0)
+    // 1. URL query param (Magic Link - works across devices)
+    // 2. localStorage (OAuth - works on same device)
+    // 3. null (user came directly to auth form)
+    const landing_url = urlParams.get('landing_url') ||
+                       safeStorage.getItem('sb_landing_url') ||
+                       null;
+
+    debug('Landing URL determined', landing_url);
+
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -376,7 +386,8 @@
         },
         body: JSON.stringify({
           access_token: tokens.access_token,
-          registration_url: registration_url
+          registration_url: registration_url,
+          landing_url: landing_url
         }),
         credentials: 'include' // CRITICAL: Include cookies
       });
