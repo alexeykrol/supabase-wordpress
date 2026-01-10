@@ -1,0 +1,86 @@
+name: Telemetry Review Reminder
+
+# This workflow reminds to review telemetry reports
+# Scheduled for: January 11, 2026 at 10:00 AM PST (18:00 UTC)
+# NOTE: After Jan 11, 2026, you can delete this file or disable the workflow
+
+on:
+  schedule:
+    # Runs at 18:00 UTC (10:00 PST) on January 11
+    - cron: '0 18 11 1 *'
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if reminder is needed
+        id: check_date
+        run: |
+          CURRENT_YEAR=$(date +%Y)
+          if [ "$CURRENT_YEAR" -gt 2026 ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Reminder is for 2026 only. Skipping."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "✓ Posting reminder..."
+          fi
+
+      - name: Post reminder comment to Issue
+        if: steps.check_date.outputs.skip == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = 26;
+
+            const comment = `## ⏰ Напоминание: Проверьте telemetry отчёты!
+
+            Прошло 2 дня с момента запуска системы телеметрии. Пора проверить результаты!
+
+            ### 📊 Что проверить:
+
+            #### 1. Локальные отчёты от Claude
+            \`\`\`bash
+            cd /Users/alexeykrolmini/Downloads/Code/supabase-bridge
+            ls -lt telemetry-reports/
+            cat telemetry-reports/telemetry-report-*.md
+            \`\`\`
+
+            #### 2. WordPress Admin
+            - Откройте: **Supabase Bridge → Telemetry**
+            - Посмотрите статистику за 48 часов
+            - Проверьте success/failure rate
+
+            #### 3. Логи анализатора
+            \`\`\`bash
+            tail -f telemetry-analyzer.log
+            \`\`\`
+
+            ---
+
+            ### 🎯 Задачи:
+
+            - [ ] Прочитать последние 3-5 отчётов Claude
+            - [ ] Выявить top-3 error codes
+            - [ ] Определить % пользователей затронутых проблемами
+            - [ ] Составить список исправлений
+            - [ ] Реализовать исправления
+            - [ ] Мониторинг улучшений (снизить failure rate с 13% → <5%)
+
+            ---
+
+            **Цель:** Выявить root causes 13% failure rate и исправить критичные проблемы.
+
+            _🤖 Автоматическое напоминание от GitHub Actions • v0.10.2_`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment
+            });
+
+            console.log(`✓ Reminder posted to issue #${issueNumber}`);
