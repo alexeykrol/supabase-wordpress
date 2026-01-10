@@ -3,6 +3,8 @@
 
 # Private documentation (contains production metrics)
 EMAIL_DELIVERY_ANALYSIS.md
+cost.md
+marketing.md
 
 # Testing & Monitoring Documentation (internal use only)
 .claude/TESTING.md
