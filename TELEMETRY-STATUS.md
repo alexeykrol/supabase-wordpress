@@ -49,9 +49,9 @@
 
 ---
 
-### 🔧 Process 2: Automated Analysis (READY FOR SETUP)
+### ✅ Process 2: Automated Analysis (ACTIVE - Running Locally)
 
-**Status:** Scripts created, needs manual configuration
+**Status:** Configured and running on local Mac via cron
 
 **What it does:**
 - Runs every 3 hours via cron
@@ -64,14 +64,21 @@
   - Actionable recommendations
 
 **Files Created:**
-- `telemetry-analyzer.sh` - Main analysis script
-- `telemetry-analyzer.env` - Configuration (needs Claude API key)
+- `telemetry-analyzer.php` - PHP analysis script (runs locally)
+- `telemetry-analyzer.env` - Configuration with credentials
 - `telemetry-analyzer.env.example` - Template for reference
 - `TELEMETRY-SETUP.md` - Complete setup guide
 
-**Dependencies:**
-- `jq` (JSON parser) - May need installation on server
-- Claude API key - Get from https://console.anthropic.com/
+**Architecture Decision:**
+- ✅ **Runs locally on Mac** (not on production server)
+- Why? Analyzer only needs Supabase + Claude API access
+- No server resources used, easier to debug, temporary until issues fixed
+
+**Cron Job:**
+- Runs every 3 hours: 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00
+- Command: `php /Users/.../telemetry-analyzer.php >> telemetry-analyzer.log`
+- Location: Local Mac crontab
+- Status: ✅ Active and tested
 
 **Cost Estimate:**
 - Claude 3.5 Sonnet: ~$0.36/month (8 analyses/day)
@@ -79,83 +86,40 @@
 
 ---
 
-## What You Need to Do
+## Setup Complete! ✅
 
-### Step 1: Get Claude API Key
+**What's Running:**
+1. ✅ Frontend tracking (production) - collecting data from live users
+2. ✅ Local analyzer (Mac cron) - analyzing data every 3 hours
+3. ✅ WordPress admin tab - displaying live statistics
 
-1. Go to: https://console.anthropic.com/settings/keys
-2. Create new API key
-3. Copy the key (starts with `sk-ant-api03-...`)
+**How to Monitor:**
 
-### Step 2: Configure on Server
+### Check Live Telemetry Data:
+WordPress Admin → **Supabase Bridge → Telemetry**
 
-SSH into production:
+### Check Analysis Reports:
 ```bash
-ssh -i ~/.ssh/claude_prod_new -p 65002 u465545808@45.145.187.249
-```
-
-Navigate to plugin directory:
-```bash
-cd /home/u465545808/domains/alexeykrol.com/public_html/wp-content/plugins/supabase-bridge
-```
-
-Edit env file:
-```bash
-nano telemetry-analyzer.env
-```
-
-Add your Claude API key:
-```bash
-CLAUDE_API_KEY=sk-ant-api03-YOUR-ACTUAL-KEY-HERE
-```
-
-Save and exit (Ctrl+X, Y, Enter).
-
-### Step 3: Test the Script
-
-Run manually:
-```bash
-bash telemetry-analyzer.sh
-```
-
-Expected output:
-```
-[2025-01-09 10:30:00] Starting telemetry analysis...
-[2025-01-09 10:30:01] Fetching telemetry data from Supabase...
-[2025-01-09 10:30:02] Analyzing 45 events with Claude API...
-[2025-01-09 10:30:10] Report saved: ./telemetry-reports/telemetry-report-2025-01-09_10-30-10.md
-[2025-01-09 10:30:10] Analysis complete! Status: 🟢
-```
-
-Check the report:
-```bash
+ls -lt telemetry-reports/
 cat telemetry-reports/telemetry-report-*.md
 ```
 
-### Step 4: Setup Cron Job
-
-Edit crontab:
+### Check Analyzer Logs:
 ```bash
-crontab -e
+tail -f telemetry-analyzer.log
 ```
 
-Add this line:
-```cron
-0 */3 * * * cd /home/u465545808/domains/alexeykrol.com/public_html/wp-content/plugins/supabase-bridge && bash telemetry-analyzer.sh >> /home/u465545808/domains/alexeykrol.com/public_html/wp-content/telemetry-analyzer.log 2>&1
-```
-
-Save and verify:
+### Manually Trigger Analysis:
 ```bash
-crontab -l
+php telemetry-analyzer.php
 ```
 
-### Step 5: Monitor
-
-After 24-48 hours:
-1. Check WordPress admin: **Supabase Bridge → Telemetry**
-2. Review automated reports in `telemetry-reports/` directory
-3. Read Claude's analysis and recommendations
-4. Implement fixes based on insights
+**Next Steps (after 24-48 hours):**
+1. Wait for user registrations to generate telemetry data
+2. Automated reports will appear in `telemetry-reports/`
+3. Review Claude's analysis and identify root causes
+4. Implement fixes based on recommendations
+5. Monitor success/failure rate improvements
 
 ---
 
