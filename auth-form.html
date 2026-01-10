@@ -1009,6 +1009,8 @@
 
     // ========== EMAIL MAGIC LINK ==========
 
+    let isEmailSubmitting = false;
+
     emailForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = emailInput.value.trim();
@@ -1020,9 +1022,25 @@
         return;
       }
 
+      // Защита от множественных кликов
+      if (isEmailSubmitting) {
+        console.log('⚠️ Already submitting, ignoring duplicate click');
+        return;
+      }
+
       console.log('🎯 User submitted email for magic link');
 
       try {
+        // Блокируем кнопку и показываем loading
+        isEmailSubmitting = true;
+        const submitBtn = emailForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Отправляем...';
+          submitBtn.style.opacity = '0.6';
+        }
+
         // Отправка magic link с registration_url + landing_url в URL (работает между устройствами)
         const currentPage = window.location.pathname;
         let callbackWithParam = '{{CALLBACK_URL}}?registration_url=' + encodeURIComponent(currentPage);
@@ -1044,7 +1062,8 @@
 
         // Track telemetry: MagicLink requested (v0.10.2)
         trackTelemetry('magic_link_requested', {
-          email: email
+          email: email,
+          provider: 'magic_link'
         });
 
         // Переключить на экран 2 (сразу показываем финальный экран без мигания)
@@ -1061,10 +1080,21 @@
       } catch (error) {
         console.error('Magic link error:', error);
         showError(error.message || 'Не удалось отправить волшебную ссылку');
+
+        // Разблокируем кнопку при ошибке
+        const submitBtn = emailForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          submitBtn.style.opacity = '1';
+        }
+        isEmailSubmitting = false;
       }
     });
 
     // ========== GOOGLE OAUTH ==========
+
+    let isGoogleSubmitting = false;
 
     googleBtn.addEventListener('click', async () => {
       if (!supabaseClient) {
@@ -1072,9 +1102,22 @@
         return;
       }
 
+      // Защита от множественных кликов
+      if (isGoogleSubmitting) {
+        console.log('⚠️ Google OAuth already in progress, ignoring duplicate click');
+        return;
+      }
+
       console.log('🎯 User clicked Google OAuth button');
 
       try {
+        // Блокируем кнопку
+        isGoogleSubmitting = true;
+        const originalText = googleBtn.textContent;
+        googleBtn.disabled = true;
+        googleBtn.textContent = 'Перенаправляем...';
+        googleBtn.style.opacity = '0.6';
+
         // Save landing_url to localStorage for OAuth flow (v0.10.0)
         if (LANDING_URL) {
           safeStorage.setItem('sb_landing_url', LANDING_URL);
@@ -1095,13 +1138,23 @@
           provider: 'google'
         });
 
+        // Успех - браузер перенаправит на Google, кнопку не разблокируем
+
       } catch (error) {
         console.error('OAuth error:', error);
         showError(error.message || 'Ошибка OAuth аутентификации');
+
+        // Разблокируем кнопку при ошибке
+        googleBtn.disabled = false;
+        googleBtn.textContent = originalText;
+        googleBtn.style.opacity = '1';
+        isGoogleSubmitting = false;
       }
     });
 
     // ========== FACEBOOK OAUTH ==========
+
+    let isFacebookSubmitting = false;
 
     facebookBtn.addEventListener('click', async () => {
       if (!supabaseClient) {
@@ -1109,9 +1162,22 @@
         return;
       }
 
+      // Защита от множественных кликов
+      if (isFacebookSubmitting) {
+        console.log('⚠️ Facebook OAuth already in progress, ignoring duplicate click');
+        return;
+      }
+
       console.log('🎯 User clicked Facebook OAuth button');
 
       try {
+        // Блокируем кнопку
+        isFacebookSubmitting = true;
+        const originalText = facebookBtn.textContent;
+        facebookBtn.disabled = true;
+        facebookBtn.textContent = 'Перенаправляем...';
+        facebookBtn.style.opacity = '0.6';
+
         // Save landing_url to localStorage for OAuth flow (v0.10.0)
         if (LANDING_URL) {
           safeStorage.setItem('sb_landing_url', LANDING_URL);
@@ -1133,9 +1199,17 @@
           provider: 'facebook'
         });
 
+        // Успех - браузер перенаправит на Facebook, кнопку не разблокируем
+
       } catch (error) {
         console.error('OAuth error:', error);
         showError(error.message || 'Ошибка OAuth аутентификации');
+
+        // Разблокируем кнопку при ошибке
+        facebookBtn.disabled = false;
+        facebookBtn.textContent = originalText;
+        facebookBtn.style.opacity = '1';
+        isFacebookSubmitting = false;
       }
     });
 
@@ -1202,7 +1276,24 @@
           return;
         }
 
+        // Проверяем cooldown (60 секунд)
+        const lastResendKey = 'sb_last_resend';
+        const lastResend = localStorage.getItem(lastResendKey);
+        const now = Date.now();
+
+        if (lastResend && (now - parseInt(lastResend)) < 60000) {
+          const remaining = Math.ceil((60000 - (now - parseInt(lastResend))) / 1000);
+          showError(`Подождите ${remaining} секунд перед повторной отправкой`);
+          return;
+        }
+
         try {
+          // Блокируем кнопку
+          const originalText = resendBtn.textContent;
+          resendBtn.disabled = true;
+          resendBtn.textContent = 'Отправляем...';
+          resendBtn.style.opacity = '0.6';
+
           // Повторная отправка с тем же registration_url
           const currentPage = window.location.pathname;
           const callbackWithParam = '{{CALLBACK_URL}}?registration_url=' + encodeURIComponent(currentPage);
@@ -1216,11 +1307,35 @@
 
           if (error) throw error;
 
-          showSuccess('Письмо отправлено повторно!');
+          // Сохраняем timestamp последней отправки
+          localStorage.setItem(lastResendKey, now.toString());
+
+          showSuccess('✅ Письмо отправлено! ВАЖНО: Используйте САМОЕ НОВОЕ письмо. Старые ссылки больше не работают.');
+
+          // Запускаем таймер cooldown (60 секунд)
+          let countdown = 60;
+          resendBtn.textContent = `Подождите ${countdown}с`;
+
+          const timer = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+              resendBtn.textContent = `Подождите ${countdown}с`;
+            } else {
+              clearInterval(timer);
+              resendBtn.textContent = originalText;
+              resendBtn.disabled = false;
+              resendBtn.style.opacity = '1';
+            }
+          }, 1000);
 
         } catch (error) {
           console.error('Resend error:', error);
           showError(error.message || 'Не удалось отправить письмо повторно');
+
+          // Разблокируем кнопку при ошибке
+          resendBtn.disabled = false;
+          resendBtn.textContent = 'Отправить ещё раз';
+          resendBtn.style.opacity = '1';
         }
       });
     }

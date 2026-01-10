@@ -239,7 +239,12 @@
 
   function trackTelemetry(event, data) {
     try {
-      if (!window.SUPABASE_CFG) return Promise.resolve(); // Supabase not configured
+      console.log('📊 trackTelemetry called:', event, data);
+
+      if (!window.SUPABASE_CFG) {
+        console.warn('⚠️ SUPABASE_CFG not found - telemetry disabled');
+        return Promise.resolve(); // Supabase not configured
+      }
 
       const urlParams = new URLSearchParams(window.location.search);
       const payload = JSON.stringify({
@@ -253,6 +258,7 @@
       });
 
       const url = window.SUPABASE_CFG.url + '/rest/v1/auth_telemetry';
+      console.log('📤 Sending telemetry to:', url);
 
       // Use fetch with keepalive (non-blocking, works even on page close)
       // Note: sendBeacon doesn't support custom headers, so we use fetch instead
@@ -266,8 +272,14 @@
         },
         body: payload,
         keepalive: true
-      }).catch(() => {}); // Silent fail - telemetry never breaks auth
+      }).then(res => {
+        console.log('✅ Telemetry sent successfully:', event, res.status);
+        return res;
+      }).catch(err => {
+        console.error('❌ Telemetry fetch failed:', event, err);
+      }); // Silent fail - telemetry never breaks auth
     } catch (e) {
+      console.error('❌ Telemetry error:', e);
       // Silent fail - telemetry never breaks auth
       return Promise.resolve();
     }
@@ -334,22 +346,23 @@
       let userMessage;
 
       if (errorCode === 'otp_expired') {
-        userMessage = 'Ссылка для входа устарела (истёк срок действия). Пожалуйста, запросите новую ссылку для входа.';
+        userMessage = 'Ссылка для входа устарела (истёк срок действия). ВАЖНО: Если вы запрашивали ссылку несколько раз — используйте САМОЕ НОВОЕ письмо. Старые ссылки автоматически отменяются при создании новых.';
       } else if (errorCode === 'otp_disabled') {
         userMessage = 'Вход по email временно недоступен. Попробуйте войти через Google или Facebook.';
       } else if (errorType === 'access_denied') {
-        userMessage = 'Доступ запрещён. Пожалуйста, попробуйте ещё раз или свяжитесь с поддержкой.';
+        userMessage = 'Доступ запрещён. Если проблема повторяется, свяжитесь с поддержкой.';
       } else {
         // Generic error with description from Supabase
         userMessage = errorDescription
           ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
-          : 'Ошибка входа. Пожалуйста, попробуйте ещё раз.';
+          : 'Ошибка входа. Если проблема повторяется, свяжитесь с поддержкой.';
       }
 
       // Track telemetry: auth failure (v0.10.2)
       trackTelemetry('auth_failure', {
         error_code: errorCode || errorType,
-        error_message: errorDescription || userMessage
+        error_message: errorDescription || userMessage,
+        provider: 'unknown' // Provider unknown at error stage
       });
 
       throw new Error(userMessage);
@@ -524,70 +537,50 @@
   }
 
   // ═══════════════════════════════════════════════════════════
-  // Error Logging (sends timeout errors to backend for analysis)
-  // ═══════════════════════════════════════════════════════════
-
-  function logTimeoutError() {
-    try {
-      const errorData = {
-        error_type: 'auth_timeout',
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        browser: navigator.userAgent,
-        platform: navigator.platform,
-        screen: `${window.screen.width}x${window.screen.height}`,
-        viewport: `${window.innerWidth}x${window.innerHeight}`
-      };
-
-      debug('Logging timeout error', errorData);
-
-      // Send to WordPress admin-ajax.php
-      const formData = new FormData();
-      formData.append('action', 'sb_log_auth_timeout');
-      formData.append('data', JSON.stringify(errorData));
-
-      fetch(window.location.origin + '/wp-admin/admin-ajax.php', {
-        method: 'POST',
-        body: formData
-      }).catch(err => {
-        debug('Failed to send timeout log', err.message);
-      });
-    } catch (e) {
-      debug('Error in logTimeoutError', e.message);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
   // Main Authentication Flow
   // ═══════════════════════════════════════════════════════════
 
   async function processAuthentication() {
     debug('Starting authentication process');
 
-    // ═══════════════════════════════════════════════════════════
-    // TIMEOUT SAFEGUARD: If redirect doesn't happen in 20 sec
-    // ═══════════════════════════════════════════════════════════
-    let redirected = false;
+    // Diagnostic tracking for timeout monitoring
+    const diagnostics = {
+      urlParsed: false,
+      wpCalled: false,
+      wpSuccess: false,
+      redirected: false,
+      error: null,
+      startTime: Date.now()
+    };
 
+    // Silent timeout monitoring (20 seconds)
     setTimeout(() => {
-      if (!redirected) {
-        // Прошло 20 секунд, редирект не произошел
-        debug('⚠️ TIMEOUT: Redirect did not happen in 20 seconds');
+      if (!diagnostics.redirected) {
+        // Callback is stuck - send telemetry
+        console.error('⚠️ Callback timeout: redirect did not happen in 20 seconds', diagnostics);
+
+        trackTelemetry('callback_timeout', {
+          timeout_seconds: 20,
+          url_parsed: diagnostics.urlParsed,
+          wordpress_called: diagnostics.wpCalled,
+          wordpress_success: diagnostics.wpSuccess,
+          error_message: diagnostics.error || null,
+          elapsed_ms: Date.now() - diagnostics.startTime,
+          callback_url: window.location.href,
+          referrer: document.referrer || null
+        });
+
+        // Show support contact message
         clearInterval(dotsTimer);
-
-        // Log timeout error for analysis
-        logTimeoutError();
-
-        // Show fallback UI with retry button
         const instantLoader = document.getElementById('instant-loader');
         if (instantLoader) {
           instantLoader.innerHTML = `
             <div style="text-align: center; max-width: 400px; padding: 40px;">
               <h2 style="color: #dc2626; font-size: 24px; margin: 0 0 20px 0; font-weight: 600;">⚠️ Что-то пошло не так</h2>
               <p style="color: #666; font-size: 16px; margin: 0 0 30px 0; line-height: 1.5;">
-                Вход занял слишком много времени
+                Вход занял слишком много времени. Пожалуйста, напишите в поддержку.
               </p>
-              <a href="/test-no-elem/" style="
+              <a href="mailto:support@alexeykrol.com" style="
                 display: inline-block;
                 padding: 14px 28px;
                 background: #2563eb;
@@ -599,13 +592,13 @@
                 transition: background 0.2s;
               " onmouseover="this.style.background='#1d4ed8'"
                  onmouseout="this.style.background='#2563eb'">
-                Войти заново
+                Написать в поддержку
               </a>
             </div>
           `;
         }
       }
-    }, 20000); // 20 seconds timeout
+    }, 20000); // 20 seconds
 
     // Update instant loader content instead of hiding it (avoid flickering)
     const instantLoader = document.getElementById('instant-loader');
@@ -633,9 +626,12 @@
     try {
       // Step 1: Extract tokens from URL hash
       const tokens = extractTokensFromHash();
+      diagnostics.urlParsed = true;
 
       // Step 2: Authenticate with WordPress
+      diagnostics.wpCalled = true;
       const wpResponse = await authenticateWithWordPress(tokens);
+      diagnostics.wpSuccess = true;
 
       // Handle duplicate callback (null response)
       if (wpResponse === null) {
@@ -646,12 +642,21 @@
       // Step 3: Determine redirect URL
       const redirectUrl = getRedirectUrl(wpResponse);
 
+      // DEBUG: Log before telemetry
+      console.log('🎯 About to send auth_success telemetry:', {
+        email: wpResponse.user_email,
+        supabase_user_id: wpResponse.supabase_user_id,
+        is_new_user: wpResponse.is_new_user,
+        provider: wpResponse.provider
+      });
+
       // Track telemetry: auth success (v0.10.2)
       // Wait for telemetry to send before redirect (with timeout)
       const telemetryPromise = trackTelemetry('auth_success', {
         email: wpResponse.user_email || null,
         supabase_user_id: wpResponse.supabase_user_id || null,
-        is_new_user: wpResponse.is_new_user || false
+        is_new_user: wpResponse.is_new_user || false,
+        provider: wpResponse.provider || 'unknown'
       });
 
       // Wait max 1 second for telemetry, then redirect anyway
@@ -669,16 +674,14 @@
 
         // Clean URL hash and redirect
         clearInterval(dotsTimer);
-
-        // Mark redirect as successful (prevents timeout safeguard)
-        redirected = true;
-
+        diagnostics.redirected = true;
         window.location.href = redirectUrl;
       });
 
     } catch (error) {
       console.error('[Auth Callback] Error:', error);
       debug('Authentication failed', error.toString());
+      diagnostics.error = error.message || error.toString();
       clearInterval(dotsTimer);
 
       // Get registration_url to provide helpful retry link

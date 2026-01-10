@@ -1,18 +1,7 @@
 # WordPress Plugin - Supabase Bridge
-# Public .gitignore - Safe patterns for plugin users
+# Standard patterns for plugin users
 
-# Private documentation (contains production metrics)
-EMAIL_DELIVERY_ANALYSIS.md
-cost.md
-marketing.md
-
-# Testing & Monitoring Documentation (internal use only)
-.claude/TESTING.md
-.claude/testing-roadmap.md
-.claude/logs/
-monitoring/
-
-# WordPress Configuration Files
+# WordPress Configuration
 wp-config.php
 wp-config-*.php
 
@@ -21,240 +10,42 @@ wp-config-*.php
 .env.local
 .env.*.local
 
-# Telemetry analyzer - debug/internal files (DO NOT COMMIT)
-telemetry-analyzer.env
-telemetry-analyzer.log
-telemetry-reports/
-*.telemetry.log
-
 # Composer
 /vendor/
 composer.lock
 composer.phar
 
-# Node modules (if any)
+# Node
 node_modules/
 package-lock.json
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
-desktop.ini
 
 # Logs
 *.log
-npm-debug.log*
 error_log
 debug.log
 
-# Test Reports
+# Test output
 tests/reports/
-*.junit.xml
 coverage/
 .phpunit.result.cache
 
-# Playwright E2E Tests
-/test-results/
-/playwright-report/
-/playwright/.cache/
-/.auth/
-
-# Temporary files
+# Temporary
 *.tmp
 *.temp
 *.cache
-
-# Backups
 *.bak
-*.backup
 
-# Build directory
+# Build
 build/
-
-# Deployment archives
 *.zip
-
-# WordPress debugging
-wp-content/debug.log
-.production-credentials
-
-# Webhook resend scripts and logs (internal use only)
-resend-webhooks*.php
-sent-webhooks.log
-sent-emails.txt
-/tmp/resend-*.php
-/tmp/sent-*.log
-/tmp/sent-*.txt
-
-# Claude dialogs
-dialog/2026-01-10_session-8e7a4eec.md
-dialog/2026-01-10_session-9f27e388.md
-dialog/2026-01-10_session-6e0be329.md
-dialog/2026-01-10_session-ca17aa36.md
-dialog/2026-01-10_session-3c3c5f05.md
-dialog/2026-01-10_session-6f8b4bf5.md
-dialog/2026-01-10_session-3302d45f.md
-dialog/2026-01-10_session-5c101626.md
-dialog/2026-01-10_session-f7833090.md
-dialog/2026-01-10_session-c682e58f.md
-dialog/2026-01-10_session-bdefeef6.md
-dialog/2026-01-10_session-665d7e0e.md
-dialog/2026-01-10_session-db001ea6.md
-dialog/2026-01-10_session-2bafd4e0.md
-dialog/2026-01-10_session-fe7377c4.md
-dialog/2026-01-10_session-a6e24edc.md
-dialog/2026-01-10_session-f5c70998.md
-dialog/2026-01-10_session-0e09f507.md
-dialog/2026-01-10_session-46598282.md
-dialog/2026-01-10_session-3558c37f.md
-dialog/2026-01-10_session-5157be24.md
-dialog/2026-01-10_session-013a554b.md
-dialog/2026-01-10_session-b5e9857a.md
-dialog/2026-01-10_session-79daa611.md
-dialog/2026-01-09_session-a584402e.md
-dialog/2026-01-09_session-6407572a.md
-dialog/2026-01-09_session-3ab8e134.md
-dialog/2026-01-09_session-d24efc35.md
-dialog/2026-01-09_session-c69dbd4a.md
-dialog/2026-01-09_session-217163e5.md
-dialog/2026-01-09_session-08b29080.md
-dialog/2026-01-09_session-2123ee98.md
-dialog/2026-01-09_session-2d3f4b35.md
-dialog/2026-01-09_session-5730871e.md
-dialog/2026-01-09_session-d4690d58.md
-dialog/2026-01-09_session-1ce1a9cd.md
-dialog/2026-01-09_session-35662658.md
-dialog/2026-01-09_session-9732ef92.md
-dialog/2026-01-09_session-134669e1.md
-dialog/2026-01-09_session-25011291.md
-dialog/2026-01-09_session-ff732a4b.md
-dialog/2026-01-09_session-52261bc8.md
-dialog/2026-01-09_session-21ba26aa.md
-dialog/2026-01-09_session-34d55754.md
-dialog/2026-01-09_session-6dabce49.md
-dialog/2026-01-09_session-a50a057f.md
-dialog/2026-01-09_session-a8c6abc5.md
-dialog/2026-01-09_session-f44152e9.md
-dialog/2026-01-06_session-d5d0a34d.md
-dialog/2026-01-06_session-7f1bd8e4.md
-dialog/2026-01-06_session-e5b244de.md
-dialog/2026-01-06_session-a7cf3138.md
-dialog/2026-01-06_session-5c926f00.md
-dialog/2026-01-06_session-514aea93.md
-dialog/2026-01-06_session-7cb1a689.md
-dialog/2026-01-06_session-7942e25c.md
-dialog/2026-01-06_session-fe35efea.md
-dialog/2026-01-06_session-e21ae309.md
-dialog/2026-01-06_session-545b2bd2.md
-dialog/2026-01-06_session-2270db1f.md
-dialog/2026-01-06_session-2044b115.md
-dialog/2026-01-06_session-4fb371e4.md
-dialog/2026-01-06_session-b063da37.md
-dialog/2026-01-06_session-3fef1e6e.md
-dialog/2026-01-06_session-730110b6.md
-dialog/2026-01-06_session-0021cc40.md
-dialog/2026-01-06_session-60a03f01.md
-dialog/2026-01-06_session-d85f8c31.md
-dialog/2026-01-06_session-c60b07d6.md
-dialog/2026-01-06_session-358d9bb6.md
-dialog/2026-01-06_session-8c541ab3.md
-dialog/2026-01-06_session-baf670e9.md
-dialog/2026-01-04_session-8fd69636.md
-dialog/2026-01-04_session-6defa8a6.md
-dialog/2026-01-04_session-f8b3e6f5.md
-dialog/2026-01-04_session-e08e3994.md
-dialog/2026-01-04_session-e26f97c4.md
-dialog/2026-01-04_session-3a787e33.md
-dialog/2026-01-04_session-cb311abe.md
-dialog/2026-01-04_session-bf677187.md
-dialog/2026-01-04_session-9930bee1.md
-dialog/2026-01-04_session-9ccc9a57.md
-dialog/2026-01-04_session-3bd7322b.md
-dialog/2026-01-04_session-4a7dea39.md
-dialog/2026-01-04_session-cb726334.md
-dialog/2026-01-04_session-77e943b9.md
-dialog/2026-01-04_session-2a23f9ad.md
-dialog/2026-01-04_session-2923ea29.md
-dialog/2026-01-04_session-c885ace0.md
-dialog/2026-01-04_session-9ef23f73.md
-dialog/2026-01-04_session-92676263.md
-dialog/2026-01-04_session-45689bfc.md
-dialog/2026-01-04_session-39aaea7d.md
-dialog/2026-01-04_session-9add68c4.md
-dialog/2026-01-04_session-23cec7c7.md
-dialog/2026-01-04_session-e5e4f2bf.md
-dialog/2026-01-04_session-20a5c8b0.md
-dialog/2026-01-04_session-13d838b8.md
-dialog/2026-01-04_session-7bb564eb.md
-dialog/2026-01-04_session-7f96eaf4.md
-dialog/2026-01-04_session-e75454a4.md
-dialog/2026-01-04_session-8b28dd5c.md
-dialog/2026-01-04_session-0584e4fd.md
-dialog/2026-01-04_session-33726e22.md
-dialog/2026-01-04_session-a75a9109.md
-dialog/2026-01-04_session-d423d6e6.md
-dialog/2026-01-04_session-79bbc7dd.md
-dialog/2026-01-04_session-f84bb89f.md
-dialog/2026-01-04_session-7f229962.md
-dialog/2026-01-04_session-b3722566.md
-dialog/2026-01-04_session-a1f75aee.md
-dialog/2026-01-04_session-e50fa93c.md
-dialog/2026-01-04_session-7fed6fc6.md
-dialog/2026-01-04_session-bde41fb4.md
-dialog/2026-01-04_session-752eea5b.md
-dialog/2026-01-04_session-59b19236.md
-dialog/2026-01-04_session-c41235c0.md
-dialog/2026-01-04_session-d34cb310.md
-dialog/2026-01-04_session-616a057b.md
-dialog/2026-01-04_session-6a9c494c.md
-dialog/2026-01-04_session-d32dee1e.md
-dialog/2026-01-04_session-3fd7fa02.md
-dialog/2026-01-04_session-96a5b3eb.md
-dialog/2026-01-04_session-7990494a.md
-dialog/2026-01-04_session-cf5e3575.md
-dialog/2026-01-04_session-7aa943cf.md
-dialog/2026-01-04_session-d9288e21.md
-dialog/2026-01-04_session-76a4dbf9.md
-dialog/2026-01-04_session-0770a02e.md
-dialog/2026-01-04_session-5f2acdfe.md
-dialog/2026-01-04_session-e5b18b2c.md
-dialog/2026-01-04_session-a99f55d8.md
-dialog/2026-01-04_session-9d87952b.md
-dialog/2026-01-04_session-5e7bb624.md
-dialog/2026-01-04_session-3e10283e.md
-dialog/2026-01-04_session-d8976330.md
-dialog/2026-01-04_session-d21e27f0.md
-dialog/2026-01-04_session-3afdbf71.md
-dialog/2026-01-04_session-1e445360.md
-dialog/2026-01-04_session-a7705517.md
-dialog/2026-01-04_session-326486b9.md
-dialog/2026-01-04_session-4872b165.md
-dialog/2025-12-21_session-cfe36ff4.md
-dialog/2025-12-21_session-61249d5c.md
-dialog/2025-12-21_session-5a26c026.md
-dialog/2025-12-21_session-87f6bd3e.md
-dialog/2025-12-21_session-4d06186f.md
-dialog/2025-12-21_session-33f6ed3d.md
-dialog/2025-12-21_session-177c6845.md
-dialog/2025-12-21_session-fe179125.md
-dialog/2025-12-21_session-1a6bc8d8.md
-dialog/2025-12-21_session-2216896c.md
-dialog/2025-12-21_session-5a81795a.md
-dialog/2025-12-21_session-7c186257.md
-dialog/2025-12-21_session-62623fee.md
-dialog/2025-12-21_session-bcac0864.md
-dialog/2025-12-21_session-f922e929.md
-dialog/2025-12-21_session-c72aaaf2.md
-dialog/2025-12-21_session-e8716ee0.md
-dialog/2025-12-21_session-f2913d85.md
-dialog/2025-12-21_session-2aedeb41.md
-dialog/2025-12-21_session-ec7d84ca.md
-dialog/2025-12-21_session-a1ae34e0.md
-dialog/2026-01-03_session-5a49ff71.md
