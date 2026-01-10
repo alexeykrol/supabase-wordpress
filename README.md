@@ -200,7 +200,7 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
 **Core Files:**
 - **`supabase-bridge.php`** - Main plugin file with WordPress integration, admin interface, and REST API endpoints
 - **`auth-form.html`** - Authentication form with Google OAuth, Facebook OAuth, and Magic Link (email + 6-digit code)
-- **`test-no-elem-2-wordpress-paste.html`** - Callback handler for authentication (paste into WordPress page editor)
+- **`callback.html`** - Callback handler for authentication (paste into WordPress page editor)
 
 **Configuration:**
 - **`composer.json`** - PHP dependencies (firebase/php-jwt for JWT verification)

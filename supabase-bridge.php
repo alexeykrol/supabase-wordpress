@@ -1300,7 +1300,7 @@ $sb_auth_callback_content = null;
 add_shortcode('supabase_auth_callback', function() {
   global $sb_auth_callback_content;
 
-  $callback_path = plugin_dir_path(__FILE__) . 'test-no-elem-2-wordpress-paste.html';
+  $callback_path = plugin_dir_path(__FILE__) . 'callback.html';
 
   if (!file_exists($callback_path)) {
     return '<div style="padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">⚠️ Callback handler file not found. Please reinstall the Supabase Bridge plugin.</div>';

@@ -31,7 +31,7 @@ All notable changes to Supabase Bridge are documented in this file.
 - Magic Link: includes `landing_url` in `emailRedirectTo` parameter
 - OAuth: saves `landing_url` to localStorage via `safeStorage.setItem()`
 
-**Callback Handler (`test-no-elem-2-wordpress-paste.html`):**
+**Callback Handler (`callback.html`):**
 - Priority 1: Read from URL query param (Magic Link - cross-device)
 - Priority 2: Read from localStorage (OAuth - same-device)
 - Priority 3: null (direct auth form access)
@@ -67,7 +67,7 @@ All notable changes to Supabase Bridge are documented in this file.
 **Files Modified:**
 - `supabase/add-landing-url-field.sql` - Database migration (NEW)
 - `auth-form.html` - Landing URL capture and cleaning (lines 849-891)
-- `test-no-elem-2-wordpress-paste.html` - Landing URL extraction (lines 371-391)
+- `callback.html` - Landing URL extraction (lines 371-391)
 - `supabase-bridge.php` - Backend integration (lines 602, 618-625, 663, 1633-1641, 1736)
 
 ## [0.10.0] - 2026-01-06
@@ -268,7 +268,7 @@ All notable changes to Supabase Bridge are documented in this file.
 - Root cause: OAuth redirects lose localStorage when user opens email on different device/browser
 - Solution: Pass `registration_url` via URL query parameter in Magic Link emails
 - Modified `auth-form.html` to include registration_url in `emailRedirectTo` callback URL
-- Modified callback page (`test-no-elem-2-wordpress-paste.html`) to read from URL param with localStorage fallback
+- Modified callback page (`callback.html`) to read from URL param with localStorage fallback
 - Priority-based detection: URL param → localStorage → current page path
 - Fixes ~46% data loss in marketing analytics
 
