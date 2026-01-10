@@ -5420,12 +5420,14 @@ function sb_render_telemetry_tab() {
       </div>
     <?php endif; ?>
 
-    <!-- Coming Soon: Automated Reports -->
-    <div style="background: #fff3cd; padding: 20px; border: 1px solid #ffc107; border-radius: 4px; margin: 20px 0;">
-      <h3 style="margin-top: 0; border-bottom: 1px solid #ffecb5; padding-bottom: 10px;">🚧 Coming Soon: Automated Analysis</h3>
-      <p><strong>Status:</strong> Telemetry collection is active ✅</p>
-      <p><strong>Next step:</strong> Automated analysis reports (cron job + Claude API) - in development.</p>
-      <p><strong>What to expect:</strong> Every 3 hours, automated report analyzing patterns, identifying issues, and suggesting fixes.</p>
+    <!-- Automated Analysis Status -->
+    <div style="background: #d4edda; padding: 20px; border: 1px solid #28a745; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #c3e6cb; padding-bottom: 10px; color: #155724;">✅ Automated Analysis Active</h3>
+      <p><strong>Status:</strong> Telemetry collection ✅ | Automated analysis ✅</p>
+      <p><strong>How it works:</strong> Local cron job runs every 3 hours, queries Supabase, analyzes data via Claude API, generates reports.</p>
+      <p><strong>Schedule:</strong> Analysis runs at 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00 (every 3 hours).</p>
+      <p><strong>Reports location:</strong> Generated locally and reviewed by developer for pattern identification.</p>
+      <p><strong>Next steps:</strong> Wait 24-48 hours for data accumulation → Review automated reports → Implement fixes based on Claude's recommendations.</p>
     </div>
 
   </div>
