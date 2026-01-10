@@ -836,19 +836,14 @@
           'Prefer': 'return=minimal'
         };
 
-        // Use sendBeacon if available (best - non-blocking, works even on page close)
-        if (navigator.sendBeacon) {
-          const blob = new Blob([payload], { type: 'application/json' });
-          navigator.sendBeacon(url, blob);
-        } else {
-          // Fallback: fetch with keepalive (still non-blocking)
-          fetch(url, {
-            method: 'POST',
-            headers: headers,
-            body: payload,
-            keepalive: true
-          }).catch(() => {}); // Silent fail
-        }
+        // Use fetch with keepalive (non-blocking, works even on page close)
+        // Note: sendBeacon doesn't support custom headers, so we use fetch instead
+        fetch(url, {
+          method: 'POST',
+          headers: headers,
+          body: payload,
+          keepalive: true
+        }).catch(() => {}); // Silent fail - telemetry never breaks auth
       } catch (e) {
         // Silent fail - telemetry never breaks auth
       }

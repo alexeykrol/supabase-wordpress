@@ -254,24 +254,19 @@
 
       const url = window.SUPABASE_CFG.url + '/rest/v1/auth_telemetry';
 
-      // Use sendBeacon if available (non-blocking)
-      if (navigator.sendBeacon) {
-        const blob = new Blob([payload], { type: 'application/json' });
-        navigator.sendBeacon(url, blob);
-      } else {
-        // Fallback: fetch with keepalive
-        fetch(url, {
-          method: 'POST',
-          headers: {
-            'apikey': window.SUPABASE_CFG.anon,
-            'Authorization': 'Bearer ' + window.SUPABASE_CFG.anon,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: payload,
-          keepalive: true
-        }).catch(() => {}); // Silent fail
-      }
+      // Use fetch with keepalive (non-blocking, works even on page close)
+      // Note: sendBeacon doesn't support custom headers, so we use fetch instead
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'apikey': window.SUPABASE_CFG.anon,
+          'Authorization': 'Bearer ' + window.SUPABASE_CFG.anon,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: payload,
+        keepalive: true
+      }).catch(() => {}); // Silent fail - telemetry never breaks auth
     } catch (e) {
       // Silent fail - telemetry never breaks auth
     }
