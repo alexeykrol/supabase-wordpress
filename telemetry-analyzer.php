@@ -1,11 +1,12 @@
 #!/usr/bin/env php
 <?php
 /**
- * Telemetry Analyzer Script (v0.10.2) - PHP Version
+ * Telemetry Analyzer Script (v0.11.0) - PHP Version
  *
  * Purpose: Analyze auth_telemetry data from Supabase using Claude API
  * Schedule: Run every 3 hours via cron
  * Output: Markdown reports saved to telemetry-reports/
+ * Features: Telemetry events + "Waiting for Verification" users + Conversion metrics
  *
  * Usage: php telemetry-analyzer.php
  */
@@ -36,12 +37,13 @@ if (file_exists($env_file)) {
 // Get configuration
 $supabase_url = getenv('SUPABASE_URL') ?: '';
 $supabase_anon_key = getenv('SUPABASE_ANON_KEY') ?: '';
+$supabase_service_key = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: '';
 $claude_api_key = getenv('CLAUDE_API_KEY') ?: '';
 $analysis_window_hours = (int)(getenv('ANALYSIS_WINDOW_HOURS') ?: 3);
 
 // Constants
 $claude_api_url = 'https://api.anthropic.com/v1/messages';
-$claude_model = 'claude-3-5-sonnet-20241022';
+$claude_model = 'claude-sonnet-4-5-20250929';
 
 /**
  * Log message with timestamp
@@ -111,11 +113,54 @@ function fetch_telemetry_data($supabase_url, $supabase_anon_key, $hours) {
 }
 
 /**
+ * Fetch users "Waiting for Verification" from Supabase Auth
+ */
+function fetch_waiting_users($supabase_url, $supabase_service_key) {
+    log_message('Fetching "Waiting for Verification" users...');
+
+    // Query users who haven't confirmed email
+    $url = $supabase_url . '/auth/v1/admin/users';
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'apikey: ' . $supabase_service_key,
+        'Authorization: Bearer ' . $supabase_service_key,
+        'Content-Type: application/json'
+    ]);
+
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code !== 200) {
+        log_message("Warning: Could not fetch users (HTTP $http_code), continuing without this data");
+        return [];
+    }
+
+    $result = json_decode($response, true);
+    if (!isset($result['users'])) {
+        log_message('Warning: Invalid response from Auth API, continuing without this data');
+        return [];
+    }
+
+    // Filter users waiting for email verification
+    $waiting_users = array_filter($result['users'], function($user) {
+        return empty($user['email_confirmed_at']) && !empty($user['email']);
+    });
+
+    log_message('Found ' . count($waiting_users) . ' users waiting for verification');
+
+    return array_values($waiting_users);
+}
+
+/**
  * Analyze data with Claude API
  */
-function analyze_with_claude($telemetry_data, $claude_api_key, $claude_api_url, $claude_model, $hours) {
+function analyze_with_claude($telemetry_data, $waiting_users, $claude_api_key, $claude_api_url, $claude_model, $hours) {
     $event_count = count($telemetry_data);
-    log_message("Analyzing $event_count events with Claude API...");
+    $waiting_count = count($waiting_users);
+    log_message("Analyzing $event_count events + $waiting_count waiting users with Claude API...");
 
     if ($event_count === 0) {
         log_message("No telemetry events in last $hours hours - skipping analysis");
@@ -124,6 +169,20 @@ function analyze_with_claude($telemetry_data, $claude_api_key, $claude_api_url, 
 
     // Build prompt
     $data_json = json_encode($telemetry_data, JSON_PRETTY_PRINT);
+
+    // Add waiting users info
+    $waiting_info = "";
+    if ($waiting_count > 0) {
+        $waiting_emails = array_map(function($user) {
+            $created = isset($user['created_at']) ? substr($user['created_at'], 0, 10) : 'unknown';
+            return "- {$user['email']} (created: $created)";
+        }, array_slice($waiting_users, 0, 10)); // Show first 10
+
+        $waiting_list = implode("\n", $waiting_emails);
+        $more = $waiting_count > 10 ? "\n... and " . ($waiting_count - 10) . " more" : "";
+
+        $waiting_info = "\n\n**Users \"Waiting for Verification\" (never confirmed email):**\nTotal: $waiting_count users\n\nSample:\n$waiting_list$more\n";
+    }
 
     $prompt = "You are an expert in authentication systems and data analysis. Analyze this telemetry data from a WordPress + Supabase authentication system.
 
@@ -137,6 +196,7 @@ function analyze_with_claude($telemetry_data, $claude_api_key, $claude_api_url, 
 ```json
 $data_json
 ```
+$waiting_info
 
 **Analysis Tasks:**
 
@@ -146,25 +206,30 @@ $data_json
    - Success rate (auth_success / total auth requests)
    - Failure rate (auth_failure / total auth requests)
    - Click-through rate (magic_link_clicked / magic_link_requested)
+   - Email delivery rate (magic_link_clicked / magic_link_requested)
+   - OAuth conversion rate (successful callbacks / oauth_requested)
 
 2. **Identify Issues:**
    - Top error codes and their meanings
    - Patterns in failures (time-based, device-based, etc.)
    - Missing events in flow (e.g., magic_link_requested but no click)
+   - \"Waiting for Verification\" users - are they stuck due to email delivery issues?
 
 3. **Root Cause Analysis:**
    - Why are users failing authentication?
    - Are bounce rate (0.28%) and failure rate (13%) related?
    - Device switching issues (if any)
+   - Why do users never confirm email (bounce, spam, user error)?
 
 4. **Recommendations:**
    - Immediate fixes needed
    - UX improvements
    - Monitoring alerts to setup
+   - How to reduce \"Waiting for Verification\" count
 
 **Output Format:**
 Provide a concise markdown report with these sections:
-- 📊 Statistics Summary
+- 📊 Statistics Summary (include conversion rates)
 - 🔴 Critical Issues
 - 🟡 Warnings
 - ✅ Working Well
@@ -238,7 +303,7 @@ $analysis
 ---
 
 **Report ID:** $timestamp
-**Analyzer Version:** v0.10.2
+**Analyzer Version:** v0.11.0
 ";
 
     file_put_contents($report_file, $report);
@@ -277,8 +342,11 @@ if ($event_count === 0) {
     exit(0);
 }
 
+// Fetch waiting users
+$waiting_users = fetch_waiting_users($supabase_url, $supabase_service_key);
+
 // Analyze with Claude
-$analysis = analyze_with_claude($telemetry_data, $claude_api_key, $claude_api_url, $claude_model, $analysis_window_hours);
+$analysis = analyze_with_claude($telemetry_data, $waiting_users, $claude_api_key, $claude_api_url, $claude_model, $analysis_window_hours);
 
 if ($analysis === null) {
     exit(0);

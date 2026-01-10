@@ -239,7 +239,7 @@
 
   function trackTelemetry(event, data) {
     try {
-      if (!window.SUPABASE_CFG) return; // Supabase not configured
+      if (!window.SUPABASE_CFG) return Promise.resolve(); // Supabase not configured
 
       const urlParams = new URLSearchParams(window.location.search);
       const payload = JSON.stringify({
@@ -256,7 +256,7 @@
 
       // Use fetch with keepalive (non-blocking, works even on page close)
       // Note: sendBeacon doesn't support custom headers, so we use fetch instead
-      fetch(url, {
+      return fetch(url, {
         method: 'POST',
         headers: {
           'apikey': window.SUPABASE_CFG.anon,
@@ -269,6 +269,7 @@
       }).catch(() => {}); // Silent fail - telemetry never breaks auth
     } catch (e) {
       // Silent fail - telemetry never breaks auth
+      return Promise.resolve();
     }
   }
 
@@ -646,29 +647,34 @@
       const redirectUrl = getRedirectUrl(wpResponse);
 
       // Track telemetry: auth success (v0.10.2)
-      trackTelemetry('auth_success', {
+      // Wait for telemetry to send before redirect (with timeout)
+      const telemetryPromise = trackTelemetry('auth_success', {
         email: wpResponse.user_email || null,
         supabase_user_id: wpResponse.supabase_user_id || null,
         is_new_user: wpResponse.is_new_user || false
       });
 
-      // Step 4: Success! Redirect user
-      debug('Redirecting to', redirectUrl);
+      // Wait max 1 second for telemetry, then redirect anyway
+      Promise.race([
+        telemetryPromise,
+        new Promise(resolve => setTimeout(resolve, 1000))
+      ]).then(() => {
+        // Step 4: Success! Redirect user
+        debug('Redirecting to', redirectUrl);
 
-      // Clean localStorage (no longer needed after login)
-      safeStorage.removeItem('login_return_url');
-      safeStorage.removeItem('registration_page_url');
-      debug('Cleaned localStorage (login_return_url, registration_page_url)');
+        // Clean localStorage (no longer needed after login)
+        safeStorage.removeItem('login_return_url');
+        safeStorage.removeItem('registration_page_url');
+        debug('Cleaned localStorage (login_return_url, registration_page_url)');
 
-      // Clean URL hash and redirect
-      clearInterval(dotsTimer);
+        // Clean URL hash and redirect
+        clearInterval(dotsTimer);
 
-      // Mark redirect as successful (prevents timeout safeguard)
-      redirected = true;
+        // Mark redirect as successful (prevents timeout safeguard)
+        redirected = true;
 
-      setTimeout(() => {
         window.location.href = redirectUrl;
-      }, 500);
+      });
 
     } catch (error) {
       console.error('[Auth Callback] Error:', error);
