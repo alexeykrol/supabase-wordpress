@@ -49,3 +49,9 @@ coverage/
 # Build
 build/
 *.zip
+
+# Supabase internal files (not needed in plugin distribution)
+supabase/migrations/
+supabase/SECURITY_RLS_POLICIES_FINAL.sql
+supabase/add-landing-url-field.sql
+supabase/webhook-system-v0.8.5.sql
