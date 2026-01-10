@@ -234,6 +234,50 @@
   const retryPanel = document.getElementById('authRetry');
 
   // ═══════════════════════════════════════════════════════════
+  // Telemetry (v0.10.2)
+  // ═══════════════════════════════════════════════════════════
+
+  function trackTelemetry(event, data) {
+    try {
+      if (!window.SUPABASE_CFG) return; // Supabase not configured
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const payload = JSON.stringify({
+        event: event,
+        created_at: new Date().toISOString(),
+        user_agent: navigator.userAgent.substring(0, 200),
+        referrer: document.referrer || null,
+        registration_url: urlParams.get('registration_url') || null,
+        landing_url: urlParams.get('landing_url') || safeStorage.getItem('sb_landing_url') || null,
+        ...data
+      });
+
+      const url = window.SUPABASE_CFG.url + '/rest/v1/auth_telemetry';
+
+      // Use sendBeacon if available (non-blocking)
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      } else {
+        // Fallback: fetch with keepalive
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'apikey': window.SUPABASE_CFG.anon,
+            'Authorization': 'Bearer ' + window.SUPABASE_CFG.anon,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: payload,
+          keepalive: true
+        }).catch(() => {}); // Silent fail
+      }
+    } catch (e) {
+      // Silent fail - telemetry never breaks auth
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // Utility Functions
   // ═══════════════════════════════════════════════════════════
 
@@ -306,6 +350,12 @@
           : 'Ошибка входа. Пожалуйста, попробуйте ещё раз.';
       }
 
+      // Track telemetry: auth failure (v0.10.2)
+      trackTelemetry('auth_failure', {
+        error_code: errorCode || errorType,
+        error_message: errorDescription || userMessage
+      });
+
       throw new Error(userMessage);
     }
 
@@ -339,6 +389,12 @@
 
     debug('Tokens extracted successfully from ' + source);
     debug('Access token preview', accessToken.substring(0, 20) + '...');
+
+    // Track telemetry: MagicLink clicked / OAuth callback (v0.10.2)
+    trackTelemetry('magic_link_clicked', {
+      has_hash: window.location.hash.includes('access_token'),
+      source: source
+    });
 
     return {
       access_token: accessToken,
@@ -593,6 +649,13 @@
 
       // Step 3: Determine redirect URL
       const redirectUrl = getRedirectUrl(wpResponse);
+
+      // Track telemetry: auth success (v0.10.2)
+      trackTelemetry('auth_success', {
+        email: wpResponse.user_email || null,
+        supabase_user_id: wpResponse.supabase_user_id || null,
+        is_new_user: wpResponse.is_new_user || false
+      });
 
       // Step 4: Success! Redirect user
       debug('Redirecting to', redirectUrl);

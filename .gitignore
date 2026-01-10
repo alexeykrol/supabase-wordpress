@@ -18,6 +18,11 @@ wp-config-*.php
 .env
 .env.local
 .env.*.local
+telemetry-analyzer.env
+
+# Telemetry reports (can be shared, but exclude by default)
+telemetry-reports/
+*.telemetry.log
 
 # Composer
 /vendor/

@@ -812,6 +812,48 @@
       checkAndInit();
     }
 
+    // ========== TELEMETRY (v0.10.2) ==========
+    // Async tracking to Supabase - zero impact on auth flow
+    function trackTelemetry(event, data) {
+      try {
+        if (!window.SUPABASE_CFG) return; // Supabase not configured
+
+        const payload = JSON.stringify({
+          event: event,
+          created_at: new Date().toISOString(),
+          user_agent: navigator.userAgent.substring(0, 200),
+          referrer: document.referrer || null,
+          registration_url: window.location.pathname,
+          landing_url: LANDING_URL || null,
+          ...data
+        });
+
+        const url = window.SUPABASE_CFG.url + '/rest/v1/auth_telemetry';
+        const headers = {
+          'apikey': window.SUPABASE_CFG.anon,
+          'Authorization': 'Bearer ' + window.SUPABASE_CFG.anon,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        };
+
+        // Use sendBeacon if available (best - non-blocking, works even on page close)
+        if (navigator.sendBeacon) {
+          const blob = new Blob([payload], { type: 'application/json' });
+          navigator.sendBeacon(url, blob);
+        } else {
+          // Fallback: fetch with keepalive (still non-blocking)
+          fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: payload,
+            keepalive: true
+          }).catch(() => {}); // Silent fail
+        }
+      } catch (e) {
+        // Silent fail - telemetry never breaks auth
+      }
+    }
+
     // ========== УТИЛИТЫ РЕДИРЕКТОВ ==========
 
     // Сохраняем откуда пришел пользователь при загрузке страницы
@@ -1005,6 +1047,11 @@
 
         if (error) throw error;
 
+        // Track telemetry: MagicLink requested (v0.10.2)
+        trackTelemetry('magic_link_requested', {
+          email: email
+        });
+
         // Переключить на экран 2 (сразу показываем финальный экран без мигания)
         displayEmail.textContent = email;
 
@@ -1048,6 +1095,11 @@
 
         if (error) throw error;
 
+        // Track telemetry: OAuth requested (v0.10.2)
+        trackTelemetry('oauth_requested', {
+          provider: 'google'
+        });
+
       } catch (error) {
         console.error('OAuth error:', error);
         showError(error.message || 'Ошибка OAuth аутентификации');
@@ -1071,7 +1123,7 @@
           console.log('📊 Saved landing_url to localStorage for OAuth:', LANDING_URL);
         }
 
-        const { error } = await supabaseClient.auth.signInWithOAuth({
+        const { error} = await supabaseClient.auth.signInWithOAuth({
           provider: 'facebook',
           options: {
             redirectTo: '{{CALLBACK_URL}}',
@@ -1080,6 +1132,11 @@
         });
 
         if (error) throw error;
+
+        // Track telemetry: OAuth requested (v0.10.2)
+        trackTelemetry('oauth_requested', {
+          provider: 'facebook'
+        });
 
       } catch (error) {
         console.error('OAuth error:', error);

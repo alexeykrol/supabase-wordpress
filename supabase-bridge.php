@@ -2014,6 +2014,9 @@ function sb_render_setup_page() {
       <a href="?page=supabase-bridge-setup&tab=memberpress" class="nav-tab <?php echo $current_tab === 'memberpress' ? 'nav-tab-active' : ''; ?>">
         🔧 MemberPress
       </a>
+      <a href="?page=supabase-bridge-setup&tab=telemetry" class="nav-tab <?php echo $current_tab === 'telemetry' ? 'nav-tab-active' : ''; ?>">
+        📊 Telemetry
+      </a>
     </h2>
 
     <?php if ($current_tab === 'general'): ?>
@@ -2373,6 +2376,12 @@ function sb_render_setup_page() {
       <div class="tab-content">
         <?php sb_render_memberpress_tab(); ?>
       </div><!-- End Tab 5: MemberPress Patches -->
+
+    <?php elseif ($current_tab === 'telemetry'): ?>
+      <!-- TAB: Telemetry Reports -->
+      <div class="tab-content">
+        <?php sb_render_telemetry_tab(); ?>
+      </div><!-- End Tab: Telemetry Reports -->
 
     <?php endif; ?>
 
@@ -5160,6 +5169,266 @@ function sb_render_memberpress_webhook_tab() {
     });
   });
   </script>
+  <?php
+}
+
+/**
+ * TAB: Telemetry Reports (v0.10.2)
+ */
+function sb_render_telemetry_tab() {
+  // Get Supabase config
+  $supabase_url = sb_cfg('SUPABASE_URL');
+  $supabase_anon = sb_cfg('SUPABASE_ANON_KEY');
+
+  if (!$supabase_url || !$supabase_anon) {
+    echo '<div class="notice notice-error" style="padding: 15px; margin: 20px 0;">';
+    echo '<p><strong>❌ Error:</strong> Supabase credentials not configured. Configure in Step 1 tab first.</p>';
+    echo '</div>';
+    return;
+  }
+
+  // Fetch telemetry data from Supabase
+  $telemetry_data = [];
+  $stats = [
+    'total' => 0,
+    'magic_link_requested' => 0,
+    'magic_link_clicked' => 0,
+    'oauth_requested' => 0,
+    'auth_success' => 0,
+    'auth_failure' => 0
+  ];
+
+  try {
+    // Fetch last 100 events from Supabase
+    $url = $supabase_url . '/rest/v1/auth_telemetry?order=created_at.desc&limit=100';
+
+    $response = wp_remote_get($url, [
+      'headers' => [
+        'apikey' => $supabase_anon,
+        'Authorization' => 'Bearer ' . $supabase_anon,
+        'Content-Type' => 'application/json'
+      ],
+      'timeout' => 10
+    ]);
+
+    if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+      $telemetry_data = json_decode(wp_remote_retrieve_body($response), true);
+
+      // Calculate statistics
+      if (is_array($telemetry_data)) {
+        $stats['total'] = count($telemetry_data);
+
+        foreach ($telemetry_data as $event) {
+          $event_type = $event['event'] ?? '';
+          if (isset($stats[$event_type])) {
+            $stats[$event_type]++;
+          }
+        }
+      }
+    }
+  } catch (Exception $e) {
+    // Silent fail - will show empty state
+  }
+
+  // Calculate success rate
+  $total_attempts = $stats['magic_link_requested'] + $stats['oauth_requested'];
+  $success_rate = $total_attempts > 0 ? round(($stats['auth_success'] / $total_attempts) * 100, 1) : 0;
+  $failure_rate = $total_attempts > 0 ? round(($stats['auth_failure'] / $total_attempts) * 100, 1) : 0;
+  ?>
+
+  <div style="margin-top: 20px;">
+    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">📊 Authentication Telemetry (v0.10.2)</h2>
+
+    <!-- Info Notice -->
+    <div class="notice notice-info" style="padding: 15px; margin: 20px 0;">
+      <h3 style="margin-top: 0;">ℹ️ About Telemetry</h3>
+      <p><strong>What it tracks:</strong> MagicLink and OAuth authentication flow events (requests, clicks, success, failures).</p>
+      <p><strong>How it works:</strong> Zero-impact tracking using <code>navigator.sendBeacon()</code> - doesn't slow down auth flow.</p>
+      <p><strong>Data storage:</strong> Events stored in Supabase <code>auth_telemetry</code> table.</p>
+      <p><strong>Analysis:</strong> Automated reports generated every 3 hours (coming soon).</p>
+    </div>
+
+    <!-- Statistics Dashboard -->
+    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">📈 Statistics (Last 100 Events)</h3>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+        <!-- Total Events -->
+        <div style="background: #f0f6fc; padding: 15px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 32px; font-weight: bold; color: #2271b1;"><?php echo esc_html($stats['total']); ?></div>
+          <div style="color: #666; margin-top: 5px;">Total Events</div>
+        </div>
+
+        <!-- Auth Requests -->
+        <div style="background: #fff3cd; padding: 15px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 32px; font-weight: bold; color: #856404;"><?php echo esc_html($total_attempts); ?></div>
+          <div style="color: #666; margin-top: 5px;">Auth Requests</div>
+          <div style="font-size: 11px; color: #999; margin-top: 5px;">
+            MagicLink: <?php echo esc_html($stats['magic_link_requested']); ?> | OAuth: <?php echo esc_html($stats['oauth_requested']); ?>
+          </div>
+        </div>
+
+        <!-- Success Rate -->
+        <div style="background: #d4edda; padding: 15px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 32px; font-weight: bold; color: #155724;"><?php echo esc_html($success_rate); ?>%</div>
+          <div style="color: #666; margin-top: 5px;">Success Rate</div>
+          <div style="font-size: 11px; color: #999; margin-top: 5px;">
+            ✅ <?php echo esc_html($stats['auth_success']); ?> successful
+          </div>
+        </div>
+
+        <!-- Failure Rate -->
+        <div style="background: #f8d7da; padding: 15px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 32px; font-weight: bold; color: #721c24;"><?php echo esc_html($failure_rate); ?>%</div>
+          <div style="color: #666; margin-top: 5px;">Failure Rate</div>
+          <div style="font-size: 11px; color: #999; margin-top: 5px;">
+            ❌ <?php echo esc_html($stats['auth_failure']); ?> failed
+          </div>
+        </div>
+
+        <!-- MagicLink Clicks -->
+        <div style="background: #e7f3ff; padding: 15px; border-radius: 6px; text-align: center;">
+          <div style="font-size: 32px; font-weight: bold; color: #0969da;"><?php echo esc_html($stats['magic_link_clicked']); ?></div>
+          <div style="color: #666; margin-top: 5px;">MagicLink Clicks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Events Table -->
+    <?php if (empty($telemetry_data)): ?>
+      <!-- Empty State -->
+      <div style="background: #f0f6fc; border: 1px solid #d1e4f5; border-radius: 6px; padding: 40px; text-align: center; margin: 20px 0;">
+        <p style="font-size: 16px; color: #666; margin: 0;">
+          📋 No telemetry data yet.
+        </p>
+        <p style="color: #999; margin: 10px 0 0 0;">
+          Telemetry will start appearing here once users interact with authentication forms.
+        </p>
+      </div>
+    <?php else: ?>
+      <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
+        <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">📋 Recent Events</h3>
+
+        <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
+          <thead>
+            <tr>
+              <th style="width: 15%;">Timestamp</th>
+              <th style="width: 20%;">Event</th>
+              <th style="width: 25%;">Email</th>
+              <th style="width: 20%;">Error</th>
+              <th style="width: 20%;">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach (array_slice($telemetry_data, 0, 50) as $event): ?>
+              <?php
+              $event_type = $event['event'] ?? '';
+              $email = $event['email'] ?? '';
+              $error_code = $event['error_code'] ?? '';
+              $error_message = $event['error_message'] ?? '';
+              $created_at = $event['created_at'] ?? '';
+              $registration_url = $event['registration_url'] ?? '';
+              $landing_url = $event['landing_url'] ?? '';
+
+              // Event icon and color
+              $icon = '📊';
+              $color = '#666';
+
+              if ($event_type === 'magic_link_requested') {
+                $icon = '✉️';
+                $color = '#856404';
+              } elseif ($event_type === 'magic_link_clicked') {
+                $icon = '🔗';
+                $color = '#0969da';
+              } elseif ($event_type === 'oauth_requested') {
+                $icon = '🔐';
+                $color = '#856404';
+              } elseif ($event_type === 'auth_success') {
+                $icon = '✅';
+                $color = '#155724';
+              } elseif ($event_type === 'auth_failure') {
+                $icon = '❌';
+                $color = '#721c24';
+              }
+
+              // Format timestamp
+              $timestamp = '';
+              if ($created_at) {
+                try {
+                  $dt = new DateTime($created_at);
+                  $timestamp = $dt->format('Y-m-d H:i:s');
+                } catch (Exception $e) {
+                  $timestamp = substr($created_at, 0, 19);
+                }
+              }
+              ?>
+              <tr>
+                <td>
+                  <small><?php echo esc_html($timestamp); ?></small>
+                </td>
+                <td>
+                  <span style="color: <?php echo esc_attr($color); ?>; font-weight: bold;">
+                    <?php echo $icon; ?> <?php echo esc_html(str_replace('_', ' ', ucwords($event_type, '_'))); ?>
+                  </span>
+                </td>
+                <td>
+                  <?php if ($email): ?>
+                    <code style="font-size: 11px;"><?php echo esc_html($email); ?></code>
+                  <?php else: ?>
+                    <span style="color: #999;">—</span>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if ($error_code || $error_message): ?>
+                    <span style="color: #721c24; font-size: 11px;">
+                      <?php if ($error_code): ?>
+                        <strong><?php echo esc_html($error_code); ?></strong><br>
+                      <?php endif; ?>
+                      <?php if ($error_message): ?>
+                        <?php echo esc_html(substr($error_message, 0, 50)); ?>
+                        <?php if (strlen($error_message) > 50) echo '...'; ?>
+                      <?php endif; ?>
+                    </span>
+                  <?php else: ?>
+                    <span style="color: #999;">—</span>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if ($registration_url || $landing_url): ?>
+                    <small style="color: #666;">
+                      <?php if ($registration_url): ?>
+                        Reg: <code style="font-size: 10px;"><?php echo esc_html(substr($registration_url, 0, 20)); ?></code><br>
+                      <?php endif; ?>
+                      <?php if ($landing_url): ?>
+                        Land: <code style="font-size: 10px;"><?php echo esc_html(substr($landing_url, 0, 20)); ?></code>
+                      <?php endif; ?>
+                    </small>
+                  <?php else: ?>
+                    <span style="color: #999;">—</span>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+
+        <?php if (count($telemetry_data) > 50): ?>
+          <p style="margin-top: 15px; color: #666; text-align: center;">
+            Showing 50 of <?php echo esc_html(count($telemetry_data)); ?> events
+          </p>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+
+    <!-- Coming Soon: Automated Reports -->
+    <div style="background: #fff3cd; padding: 20px; border: 1px solid #ffc107; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #ffecb5; padding-bottom: 10px;">🚧 Coming Soon: Automated Analysis</h3>
+      <p><strong>Status:</strong> Telemetry collection is active ✅</p>
+      <p><strong>Next step:</strong> Automated analysis reports (cron job + Claude API) - in development.</p>
+      <p><strong>What to expect:</strong> Every 3 hours, automated report analyzing patterns, identifying issues, and suggesting fixes.</p>
+    </div>
+
+  </div>
   <?php
 }
 
