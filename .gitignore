@@ -18,9 +18,10 @@ wp-config-*.php
 .env
 .env.local
 .env.*.local
-telemetry-analyzer.env
 
-# Telemetry reports (can be shared, but exclude by default)
+# Telemetry analyzer - debug/internal files (DO NOT COMMIT)
+telemetry-analyzer.env
+telemetry-analyzer.log
 telemetry-reports/
 *.telemetry.log
 
