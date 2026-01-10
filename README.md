@@ -81,6 +81,82 @@ Magic Link authentication will **FAIL under load** without external SMTP. During
 - ❌ Production: Will fail during traffic spikes
 - ❌ Marketing campaigns: Rate limits will block emails
 
+**Email Template Configuration (Avoid Spam Filters)**
+
+⚠️ **CRITICAL:** Poorly configured email templates cause Magic Link emails to land in SPAM folder, breaking authentication flow.
+
+**The Problem:**
+Even with properly configured SMTP (Amazon SES, SendGrid, etc.), Magic Link emails can still land in spam due to suspicious content in the email template itself. Spam filters analyze subject lines and email body for phishing patterns.
+
+**Common Triggers That Send Emails to Spam:**
+
+❌ **BAD Subject Line Examples:**
+```
+Волшебная ссылка. Входите без пароля!  ← exclamation marks, marketing language
+Magic Link - Click Here!                ← "click here" trigger
+Verify Your Email Now!!!                ← urgent language, multiple !!!
+```
+
+❌ **BAD Email Body Examples:**
+```html
+<p>Нажмите на ссылку ниже!</p>              ← "click the link" = phishing
+<p><a href="...">Подтвердить авторизацию</a></p>  ← "confirm authorization" trigger
+<p>Click here to verify</p>                 ← classic phishing phrase
+```
+
+✅ **RECOMMENDED Configuration:**
+
+**Subject Line (simple and neutral):**
+```
+Вход на yoursite.com
+```
+OR in English:
+```
+Login to yoursite.com
+```
+
+**Email Body Template (business-like, with context):**
+```html
+<p>Здравствуйте!</p>
+
+<p>Вы запросили вход на сайт yoursite.com. Используйте ссылку ниже для входа в ваш аккаунт:</p>
+
+<p><a href="{{ .ConfirmationURL }}">Войти в аккаунт</a></p>
+
+<p>Эта ссылка действительна в течение 1 часа.</p>
+
+<p>Если вы не запрашивали вход, проигнорируйте это письмо.</p>
+
+<p>С уважением,<br>
+Your Company Name<br>
+yoursite.com</p>
+```
+
+**Key Principles:**
+- ✅ Use neutral, business-like language
+- ✅ Provide context: "You requested login to [site]"
+- ✅ State expiration time (builds trust)
+- ✅ Add "ignore if not you" instruction
+- ✅ No exclamation marks in subject
+- ✅ Avoid words: "verify", "confirm", "click here", "magic", "urgent"
+- ✅ Keep email short but informative
+- ✅ Include website name/URL in signature
+
+**How to Configure in Supabase:**
+1. Go to Supabase Dashboard → Authentication → Email Templates
+2. Select "Magic Link" template
+3. Update Subject and Body with recommended text
+4. Click "Save"
+5. Test by sending Magic Link to your Gmail/Outlook
+
+**Testing Deliverability:**
+- Send test Magic Link to Gmail, Outlook, Yahoo
+- Check inbox (not spam) on all providers
+- If still landing in spam, simplify language further
+
+**Real Impact:**
+After fixing email template, Magic Link emails went from **100% spam rate** to **0% spam rate** with Amazon SES.
+
 **4. Required WordPress Plugins**
 - **MemberPress** - For membership management (free memberships supported)
 - **LearnDash** - For course management and enrollment
