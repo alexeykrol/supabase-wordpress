@@ -5310,6 +5310,11 @@ function sb_render_telemetry_tab() {
 
   // Overall quality check
   $quality_pass = $criterion1_pass;
+
+  // Calculate failure rate (failures / total attempts)
+  $total_attempts = $stats['auth_success'] + $stats['auth_failure'];
+  $failure_rate = $total_attempts > 0 ? round(($stats['auth_failure'] / $total_attempts) * 100, 1) : 0;
+  $success_rate = $total_attempts > 0 ? round(($stats['auth_success'] / $total_attempts) * 100, 1) : 0;
   ?>
 
   <div style="margin-top: 20px;">
@@ -5415,12 +5420,14 @@ function sb_render_telemetry_tab() {
         <div style="background: #d4edda; padding: 15px; border-radius: 6px; text-align: center;">
           <div style="font-size: 32px; font-weight: bold; color: #155724;"><?php echo esc_html($stats['auth_success']); ?></div>
           <div style="color: #666; margin-top: 5px;">✅ Success</div>
+          <div style="font-size: 13px; color: #155724; margin-top: 5px; font-weight: bold;"><?php echo esc_html($success_rate); ?>%</div>
         </div>
 
         <!-- Auth Failures -->
         <div style="background: #f8d7da; padding: 15px; border-radius: 6px; text-align: center;">
           <div style="font-size: 32px; font-weight: bold; color: #721c24;"><?php echo esc_html($stats['auth_failure']); ?></div>
           <div style="color: #666; margin-top: 5px;">❌ Failures</div>
+          <div style="font-size: 13px; color: #721c24; margin-top: 5px; font-weight: bold;"><?php echo esc_html($failure_rate); ?>% failure rate</div>
         </div>
 
         <!-- MagicLink Requests -->
