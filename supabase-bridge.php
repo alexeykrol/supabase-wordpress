@@ -1300,8 +1300,22 @@ add_shortcode('supabase_auth_callback', function() {
     return '<div style="padding: 20px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;">⚠️ Callback handler file not found. Please reinstall the Supabase Bridge plugin.</div>';
   }
 
-  // Сохраняем контент в глобальную переменную
-  $sb_auth_callback_content = file_get_contents($callback_path);
+  // Получаем Supabase credentials для телеметрии (v0.12.0)
+  $supabase_url = sb_cfg('url');
+  $supabase_anon = sb_cfg('anon_key');
+
+  // Создаём inline script с конфигурацией (для телеметрии)
+  // Это безопасно: телеметрия изолирована в try/catch и не влияет на авторизацию
+  $config_script = '';
+  if ($supabase_url && $supabase_anon) {
+    $config_script = '<script>window.SUPABASE_CFG = ' . wp_json_encode([
+      'url' => $supabase_url,
+      'anon' => $supabase_anon
+    ]) . ';</script>';
+  }
+
+  // Сохраняем контент в глобальную переменную (с конфигурацией для телеметрии)
+  $sb_auth_callback_content = $config_script . file_get_contents($callback_path);
 
   // Возвращаем уникальный placeholder
   return '<div id="sb-auth-callback-placeholder-' . uniqid() . '"></div>';
