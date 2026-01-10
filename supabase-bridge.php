@@ -208,8 +208,14 @@ function sb_cfg($key, $def = null) {
     }
   }
 
+  // Key mapping for legacy option names
+  $key_mapping = [
+    'SUPABASE_SERVICE_ROLE_KEY' => 'supabase_service_key',  // saved without _role_
+  ];
+
   // Try database first (encrypted storage)
-  $db_key = 'sb_' . strtolower($key);
+  $mapped_key = $key_mapping[$key] ?? strtolower($key);
+  $db_key = 'sb_' . $mapped_key;
   $encrypted_value = get_option($db_key, false);
 
   if ($encrypted_value !== false && !empty($encrypted_value)) {
