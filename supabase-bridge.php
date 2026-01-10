@@ -5187,7 +5187,8 @@ function sb_render_memberpress_webhook_tab() {
 }
 
 /**
- * TAB: Telemetry Reports (v0.11.0)
+ * TAB: Telemetry Reports (v0.12.0)
+ * Updated: Uses 1-hour window and last_sign_in_at for success tracking
  */
 function sb_render_telemetry_tab() {
   // Get Supabase config
@@ -5202,11 +5203,16 @@ function sb_render_telemetry_tab() {
     return;
   }
 
+  // Time window: 1 hour (aligned with telemetry-analyzer.php)
+  $analysis_window_hours = 1;
+  $cutoff_timestamp = strtotime("-{$analysis_window_hours} hours");
+  $cutoff_iso = gmdate('Y-m-d\TH:i:s', $cutoff_timestamp) . 'Z';
+
   // === SOURCE OF TRUTH: Supabase Auth ===
+  // Using last_sign_in_at (updates on EVERY login) instead of email_confirmed_at (set once)
   $auth_stats = [
-    'total_users_24h' => 0,
-    'confirmed_24h' => 0,
-    'waiting_24h' => 0
+    'successful_logins' => 0,   // Users with last_sign_in_at in time window
+    'waiting_users' => 0        // Users created but never logged in (no last_sign_in_at)
   ];
 
   if ($supabase_service) {
@@ -5226,19 +5232,17 @@ function sb_render_telemetry_tab() {
         $result = json_decode(wp_remote_retrieve_body($response), true);
 
         if (isset($result['users']) && is_array($result['users'])) {
-          $cutoff = strtotime('-24 hours');
-
           foreach ($result['users'] as $user) {
+            // Criterion 1: Successful logins (last_sign_in_at in time window)
+            $last_sign_in = !empty($user['last_sign_in_at']) ? strtotime($user['last_sign_in_at']) : 0;
+            if ($last_sign_in >= $cutoff_timestamp) {
+              $auth_stats['successful_logins']++;
+            }
+
+            // Criterion 2: Waiting users (created in window, never logged in)
             $created = strtotime($user['created_at'] ?? '');
-
-            if ($created >= $cutoff) {
-              $auth_stats['total_users_24h']++;
-
-              if (!empty($user['email_confirmed_at'])) {
-                $auth_stats['confirmed_24h']++;
-              } else {
-                $auth_stats['waiting_24h']++;
-              }
+            if ($created >= $cutoff_timestamp && empty($user['last_sign_in_at'])) {
+              $auth_stats['waiting_users']++;
             }
           }
         }
@@ -5260,9 +5264,8 @@ function sb_render_telemetry_tab() {
   ];
 
   try {
-    // Fetch telemetry from last 24 hours
-    $cutoff = gmdate('Y-m-d\TH:i:s', strtotime('-24 hours')) . 'Z';
-    $url = $supabase_url . '/rest/v1/auth_telemetry?created_at=gte.' . urlencode($cutoff) . '&order=created_at.desc';
+    // Fetch telemetry from last 1 hour
+    $url = $supabase_url . '/rest/v1/auth_telemetry?created_at=gte.' . urlencode($cutoff_iso) . '&order=created_at.desc';
 
     $response = wp_remote_get($url, [
       'headers' => [
@@ -5292,53 +5295,96 @@ function sb_render_telemetry_tab() {
     // Silent fail - will show empty state
   }
 
-  // Calculate success rate from telemetry
-  $total_attempts = $stats['magic_link_requested'] + $stats['oauth_requested'];
-  $success_rate = $total_attempts > 0 ? round(($stats['auth_success'] / $total_attempts) * 100, 1) : 0;
-  $failure_rate = $total_attempts > 0 ? round(($stats['auth_failure'] / $total_attempts) * 100, 1) : 0;
+  // === DATA QUALITY CHECK ===
+  // Criterion 1: Successful logins match (last_sign_in_at vs auth_success)
+  $criterion1_auth = $auth_stats['successful_logins'];
+  $criterion1_telemetry = $stats['auth_success'];
+  $criterion1_diff = $criterion1_auth - $criterion1_telemetry;
+  $criterion1_capture_rate = $criterion1_auth > 0 ? round(($criterion1_telemetry / $criterion1_auth) * 100, 1) : 100;
+  $criterion1_pass = $criterion1_capture_rate >= 90;
 
-  // Calculate real success rate from Auth
-  $real_success_rate = $auth_stats['total_users_24h'] > 0 ?
-    round(($auth_stats['confirmed_24h'] / $auth_stats['total_users_24h']) * 100, 1) : 0;
+  // Criterion 2: Incomplete requests match (waiting users vs requests - successes)
+  $criterion2_auth = $auth_stats['waiting_users'];
+  $criterion2_telemetry = max(0, $stats['magic_link_requested'] - $stats['auth_success']);
+  $criterion2_pass = true; // More lenient - just informational
+
+  // Overall quality check
+  $quality_pass = $criterion1_pass;
   ?>
 
   <div style="margin-top: 20px;">
-    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">📊 Authentication Analytics (v0.11.0)</h2>
+    <h2 style="margin-top: 0; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">📊 Authentication Analytics (v0.12.0)</h2>
+
+    <!-- DATA QUALITY CHECK - FIRST (validates telemetry before showing data) -->
+    <?php if ($supabase_service): ?>
+      <div style="background: <?php echo $quality_pass ? '#d4edda' : '#f8d7da'; ?>; padding: 20px; border: 3px solid <?php echo $quality_pass ? '#28a745' : '#dc3545'; ?>; border-radius: 6px; margin: 20px 0;">
+        <h3 style="margin-top: 0; border-bottom: 1px solid <?php echo $quality_pass ? '#c3e6cb' : '#f5c6cb'; ?>; padding-bottom: 10px; color: <?php echo $quality_pass ? '#155724' : '#721c24'; ?>;">
+          🔍 Data Quality Check (Last <?php echo $analysis_window_hours; ?> Hour)
+        </h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+          <!-- Criterion 1: Successful Logins -->
+          <div style="background: #fff; padding: 15px; border-radius: 6px; border: 2px solid <?php echo $criterion1_pass ? '#28a745' : '#dc3545'; ?>;">
+            <h4 style="margin: 0 0 10px 0; color: <?php echo $criterion1_pass ? '#155724' : '#721c24'; ?>;">
+              <?php echo $criterion1_pass ? '✅' : '❌'; ?> Criterion 1: Successful Logins
+            </h4>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Supabase Auth:</strong> <?php echo esc_html($criterion1_auth); ?> logins (last_sign_in_at)</p>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Telemetry:</strong> <?php echo esc_html($criterion1_telemetry); ?> auth_success events</p>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Capture Rate:</strong> <?php echo esc_html($criterion1_capture_rate); ?>%</p>
+            <?php if ($criterion1_diff > 0): ?>
+              <p style="margin: 10px 0 0 0; font-size: 12px; color: #721c24;">⚠️ Missing <?php echo esc_html($criterion1_diff); ?> events</p>
+            <?php endif; ?>
+          </div>
+
+          <!-- Criterion 2: Incomplete Requests -->
+          <div style="background: #fff; padding: 15px; border-radius: 6px; border: 2px solid #6c757d;">
+            <h4 style="margin: 0 0 10px 0; color: #495057;">
+              ℹ️ Criterion 2: Incomplete Requests
+            </h4>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Supabase Auth:</strong> <?php echo esc_html($criterion2_auth); ?> waiting users</p>
+            <p style="margin: 5px 0; font-size: 14px;"><strong>Telemetry:</strong> <?php echo esc_html($criterion2_telemetry); ?> incomplete (requested - success)</p>
+            <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">Users who requested Magic Link but haven't logged in yet</p>
+          </div>
+        </div>
+
+        <!-- Overall Status -->
+        <div style="margin-top: 20px; padding: 15px; background: <?php echo $quality_pass ? '#c3e6cb' : '#f5c6cb'; ?>; border-radius: 6px;">
+          <?php if ($quality_pass): ?>
+            <p style="margin: 0; font-size: 16px; color: #155724; font-weight: bold;">
+              ✅ Telemetry is working correctly! Capture rate ≥90%. Data is reliable for failure analysis.
+            </p>
+          <?php else: ?>
+            <p style="margin: 0; font-size: 16px; color: #721c24; font-weight: bold;">
+              ❌ Telemetry has issues. Capture rate &lt;90%. Fix telemetry before analyzing failures.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 13px; color: #721c24;">
+              Check: Is SUPABASE_CFG defined on callback page? Are there JS errors in console?
+            </p>
+          <?php endif; ?>
+        </div>
+      </div>
+    <?php endif; ?>
 
     <!-- Source of Truth: Supabase Auth -->
     <div style="background: #d4edda; padding: 20px; border: 2px solid #28a745; border-radius: 6px; margin: 20px 0;">
       <h3 style="margin-top: 0; border-bottom: 1px solid #c3e6cb; padding-bottom: 10px; color: #155724;">
-        ✅ Source of Truth (Supabase Auth - Last 24 Hours)
+        ✅ Source of Truth (Supabase Auth - Last <?php echo $analysis_window_hours; ?> Hour)
       </h3>
 
       <?php if ($supabase_service): ?>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px;">
-          <!-- Total Registrations -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+          <!-- Successful Logins -->
           <div style="background: #fff; padding: 15px; border-radius: 6px; text-align: center; border: 2px solid #28a745;">
-            <div style="font-size: 32px; font-weight: bold; color: #155724;"><?php echo esc_html($auth_stats['total_users_24h']); ?></div>
-            <div style="color: #666; margin-top: 5px; font-weight: bold;">Total Registrations</div>
-            <div style="font-size: 11px; color: #999; margin-top: 5px;">Users created in last 24h</div>
+            <div style="font-size: 32px; font-weight: bold; color: #155724;"><?php echo esc_html($auth_stats['successful_logins']); ?></div>
+            <div style="color: #666; margin-top: 5px; font-weight: bold;">✅ Successful Logins</div>
+            <div style="font-size: 11px; color: #999; margin-top: 5px;">last_sign_in_at in last <?php echo $analysis_window_hours; ?>h</div>
           </div>
 
-          <!-- Confirmed (Success) -->
-          <div style="background: #fff; padding: 15px; border-radius: 6px; text-align: center; border: 2px solid #28a745;">
-            <div style="font-size: 32px; font-weight: bold; color: #155724;"><?php echo esc_html($auth_stats['confirmed_24h']); ?></div>
-            <div style="color: #666; margin-top: 5px; font-weight: bold;">✅ Confirmed</div>
-            <div style="font-size: 11px; color: #999; margin-top: 5px;">Successfully logged in</div>
-          </div>
-
-          <!-- Waiting for Verification -->
+          <!-- Waiting Users -->
           <div style="background: #fff; padding: 15px; border-radius: 6px; text-align: center; border: 2px solid #ffc107;">
-            <div style="font-size: 32px; font-weight: bold; color: #856404;"><?php echo esc_html($auth_stats['waiting_24h']); ?></div>
+            <div style="font-size: 32px; font-weight: bold; color: #856404;"><?php echo esc_html($auth_stats['waiting_users']); ?></div>
             <div style="color: #666; margin-top: 5px; font-weight: bold;">⏳ Waiting</div>
-            <div style="font-size: 11px; color: #999; margin-top: 5px;">Email not confirmed</div>
-          </div>
-
-          <!-- Real Success Rate -->
-          <div style="background: #fff; padding: 15px; border-radius: 6px; text-align: center; border: 2px solid #28a745;">
-            <div style="font-size: 32px; font-weight: bold; color: #155724;"><?php echo esc_html($real_success_rate); ?>%</div>
-            <div style="color: #666; margin-top: 5px; font-weight: bold;">Success Rate</div>
-            <div style="font-size: 11px; color: #999; margin-top: 5px;">Real conversion rate</div>
+            <div style="font-size: 11px; color: #999; margin-top: 5px;">Created but never logged in</div>
           </div>
         </div>
       <?php else: ?>
@@ -5352,13 +5398,13 @@ function sb_render_telemetry_tab() {
     <!-- Telemetry: Client-side tracking -->
     <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px; margin: 20px 0;">
       <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">
-        📈 Telemetry Events (Client-Side Tracking - Last 24 Hours)
+        📈 Telemetry Events (Last <?php echo $analysis_window_hours; ?> Hour)
       </h3>
       <p style="color: #666; font-size: 13px; margin-top: 10px;">
-        <strong>Note:</strong> Telemetry tracks events on the client side and may lose data due to redirects, JS errors, or network issues. Use Source of Truth for accurate metrics.
+        <strong>Note:</strong> Telemetry tracks events on the client side. Compare with Source of Truth above to verify accuracy.
       </p>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 20px;">
         <!-- Total Events -->
         <div style="background: #f0f6fc; padding: 15px; border-radius: 6px; text-align: center;">
           <div style="font-size: 32px; font-weight: bold; color: #2271b1;"><?php echo esc_html($stats['total']); ?></div>
@@ -5368,19 +5414,13 @@ function sb_render_telemetry_tab() {
         <!-- Auth Success (Telemetry) -->
         <div style="background: #d4edda; padding: 15px; border-radius: 6px; text-align: center;">
           <div style="font-size: 32px; font-weight: bold; color: #155724;"><?php echo esc_html($stats['auth_success']); ?></div>
-          <div style="color: #666; margin-top: 5px;">✅ Success Events</div>
-          <div style="font-size: 11px; color: #999; margin-top: 5px;">
-            Rate: <?php echo esc_html($success_rate); ?>%
-          </div>
+          <div style="color: #666; margin-top: 5px;">✅ Success</div>
         </div>
 
         <!-- Auth Failures -->
         <div style="background: #f8d7da; padding: 15px; border-radius: 6px; text-align: center;">
           <div style="font-size: 32px; font-weight: bold; color: #721c24;"><?php echo esc_html($stats['auth_failure']); ?></div>
           <div style="color: #666; margin-top: 5px;">❌ Failures</div>
-          <div style="font-size: 11px; color: #999; margin-top: 5px;">
-            Rate: <?php echo esc_html($failure_rate); ?>%
-          </div>
         </div>
 
         <!-- MagicLink Requests -->
@@ -5396,37 +5436,6 @@ function sb_render_telemetry_tab() {
         </div>
       </div>
     </div>
-
-    <!-- Data Quality Check -->
-    <?php if ($supabase_service && $auth_stats['total_users_24h'] > 0): ?>
-      <?php
-        $telemetry_capture_rate = $auth_stats['confirmed_24h'] > 0 ?
-          round(($stats['auth_success'] / $auth_stats['confirmed_24h']) * 100, 1) : 0;
-        $missing_successes = $auth_stats['confirmed_24h'] - $stats['auth_success'];
-      ?>
-      <div style="background: <?php echo $missing_successes > 0 ? '#fff3cd' : '#d4edda'; ?>; padding: 20px; border: 2px solid <?php echo $missing_successes > 0 ? '#ffc107' : '#28a745'; ?>; border-radius: 6px; margin: 20px 0;">
-        <h3 style="margin-top: 0; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px;">
-          🔍 Data Quality Check
-        </h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
-          <div>
-            <p style="margin: 5px 0;"><strong>Source of Truth (Auth):</strong> <?php echo esc_html($auth_stats['confirmed_24h']); ?> successful logins</p>
-            <p style="margin: 5px 0;"><strong>Telemetry Captured:</strong> <?php echo esc_html($stats['auth_success']); ?> success events</p>
-            <p style="margin: 5px 0;"><strong>Missing Events:</strong> <?php echo esc_html($missing_successes); ?> (<?php echo esc_html(100 - $telemetry_capture_rate); ?>% lost)</p>
-          </div>
-          <div>
-            <p style="margin: 5px 0; font-size: 13px; color: #666;">
-              <?php if ($missing_successes > 0): ?>
-                ⚠️ <strong>Telemetry is losing <?php echo esc_html($missing_successes); ?> success events.</strong>
-                This is normal for fast redirects. Use Source of Truth for accurate success rate.
-              <?php else: ?>
-                ✅ <strong>Telemetry is capturing all success events!</strong>
-              <?php endif; ?>
-            </p>
-          </div>
-        </div>
-      </div>
-    <?php endif; ?>
 
     <!-- Recent Events Table -->
     <?php if (empty($telemetry_data)): ?>
@@ -5555,13 +5564,17 @@ function sb_render_telemetry_tab() {
     <?php endif; ?>
 
     <!-- Automated Analysis Status -->
-    <div style="background: #d4edda; padding: 20px; border: 1px solid #28a745; border-radius: 4px; margin: 20px 0;">
-      <h3 style="margin-top: 0; border-bottom: 1px solid #c3e6cb; padding-bottom: 10px; color: #155724;">✅ Automated Analysis Active</h3>
-      <p><strong>Status:</strong> Telemetry collection ✅ | Automated analysis ✅</p>
-      <p><strong>How it works:</strong> Local cron job runs every 3 hours, queries Supabase, analyzes data via Claude API, generates reports.</p>
-      <p><strong>Schedule:</strong> Analysis runs at 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00 (every 3 hours).</p>
-      <p><strong>Reports location:</strong> Generated locally and reviewed by developer for pattern identification.</p>
-      <p><strong>Next steps:</strong> Wait 24-48 hours for data accumulation → Review automated reports → Implement fixes based on Claude's recommendations.</p>
+    <div style="background: #e7f3ff; padding: 20px; border: 1px solid #0969da; border-radius: 4px; margin: 20px 0;">
+      <h3 style="margin-top: 0; border-bottom: 1px solid #d1e4f5; padding-bottom: 10px; color: #0969da;">🤖 Automated Analysis (v0.12.0)</h3>
+      <p><strong>Analysis Window:</strong> 1 hour (aligned with this dashboard)</p>
+      <p><strong>Schedule:</strong> Runs every 3 hours via local cron</p>
+      <p><strong>Data Quality Check:</strong> Validates telemetry before analyzing failures</p>
+      <p><strong>Criteria:</strong></p>
+      <ul style="margin: 5px 0 15px 20px;">
+        <li>Criterion 1: Successful logins (last_sign_in_at vs auth_success)</li>
+        <li>Criterion 2: Incomplete requests (waiting users vs requested - success)</li>
+      </ul>
+      <p><strong>Logic:</strong> Only analyze failure causes if telemetry capture rate ≥90%</p>
     </div>
 
   </div>
