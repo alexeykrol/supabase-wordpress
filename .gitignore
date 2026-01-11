@@ -10,6 +10,11 @@ wp-config-*.php
 .env.local
 .env.*.local
 
+# Production credentials (SSH, Supabase service keys)
+.production-credentials
+monitoring/.env
+monitoring/telemetry-analyzer.env
+
 # Composer
 /vendor/
 composer.lock
