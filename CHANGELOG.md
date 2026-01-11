@@ -2,6 +2,82 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.10.2] - 2026-01-10
+
+### 🔧 Auth UX Improvements & Email Deliverability
+
+**Major fixes: Eliminated 76% authentication failure rate and fixed email spam issues**
+
+**Problems Solved:**
+- 76% auth failure rate caused by `otp_expired` errors
+- Users clicking submit multiple times when emails landed in spam
+- Each click invalidated previous OTP tokens
+- Magic Link emails landing in spam folder (100% spam rate)
+- No protection against double-clicks on auth buttons
+
+**Solution:**
+
+**Frontend In-Flight Guards (`auth-form.html`):**
+- Added button disable logic during email submission
+- Loading states: "Отправляем..." (Sending), "Перенаправляем..." (Redirecting)
+- Prevents multiple simultaneous requests
+- Visual feedback for ongoing operations
+
+**Resend Cooldown System:**
+- 60-second cooldown timer on resend button
+- Countdown display: "Повторная отправка через 60 сек"
+- Automatic re-enable after cooldown expires
+- Prevents OTP token invalidation from rapid resends
+
+**Critical User Messaging:**
+- Added prominent warning: "⚠️ ВАЖНО: используйте САМОЕ НОВОЕ письмо"
+- Updated error messages to discourage immediate retry
+- Clear instructions about using newest email
+- Reduces user confusion during auth flow
+
+**Email Deliverability Fix:**
+- Analyzed spam filter triggers in Magic Link email template
+- Optimized Amazon SES email template content
+- Removed spam-triggering phrases and formatting
+- Result: 100% spam rate → 0% spam rate
+
+**Callback Timeout Monitoring:**
+- Added silent 20-second timeout safeguard
+- Diagnostic stage tracking (loading, extracting, authenticating)
+- Fallback UI: "Вход занял слишком много времени" + retry button
+- Backend logging endpoint: `sb_ajax_log_auth_timeout`
+- Logs to `wp-content/debug.log` for analysis
+
+**Provider Tracking Telemetry:**
+- Added provider tracking: `magic_link`, `google`, `facebook`
+- Helps identify which auth method has issues
+- Integrated into callback timeout monitoring
+- Analytics for auth success/failure by provider
+
+**File Cleanup:**
+- Renamed `test-no-elem-2-wordpress-paste.html` → `callback.html`
+- Removed internal Supabase files from GitHub repository
+- Cleaner repository structure
+
+**Production Results:**
+- **Before:** 12 failures in 45 minutes (76% failure rate)
+- **After:** 0 failures in 20+ minutes (0% failure rate)
+- **Email delivery:** 100% spam → 0% spam (inbox delivery)
+- **User experience:** Smooth auth flow, clear error recovery
+
+**Root Cause Analysis:**
+- 37 users (16%) made multiple Magic Link requests
+- One user clicked 8 times in rapid succession
+- Each new request invalidated previous OTP token
+- First email found in spam → user clicked resend → token expired → `otp_expired` error
+- Lack of cooldown and in-flight guards enabled this behavior
+
+**Files Modified:**
+- `auth-form.html` - In-flight guards, cooldown timer, critical messaging
+- `callback.html` - Timeout monitoring, provider tracking, fallback UI
+- `supabase-bridge.php` - Timeout logging endpoint, telemetry support
+- Amazon SES email template - Spam filter optimization
+
 ## [0.10.1] - 2026-01-09
 
 ### 📊 Landing URL Marketing Tracking

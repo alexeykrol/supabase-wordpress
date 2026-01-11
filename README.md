@@ -1,6 +1,6 @@
 # Supabase Bridge (Auth) for WordPress
 
-![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.10.2-blue.svg)
 ![PHP](https://img.shields.io/badge/php-%3E%3D8.0-8892BF.svg)
 ![WordPress](https://img.shields.io/badge/wordpress-5.0--6.8-21759B.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -199,12 +199,12 @@ Disable MemberPress default registration (conflicts with Supabase Auth):
 ### Installation (Standard WordPress Method)
 
 1. **Download** the latest release:
-   - [supabase-bridge-v0.10.0.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.10.0/supabase-bridge-v0.10.0.zip)
+   - [supabase-bridge-v0.10.2.zip](https://github.com/alexeykrol/supabase-wordpress/releases/download/v0.10.2/supabase-bridge-v0.10.2.zip)
    - Or build from source: `./build-release.sh` (requires git clone)
 
 2. **Install plugin**:
    - WordPress Admin → Plugins → Add New → Upload Plugin
-   - Choose `supabase-bridge-v0.10.0.zip`
+   - Choose `supabase-bridge-v0.10.2.zip`
    - Click "Install Now" → "Activate Plugin"
 
 3. **Setup Supabase database**:
