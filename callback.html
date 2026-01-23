@@ -466,7 +466,7 @@
       if (response.status === 409) {
         debug('Duplicate callback detected');
         updateStatus('Аутентификация уже выполняется в другом окне...');
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           window.location.href = CONFIG.DEFAULT_REDIRECT;
         }, 2000);
         return null;
@@ -554,7 +554,8 @@
     };
 
     // Silent timeout monitoring (20 seconds)
-    setTimeout(() => {
+    let timeoutId;
+    timeoutId = setTimeout(() => {
       if (!diagnostics.redirected) {
         // Callback is stuck - send telemetry
         console.error('⚠️ Callback timeout: redirect did not happen in 20 seconds', diagnostics);
@@ -572,6 +573,7 @@
 
         // Show support contact message
         clearInterval(dotsTimer);
+      clearTimeout(timeoutId); // Cancel timeout - error already displayed
         const instantLoader = document.getElementById('instant-loader');
         if (instantLoader) {
           instantLoader.innerHTML = `
@@ -636,6 +638,7 @@
       // Handle duplicate callback (null response)
       if (wpResponse === null) {
         clearInterval(dotsTimer);
+      clearTimeout(timeoutId); // Cancel timeout - error already displayed
         return;
       }
 
@@ -674,6 +677,7 @@
 
         // Clean URL hash and redirect
         clearInterval(dotsTimer);
+      clearTimeout(timeoutId); // Cancel timeout - error already displayed
         diagnostics.redirected = true;
         window.location.href = redirectUrl;
       });
@@ -683,6 +687,7 @@
       debug('Authentication failed', error.toString());
       diagnostics.error = error.message || error.toString();
       clearInterval(dotsTimer);
+      clearTimeout(timeoutId); // Cancel timeout - error already displayed
 
       // Get registration_url to provide helpful retry link
       const urlParams = new URLSearchParams(window.location.search);
