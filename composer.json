@@ -22,7 +22,8 @@
     "test:smoke": "bash tests/smoke/health-check.sh",
     "test:coverage": "phpunit --coverage-html tests/reports/coverage"
   },
-  "autoload": {
+  "autoload": {},
+  "autoload-dev": {
     "files": [
       "tests/helpers/test-functions.php"
     ]

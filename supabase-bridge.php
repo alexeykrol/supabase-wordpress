@@ -19,6 +19,31 @@ require __DIR__ . '/vendor/autoload.php'; // после composer шага
 // IMPORTANT: This must match the WordPress page where [supabase_auth_callback] shortcode is placed
 define('SB_CALLBACK_PATH', '/test-no-elem-2/');
 
+// === Output Buffering for HTML Entity Fix (Issue #25, #13) ===
+// WordPress applies HTML-escaping filters (wptexturize, convert_chars) to the_content,
+// which converts && to &#038;&#038; in inline JavaScript, causing SyntaxError.
+// This output buffer fixes &#038;&#038; back to && in <script> tags on pages with auth form.
+add_action('template_redirect', function() {
+  global $post;
+
+  // Only run on pages with [supabase_auth_form] shortcode
+  if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'supabase_auth_form')) {
+    // Disable wptexturize filter for auth form pages
+    remove_filter('the_content', 'wptexturize');
+
+    // Start output buffering to fix HTML entities in final HTML
+    ob_start(function($html) {
+      // Replace &#038;&#038; back to && inside <script> tags
+      // Uses regex to target only JavaScript code, not regular HTML content
+      $html = preg_replace_callback('/<script\b[^>]*>(.*?)<\/script>/is', function($matches) {
+        return str_replace('&#038;&#038;', '&&', $matches[0]);
+      }, $html);
+
+      return $html;
+    });
+  }
+});
+
 // === Enhanced Logging System ===
 // Enables detailed production debugging with multiple log levels
 // Logs are written to wp-content/debug.log when WP_DEBUG_LOG is enabled
