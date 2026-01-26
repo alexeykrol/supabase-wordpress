@@ -2,6 +2,59 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.10.3] - 2026-01-25
+
+### 🔧 MySQL Lock Deadlock Fix & Timeout Override
+
+**Major fixes: Resolved persistent 409 authentication errors and accurate error display**
+
+**Problems Solved:**
+- Users unable to retry login after first failed attempt (HTTP 409 "duplicate")
+- MySQL lock not released on authentication errors
+- Lock remained active for hours on persistent connections
+- Timeout message overwriting accurate OAuth error messages
+- No fallback authentication method for edge cases
+
+**Solution:**
+
+**MySQL Lock Improvements (`supabase-bridge.php`):**
+- Increased lock timeout from 0 to 30 seconds (handle slow networks)
+- Moved lock acquisition AFTER early returns (rate limit, CSRF, no_jwt checks)
+- Created `$release_lock` closure for safe cleanup
+- **CRITICAL FIX:** Added explicit lock release in catch block
+- Lock now releases on ANY error, not just successful auth
+- Prevents infinite 409 loop on retry attempts
+
+**Timeout Override Fix (`callback.html` - 2026-01-22):**
+- Added `clearTimeout()` when errors detected in URL hash
+- Prevents 20-second timeout message from overwriting OAuth errors
+- Users now see accurate error messages: `access_denied`, `otp_expired`, etc.
+- Improved troubleshooting via user-reported error messages
+
+**WordPress Native Auth Fallback:**
+- Added `/login/` links to timeout error screen (20-second timeout)
+- Added `/login/` links to general error screen (catch block)
+- Added "Classic login (email + password)" link to primary auth form
+- Users can use WordPress Forgot Password flow as emergency fallback
+- Handles edge cases: Cloudflare blocks, network timeouts, ISP issues
+
+**Production Results:**
+- MySQL lock automatically released on ANY error ✅
+- 30-second timeout allows retries on slow networks ✅
+- Accurate error messages displayed (no timeout override) ✅
+- WordPress /login/ fallback for edge cases ✅
+- Eliminated infinite 409 "duplicate" loop ✅
+
+**Root Cause Analysis (svetlanap@hotmail.com case):**
+1. First attempt: timeout/network error → lock NOT released → lock stuck
+2. Second attempt: HTTP 409 "duplicate" → user redirected home unauthenticated
+3. Result: Infinite loop - user stuck, cannot login
+
+**Files Modified:**
+- `supabase-bridge.php` - MySQL lock timeout, release in catch block
+- `callback.html` - Timeout override fix, /login/ fallback links
+- `auth-form.html` - Classic login link (below OAuth buttons)
+
 ## [0.10.2] - 2026-01-10
 
 ### 🔧 Auth UX Improvements & Email Deliverability
