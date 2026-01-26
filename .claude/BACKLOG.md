@@ -14,7 +14,7 @@
 
 ## Active Sprint
 
-### Completed - MySQL Lock Deadlock Fix + Critical Bug Fixes (2026-01-25)
+### Completed - v0.10.3 Release (2026-01-25)
 - [x] Fixed MySQL lock not released in catch block (root cause of persistent 409 errors)
 - [x] Increased lock timeout from 0 to 30 seconds (handle slow networks)
 - [x] Moved lock acquisition after early returns (rate limit, CSRF checks)
@@ -25,6 +25,11 @@
 - [x] Added output buffering hook to fix &#038;&#038; → && in <script> tags
 - [x] Closed 6 GitHub issues (#14, #23, #15, #24, #25, #13)
 - [x] Deployed to production and verified files uploaded successfully
+- [x] Updated version to 0.10.3 in supabase-bridge.php
+- [x] Updated version to 0.10.3 in .claude/BACKLOG.md
+- [x] Created git tag v0.10.3
+- [x] Created GitHub Release v0.10.3 (Latest)
+- [x] Synced all metafiles to version 0.10.3
 
 ### Completed - Callback Error Handling Fix (2026-01-23)
 - [x] Fixed timeout message overwriting OAuth error messages
