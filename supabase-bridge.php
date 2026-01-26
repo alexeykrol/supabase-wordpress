@@ -1463,14 +1463,25 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
   sb_log("JWT received", 'DEBUG', ['jwt_length' => strlen($jwt)]);
 
+  $projectRef = sb_cfg('SUPABASE_PROJECT_REF', '');
+  if (!$projectRef) {
+    sb_log("SUPABASE_PROJECT_REF not configured", 'ERROR');
+    error_log('Supabase Bridge: SUPABASE_PROJECT_REF not configured');
+    return new \WP_Error('cfg','Authentication service not configured',['status'=>500]);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
   // КРИТИЧНО: Защита от дублирующих callback запросов с атомарной блокировкой MySQL
   // Один токен должен обрабатываться только один раз
+  // ВАЖНО: Lock устанавливается ПОСЛЕ всех early returns (rate limit, CSRF, no_jwt)
+  // ═══════════════════════════════════════════════════════════════════════════════
   global $wpdb;
   $token_lock_key = 'sb_lock_' . md5($jwt);
+  $lock_acquired = false;
 
   // GET_LOCK() атомарно возвращает 1 если получили блокировку, 0 если уже заблокировано, NULL при ошибке
-  // Таймаут 0 = не ждать, сразу вернуть результат
-  $lock_acquired = $wpdb->get_var($wpdb->prepare("SELECT GET_LOCK(%s, 0)", $token_lock_key));
+  // Timeout 30 секунд = подождать до 30 сек если lock занят (для медленных сетей)
+  $lock_acquired = $wpdb->get_var($wpdb->prepare("SELECT GET_LOCK(%s, 30)", $token_lock_key));
 
   if ($lock_acquired != 1) {
     sb_log("Duplicate callback blocked (MySQL lock)", 'WARNING', ['lock_key' => md5($token_lock_key)]);
@@ -1480,18 +1491,18 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
   sb_log("MySQL lock acquired for callback processing", 'DEBUG');
 
+  // Helper function to safely release lock
+  $release_lock = function() use ($wpdb, $token_lock_key, &$lock_acquired) {
+    if ($lock_acquired) {
+      $wpdb->query($wpdb->prepare("SELECT RELEASE_LOCK(%s)", $token_lock_key));
+      $lock_acquired = false;
+      sb_log("MySQL lock released", 'DEBUG');
+    }
+  };
+
   // Блокировка автоматически освободится при закрытии соединения MySQL
   // Но для надежности освободим явно в конце функции через register_shutdown_function
-  register_shutdown_function(function() use ($wpdb, $token_lock_key) {
-    $wpdb->query($wpdb->prepare("SELECT RELEASE_LOCK(%s)", $token_lock_key));
-  });
-
-  $projectRef = sb_cfg('SUPABASE_PROJECT_REF', '');
-  if (!$projectRef) {
-    sb_log("SUPABASE_PROJECT_REF not configured", 'ERROR');
-    error_log('Supabase Bridge: SUPABASE_PROJECT_REF not configured');
-    return new \WP_Error('cfg','Authentication service not configured',['status'=>500]);
-  }
+  register_shutdown_function($release_lock);
 
   $issuer = "https://{$projectRef}.supabase.co/auth/v1";
   $jwks  = "{$issuer}/.well-known/jwks.json";
@@ -1842,6 +1853,10 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
     return $response;
   } catch (\Throwable $e) {
+    // КРИТИЧНО: Освобождаем MySQL lock при ЛЮБОЙ ошибке
+    // Без этого lock висит до закрытия соединения (могут быть часы на persistent connections!)
+    $release_lock();
+
     sb_log("Authentication failed", 'ERROR', [
       'error' => $e->getMessage(),
       'ip' => $client_ip,
