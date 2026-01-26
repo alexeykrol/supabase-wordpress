@@ -612,13 +612,16 @@ supabase-bridge/
 
 **Status:** All critical issues resolved. System stable.
 
-### Completed (2026-01-25) - Phase 27: MySQL Lock Deadlock Fix
+### Completed (2026-01-25) - Phase 27: MySQL Lock Deadlock Fix + Critical Bug Fixes
 - ✅ **MySQL lock release fix** — Lock now released in catch block (prevents persistent 409 errors)
 - ✅ **Lock timeout increased** — 0→30 seconds (handles slow networks)
 - ✅ **Lock repositioned** — Moved after early returns (rate limit, CSRF checks)
 - ✅ **WordPress native auth fallback** — /login/ links added to all error screens
 - ✅ **Classic login option** — Added to primary auth form (below OAuth buttons)
 - ✅ **Edge case handling** — Cloudflare blocks, network timeouts, ISP issues
+- ✅ **Plugin activation fix (issue #24)** — test-functions.php moved to autoload-dev
+- ✅ **JavaScript SyntaxError fix (issues #25, #13)** — Output buffering fixes HTML entities
+- ✅ **GitHub issues closed** — 6 issues closed today (#14, #23, #15, #24, #25, #13)
 
 ### Completed (2026-01-23) - Phase 26: Auth UX & Error Handling
 - ✅ **Timeout override fix** — OAuth error messages no longer overwritten by timeout

@@ -4,6 +4,36 @@ All notable changes to Supabase Bridge are documented in this file.
 
 ## [0.10.3] - 2026-01-25
 
+### 🐛 Critical Bug Fixes - Plugin Activation & JavaScript Errors
+
+**Major fixes: Plugin activation fatal error and JavaScript SyntaxError resolved**
+
+**Issue #24 - Fatal Error on Plugin Activation:**
+- **Problem:** Plugin failed to activate on clean WordPress installations
+- **Error:** `Fatal error: Failed opening required 'tests/helpers/test-functions.php'`
+- **Root Cause:** Test file incorrectly loaded in production `autoload` section
+- **Solution:** Moved test-functions.php from `autoload` to `autoload-dev` in composer.json
+- **Impact:** Plugin now activates successfully on all WordPress installations ✅
+
+**Issues #25, #13 - JavaScript SyntaxError in Auth Form:**
+- **Problem:** Browser console error: `SyntaxError: Invalid character '#'`
+- **Root Cause:** WordPress content filters convert `&&` to `&#038;&#038;` in inline JavaScript
+- **Affected Code:** All JavaScript operators in `[supabase_auth_form]` shortcode output
+- **Solution:** Added output buffering hook to fix HTML entities in `<script>` tags
+  - Disables `wptexturize` filter on auth form pages
+  - Replaces `&#038;&#038;` back to `&&` before browser receives HTML
+  - Only runs on pages with `[supabase_auth_form]` shortcode
+  - Minimal performance impact (1-2 pages only)
+- **Impact:** JavaScript executes correctly, auth form fully functional ✅
+
+**Files Modified:**
+- `composer.json` - Autoload configuration fix
+- `supabase-bridge.php` - Output buffering for HTML entity fix
+
+**GitHub Issues Closed:** #13, #24, #25
+
+---
+
 ### 🔧 MySQL Lock Deadlock Fix & Timeout Override
 
 **Major fixes: Resolved persistent 409 authentication errors and accurate error display**

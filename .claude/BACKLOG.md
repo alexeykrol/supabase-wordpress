@@ -14,12 +14,16 @@
 
 ## Active Sprint
 
-### Completed - MySQL Lock Deadlock Fix (2026-01-25)
+### Completed - MySQL Lock Deadlock Fix + Critical Bug Fixes (2026-01-25)
 - [x] Fixed MySQL lock not released in catch block (root cause of persistent 409 errors)
 - [x] Increased lock timeout from 0 to 30 seconds (handle slow networks)
 - [x] Moved lock acquisition after early returns (rate limit, CSRF checks)
 - [x] Added WordPress native auth fallback (/login/) on all error screens
 - [x] Added classic login link to primary auth form (below OAuth buttons)
+- [x] Fixed plugin activation fatal error (issue #24 - test-functions.php in production autoload)
+- [x] Fixed JavaScript SyntaxError in auth form (issues #25, #13 - HTML entities in inline JS)
+- [x] Added output buffering hook to fix &#038;&#038; → && in <script> tags
+- [x] Closed 6 GitHub issues (#14, #23, #15, #24, #25, #13)
 - [x] Deployed to production and verified files uploaded successfully
 
 ### Completed - Callback Error Handling Fix (2026-01-23)
