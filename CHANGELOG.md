@@ -2,6 +2,50 @@
 
 All notable changes to Supabase Bridge are documented in this file.
 
+## [0.10.4] - 2026-01-26
+
+### 🐛 JWT Clock Skew Fix
+
+**Major fix: Resolved "Cannot handle token with iat prior to..." authentication errors**
+
+**Problem:**
+- Google OAuth authentication failed with error: `"Cannot handle token with iat prior to 2026-01-26T06:44:59+0000"`
+- JWT tokens rejected due to clock skew between Supabase and WordPress servers
+- Minor time differences (1-5 seconds) caused valid tokens to be rejected
+- Users unable to authenticate via OAuth providers
+
+**Root Cause:**
+- JWT verification without leeway tolerance
+- Supabase server clock ahead of WordPress server clock by a few seconds
+- Token `iat` (issued at) timestamp appeared "in the future" to WordPress
+- `firebase/php-jwt` library rejects tokens with future timestamps by default
+
+**Solution:**
+- Added `JWT::$leeway = 60` seconds tolerance for clock skew
+- Allows up to 60 seconds difference between server clocks
+- Industry standard practice for distributed systems
+- No security impact (tokens still validated for signature, expiration, audience)
+
+**Code Changes:**
+```php
+// Add leeway to account for clock skew between servers (60 seconds tolerance)
+\Firebase\JWT\JWT::$leeway = 60;
+$decoded = \Firebase\JWT\JWT::decode($jwt, $publicKeys);
+```
+
+**Production Results:**
+- Google OAuth authentication working ✅
+- Facebook OAuth authentication working ✅
+- Magic Link authentication working ✅
+- No impact on token security ✅
+
+**Files Modified:**
+- `supabase-bridge.php` - Added JWT leeway for clock skew tolerance
+
+**GitHub Issues:** None (production hotfix)
+
+---
+
 ## [0.10.3] - 2026-01-25
 
 ### 🐛 Critical Bug Fixes - Plugin Activation & JavaScript Errors

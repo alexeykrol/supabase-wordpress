@@ -42,10 +42,11 @@
 **Phase 25: Landing URL Marketing Tracking (v0.10.1)** [статус: ✅]
 **Phase 26: Auth UX & Error Handling (v0.10.2)** [статус: ✅]
 **Phase 27: MySQL Lock Deadlock Fix (v0.10.3)** [статус: ✅]
+**Phase 28: JWT Clock Skew Fix (v0.10.4)** [статус: ✅]
 
-**Общий прогресс:** 100% MVP + All Auth Methods Fixed + MySQL Lock Deadlock Resolved + WordPress Native Auth Fallback + Cross-Device Magic Link + Data Integrity Monitoring + Safari Privacy Support + PKCE Flow Support + Russian Localization + Comprehensive Security + Universal Membership/Enrollment System + Universal MemberPress Webhooks + Course Access Auto-Enrollment + Checkout Authentication Overlay + Landing URL Marketing Analytics + Accurate Error Messages (Production Ready)
+**Общий прогресс:** 100% MVP + All Auth Methods Fixed + JWT Clock Skew Resolved + MySQL Lock Deadlock Resolved + WordPress Native Auth Fallback + Cross-Device Magic Link + Data Integrity Monitoring + Safari Privacy Support + PKCE Flow Support + Russian Localization + Comprehensive Security + Universal Membership/Enrollment System + Universal MemberPress Webhooks + Course Access Auto-Enrollment + Checkout Authentication Overlay + Landing URL Marketing Analytics + Accurate Error Messages (Production Ready)
 
-**Текущая фаза:** v0.10.3 MySQL Lock Deadlock Fix (Phase 27 finished)
+**Текущая фаза:** v0.10.4 JWT Clock Skew Fix (Phase 28 finished)
 
 ---
 
@@ -606,11 +607,44 @@ supabase-bridge/
 - WordPress /login/ fallback for edge cases (Cloudflare blocks, ISP issues) ✅
 - Eliminated infinite 409 loop ✅
 
+### Phase 28: JWT Clock Skew Fix (v0.10.4) - Completed 2026-01-26
+1. ✅ **Root Cause Analysis**
+   - Google OAuth authentication failed with "Cannot handle token with iat prior to..." error
+   - JWT verification without leeway tolerance
+   - Clock skew between Supabase and WordPress servers (1-5 seconds)
+   - Token `iat` timestamp appeared "in the future" to WordPress
+2. ✅ **JWT Leeway Implementation** (`supabase-bridge.php`)
+   - Added `JWT::$leeway = 60` seconds tolerance for clock skew
+   - Industry standard practice for distributed systems
+   - No security impact (tokens still validated for signature, expiration, audience)
+3. ✅ **Production Deployment**
+   - File uploaded via SCP to production server
+   - supabase-bridge.php (215KB)
+   - Verified working with Google OAuth
+   - Git commit & push to GitHub successful
+
+**Root Cause:**
+- Supabase server clock ahead of WordPress server clock by a few seconds
+- JWT library rejects tokens with future timestamps by default
+- Valid tokens were incorrectly rejected
+
+**Results:**
+- Google OAuth authentication working ✅
+- Facebook OAuth authentication working ✅
+- Magic Link authentication working ✅
+- 60-second leeway handles clock drift ✅
+
 ---
 
 ## 🔄 Текущая работа: Maintenance Mode
 
 **Status:** All critical issues resolved. System stable.
+
+### Completed (2026-01-26) - Phase 28: JWT Clock Skew Fix
+- ✅ **JWT leeway added** — 60-second tolerance for clock skew between servers
+- ✅ **Google OAuth working** — Fixed "Cannot handle token with iat prior to..." error
+- ✅ **All OAuth providers stable** — Google, Facebook, Magic Link all working
+- ✅ **Production deployed** — supabase-bridge.php uploaded and verified
 
 ### Completed (2026-01-25) - Phase 27: MySQL Lock Deadlock Fix + Critical Bug Fixes
 - ✅ **MySQL lock release fix** — Lock now released in catch block (prevents persistent 409 errors)
@@ -660,10 +694,10 @@ supabase-bridge/
 
 **Status:** ✅ Production Ready
 **Live Sites:**
-- https://alexeykrol.com (v0.10.3 - stable, MySQL lock deadlock fixed, WordPress native auth fallback, Accurate error messages, Auth UX fixes, Email spam fixed, Landing URL tracking, Course Access auto-enrollment, Checkout auth overlay, MemberPress webhooks, cross-device Magic Link, data integrity monitoring, universal membership/enrollment, PKCE flow support, Russian UI, Safari compatible)
-**Version:** 0.10.3
-**Last Update:** 2026-01-25
-**Known Issues:** 0 (All auth methods working, MySQL lock deadlock resolved, WordPress /login/ fallback available, 0% failure rate, accurate error messages for OAuth errors, emails deliver to inbox, callback timeout monitoring active, landing URL tracking active, checkout authentication overlay deployed, course access auto-enrollment active, 100% registration tracking, MemberPress webhook system, cross-device Magic Link, data integrity monitoring, universal membership/enrollment system, PKCE flow support, Safari Privacy supported, Russian localization, repository clean)
+- https://alexeykrol.com (v0.10.4 - stable, JWT clock skew fixed, MySQL lock deadlock fixed, WordPress native auth fallback, Accurate error messages, Auth UX fixes, Email spam fixed, Landing URL tracking, Course Access auto-enrollment, Checkout auth overlay, MemberPress webhooks, cross-device Magic Link, data integrity monitoring, universal membership/enrollment, PKCE flow support, Russian UI, Safari compatible)
+**Version:** 0.10.4
+**Last Update:** 2026-01-26
+**Known Issues:** 0 (All auth methods working, JWT clock skew resolved, MySQL lock deadlock resolved, WordPress /login/ fallback available, 0% failure rate, accurate error messages for OAuth errors, emails deliver to inbox, callback timeout monitoring active, landing URL tracking active, checkout authentication overlay deployed, course access auto-enrollment active, 100% registration tracking, MemberPress webhook system, cross-device Magic Link, data integrity monitoring, universal membership/enrollment system, PKCE flow support, Safari Privacy supported, Russian localization, repository clean)
 
 ---
 

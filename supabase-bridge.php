@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Supabase Bridge (Auth)
  * Description: Mirrors Supabase users into WordPress and logs them in via JWT. Enhanced security with audit logging and hardening. Includes webhook system for n8n/Make.com integration. Production debugging with enhanced logging.
- * Version: 0.10.3
+ * Version: 0.10.4
  * Author: Alexey Krol
  * License: MIT
  * Requires at least: 5.0
@@ -1574,6 +1574,12 @@ function sb_handle_callback(\WP_REST_Request $req) {
 
     // 2) Проверяем JWT (RS256) и клеймы
     $publicKeys = \Firebase\JWT\JWK::parseKeySet($keys);
+
+    // Add leeway to account for clock skew between servers (60 seconds tolerance)
+    // This fixes "Cannot handle token with iat prior to..." errors caused by
+    // minor time differences between Supabase and WordPress servers
+    \Firebase\JWT\JWT::$leeway = 60;
+
     $decoded = \Firebase\JWT\JWT::decode($jwt, $publicKeys);
     $claims = (array)$decoded;
 

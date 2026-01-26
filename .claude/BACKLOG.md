@@ -7,12 +7,24 @@
 
 ## Current Status
 
-**Version:** 0.10.3 (Production Ready)
+**Version:** 0.10.4 (Production Ready)
 **Phase:** Maintenance
 
 ---
 
 ## Active Sprint
+
+### Completed - v0.10.4 Release (2026-01-26)
+- [x] Fixed JWT clock skew issue ("Cannot handle token with iat prior to..." error)
+- [x] Added JWT::$leeway = 60 seconds for clock drift tolerance
+- [x] Tested Google OAuth authentication - working ✅
+- [x] Tested Facebook OAuth authentication - working ✅
+- [x] Tested Magic Link authentication - working ✅
+- [x] Deployed to production and verified
+- [x] Updated version to 0.10.4 in supabase-bridge.php
+- [x] Updated CHANGELOG.md with v0.10.4 release notes
+- [x] Updated .claude/SNAPSHOT.md with Phase 28 completion
+- [x] Updated .claude/BACKLOG.md to version 0.10.4
 
 ### Completed - v0.10.3 Release (2026-01-25)
 - [x] Fixed MySQL lock not released in catch block (root cause of persistent 409 errors)
